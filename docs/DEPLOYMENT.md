@@ -11,7 +11,14 @@
 
 La arquitectura **no se ata** a ninguna plataforma: el backend es un contenedor Docker estándar configurado solo por variables de entorno, y la BD es Postgres estándar.
 
-## 2. Topología
+## 2. URLs de producción (desplegadas 2026-09-29)
+
+- Web: https://arrendamiento-autos-web.onrender.com
+- API: https://arrendamiento-autos-api.onrender.com (`/health`, `/autos/v1/docs`, `/autos/v1/redoc`)
+
+**Nota SSL con Supabase:** `pg` trata `sslmode=require` como `verify-full`, y la CA de Supabase no está en el almacén de Node (`SELF_SIGNED_CERT_IN_CHAIN`). Se usa `?uselibpqcompat=true&sslmode=require`: conexión cifrada sin verificar la CA (semántica estándar de libpq). Mejora pendiente: cargar el certificado CA de Supabase y usar `verify-full`.
+
+## 3. Topología
 
 ```
 https://<web>.onrender.com ──►  https://<api>.onrender.com/api/*
@@ -19,7 +26,7 @@ Booking Hub               ──►  https://<api>.onrender.com/autos/v1/*   (do
 <api>.onrender.com        ──►  Supabase Postgres vía pooler Supavisor (session mode, puerto 5432, TLS)
 ```
 
-## 3. Variables de entorno (backend)
+## 4. Variables de entorno (backend)
 
 | Variable | Ejemplo / nota |
 |---|---|
@@ -37,7 +44,7 @@ Booking Hub               ──►  https://<api>.onrender.com/autos/v1/*   (do
 
 Frontend: `VITE_API_BASE_URL`.
 
-## 4. Procedimiento
+## 5. Procedimiento
 
 1. Crear un proyecto en Supabase (región más cercana, p. ej. `us-east-1`) → Connect → copiar la URI del **Session pooler** como `DATABASE_URL`.
 2. Render → New Web Service desde GitHub (`backend/Dockerfile`), variables de entorno, health check `/health`. Comando de inicio: `npm run migration:run && node dist/main`.
@@ -46,7 +53,7 @@ Frontend: `VITE_API_BASE_URL`.
 5. Actualizar `CORS_ORIGINS` de la API con la URL del sitio estático.
 6. Verificar: `/health`, `/autos/v1/docs`, flujo completo, webhook a webhook.site.
 
-## 5. Riesgos operativos
+## 6. Riesgos operativos
 
 | Riesgo | Mitigación |
 |---|---|

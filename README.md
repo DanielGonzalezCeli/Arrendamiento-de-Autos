@@ -7,6 +7,17 @@ Proyecto de **Integración de Sistemas (PUCE)**. Es un e-commerce de alquiler de
 
 > **API-first:** el contrato manda. El archivo no se modifica (su SHA-256 se verifica en CI) y la implementación se adapta a él.
 
+## Despliegue público
+
+| Componente | URL |
+|---|---|
+| Marketplace (frontend) | https://arrendamiento-autos-web.onrender.com |
+| API — health | https://arrendamiento-autos-api.onrender.com/health |
+| API de integración — Swagger | https://arrendamiento-autos-api.onrender.com/autos/v1/docs |
+| API de integración — Redoc | https://arrendamiento-autos-api.onrender.com/autos/v1/redoc |
+
+Hosting: Render (API en Docker + sitio estático) · Base de datos: Supabase (PostgreSQL). La API gratuita de Render "duerme" tras 15 min sin uso; el primer request puede tardar ~50 s.
+
 ## Estructura
 
 | Carpeta | Contenido |
