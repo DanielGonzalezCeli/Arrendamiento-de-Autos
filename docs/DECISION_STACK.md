@@ -58,7 +58,7 @@ Apartarse de esa base aumenta el riesgo de incompatibilidad en RDA2 sin ningún 
 ```
 Frontend : React 19 + Vite 8 + TS + React Router + TanStack Query + RHF/Zod + Tailwind  → Vercel
 Backend  : NestJS 10 + TypeORM 0.3 + class-validator + @nestjs/swagger + jose          → Render (Docker)
-BD       : PostgreSQL 16 (Neon; local con docker-compose)
+BD       : PostgreSQL (Supabase como Postgres gestionado; local: PostgreSQL 18 o docker-compose)
 Tests    : Jest, supertest, jest-openapi, Playwright
 CI       : GitHub Actions
 ```

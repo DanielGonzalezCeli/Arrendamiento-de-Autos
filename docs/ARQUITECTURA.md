@@ -29,7 +29,7 @@
 │                  │                                     (cron, reintentos, HMAC)          │
 └──────────────────┼───────────────────────────────────────────────────────────────────────┘
                    ▼
-           PostgreSQL (Neon)
+           PostgreSQL (Supabase)
 ```
 
 **Principio:** una sola lógica de negocio, dos "puertas" HTTP. Ejemplo:
