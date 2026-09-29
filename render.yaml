@@ -1,0 +1,20 @@
+# Blueprint de Render para la API (Web Service con Docker).
+# Las variables marcadas con sync:false se cargan a mano en el dashboard (secretos).
+services:
+  - type: web
+    name: arrendamiento-autos-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

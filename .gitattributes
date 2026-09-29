@@ -1,0 +1,2 @@
+# El contrato debe conservar exactamente los bytes del repositorio oficial (LF).
+contracts/*.yaml text eol=lf

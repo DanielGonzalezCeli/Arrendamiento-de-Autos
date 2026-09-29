@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.env
+**/coverage
+.git
+referencias
+frontend
+docs

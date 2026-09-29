@@ -1,0 +1,21 @@
+# PostgreSQL local para desarrollo y tests (basado en el docker-compose de la plantilla oficial).
+services:
+  postgres:
+    image: postgres:16
+    container_name: autos_db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: autos_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d autos_db']
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

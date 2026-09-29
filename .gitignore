@@ -1,0 +1,23 @@
+# Dependencias y builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secretos: nunca subir archivos .env reales
+.env
+.env.*
+!.env.example
+
+# Material de referencia local (proyecto anterior con credenciales, clon de la plantilla)
+referencias/
+
+# Logs y SO
+*.log
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json
