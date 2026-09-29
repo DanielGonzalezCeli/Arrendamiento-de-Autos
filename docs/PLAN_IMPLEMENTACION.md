@@ -7,7 +7,7 @@ El despliegue se adelanta como **"despliegue esqueleto" en la Fase 1** porque C1
 | Fase | Objetivo | Archivos principales | Tareas | Criterio de finalización | Pruebas |
 |---|---|---|---|---|---|
 | **0 Análisis** | Entender los requisitos | `docs/*`, `contracts/*` | Este análisis | Aprobación tuya | — |
-| **1 Setup** | Monorepo ejecutable y desplegado vacío | `backend/` (desde la plantilla, commit fijado), `frontend/`, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example`, `.gitignore`, `contracts/UPSTREAM.md` | git init; copiar la plantilla; habilitar `AutosModule`; config validada; `helmet`, CORS, pino; `/health`; Vite + Tailwind; Dockerfile; **deploy esqueleto** en Render, Vercel y Supabase | `npm run build` OK en ambos; `/health` público; CI verde | test de checksum; smoke `/health` |
+| **1 Setup** | Monorepo ejecutable y desplegado vacío | `backend/` (desde la plantilla, commit fijado), `frontend/`, `docker-compose.yml`, `.github/workflows/ci.yml`, `.env.example`, `.gitignore`, `contracts/UPSTREAM.md` | git init; copiar la plantilla; habilitar `AutosModule`; config validada; `helmet`, CORS, pino; `/health`; Vite + Tailwind; Dockerfile; **deploy esqueleto** en Render (API + web) y Supabase | `npm run build` OK en ambos; `/health` público; CI verde | test de checksum; smoke `/health` |
 | **2 Base de datos** | Esquema completo | `database/migrations/*`, entidades, `seeds/*` | Extensiones; tablas y enums; EXCLUDE; índices; seed de demo (2 proveedores, 5 agencias, 6 categorías, ~25 vehículos, tarifas, extras, admin) | Migraciones up/down limpias; seed idempotente | integración: constraints (solapamiento → error) |
 | **3 Dominio** | Reglas puras | `pricing/`, `availability/`, `orders/cancellation.policy.ts`, validators | `PricingService`, `AvailabilityService`, `DepotScheduleService`, `EligibilityService`, `CancellationPolicy` | RN01–RN13, RN22 cubiertas | **unit ≥ 90 %** en estas clases |
 | **4 Autenticación** | Usuarios web | `auth/`, `users/` | register/login/me; bcrypt; `UserJwtGuard`, `RolesGuard`, `@Roles`; `ProblemDetailsFilter` global | Login funcional; rutas de admin con 401/403 | API auth |
@@ -21,7 +21,7 @@ El despliegue se adelanta como **"despliegue esqueleto" en la Fase 1** porque C1
 | **12 Webhooks / eventos** | C8 | `events/` | CRUD de suscripciones; outbox; dispatcher HMAC; reintentos; `DEPOT_UPDATE`; vista admin de entregas; AsyncAPI | Evento recibido en webhook.site | integración |
 | **13 Testing** | Cerrar huecos | `test/*`, `e2e/*` | E2E Playwright de los flujos críticos; revisar cobertura | CI verde con E2E | todos |
 | **14 OpenAPI / Swagger** | C4 | `docs.module.ts` | Swagger UI + Redoc desde el YAML (servidor de demo inyectado en memoria); OpenAPI interno generado; colección Postman/Bruno | Docs públicas navegables | API `/autos/v1/docs` |
-| **15 Despliegue** | C1 final | Render, Vercel, Supabase | Variables de producción; seed; monitor uptime; smoke test | Demo completa en producción | smoke + E2E contra staging |
+| **15 Despliegue** | C1 final | Render (API + web), Supabase | Variables de producción; seed; monitor uptime; smoke test | Demo completa en producción | smoke + E2E contra staging |
 | **16 Documentación** | C9, C10 | `README.md`, `docs/API_INTERNA.md`, `docs/CONTRATO_INTEGRACION.md`, `docs/GUIA_DEFENSA.md`, actualizar la matriz | Diagramas finales; guía del Hub; preguntas de defensa | Matriz 100 % "Hecho" | — |
 
 ## Dependencias

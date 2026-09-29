@@ -4,7 +4,7 @@
 
 ```
                 ┌──────────────────────────┐          ┌───────────────────────────┐
-                │  Frontend React (Vercel)  │          │  BOOKING HUB (otro equipo) │
+                │  Frontend React (Render)  │          │  BOOKING HUB (otro equipo) │
                 │  Marketplace + Admin      │          │  cliente OAuth2 B2B        │
                 └────────────┬─────────────┘          └─────────────┬─────────────┘
                    JWT usuario│ /api/*          Bearer + scopes│ /autos/v1/*  (autos-openapi.yaml)
@@ -129,7 +129,7 @@ Checkout interno = **los mismos servicios** que hold/preview/create del contrato
 | Autorización | `RolesGuard` (ADMIN), `ScopesGuard`; propiedad por `owner_sub` (RN23) |
 | Validación | `ValidationPipe` global + reglas en servicios; `ParseUUIDPipe` |
 | Inyección | Solo queries parametrizadas (TypeORM) |
-| CORS | Lista blanca `CORS_ORIGINS` (frontend de Vercel) para `/api`; `/autos/v1` abierto a servidores (sin credenciales de navegador) |
+| CORS | Lista blanca `CORS_ORIGINS` (sitio estático en Render) para `/api`; `/autos/v1` abierto a servidores (sin credenciales de navegador) |
 | Headers | `helmet` |
 | Rate limit | `@nestjs/throttler` (search: 60/min por IP + afiliado) → 429 + `Retry-After` |
 | Errores | ProblemDetails; sin stacktrace fuera de desarrollo |

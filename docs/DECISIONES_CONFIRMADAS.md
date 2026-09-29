@@ -21,4 +21,5 @@ Respuestas a los puntos **[CONFIRMAR]** de `ANALISIS_CONTRATO.md`. Prevalecen so
 | Stack | NestJS + TypeORM (plantilla), React + Vite |
 | Fecha de entrega | Próxima semana (≈ 2026-10-06) → plan comprimido a 7 días |
 | Base de datos en la nube | **Supabase** (solo como PostgreSQL, vía Session pooler); sin Supabase Auth ni clave `anon` en el frontend |
+| Hosting | **Todo en Render**: API (Docker) + frontend (sitio estático), en un solo `render.yaml` |
 | Repositorio | https://github.com/DanielGonzalezCeli/Arrendamiento-de-Autos |

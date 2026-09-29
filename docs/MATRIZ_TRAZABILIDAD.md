@@ -36,7 +36,7 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C3 | Publicación → marketplace | `vehicles.published` + búsqueda | E2E | Demo | Pendiente |
 | C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Pendiente |
 | C5 | Integridad | migraciones, EXCLUDE, FK, CHECK | integración | ER + 409 | Pendiente |
-| C1 | Despliegue | Render + Vercel + Supabase | smoke `/health` | URLs | Pendiente |
+| C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs | Pendiente |
 | C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Pendiente |
 | C9 | Documentación | `docs/*` | — | Carpeta docs | Análisis ✔ |
 | C10 | Defensa | `GUIA_DEFENSA.md` | ensayo | — | Pendiente |

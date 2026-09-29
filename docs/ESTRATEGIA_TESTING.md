@@ -27,6 +27,6 @@
 
 ## CI (GitHub Actions)
 
-`lint → typecheck → unit → (servicio postgres) migraciones + integración + API + contrato → build backend/frontend → [main] Render y Vercel despliegan automáticamente → smoke test /health`.
+`lint → typecheck → unit → (servicio postgres) migraciones + integración + API + contrato → build backend/frontend → [main] Render despliega API y frontend automáticamente → smoke test /health`.
 
 **Criterio de fase terminada:** CI en verde; ninguna fase avanza con tests rojos conocidos.
