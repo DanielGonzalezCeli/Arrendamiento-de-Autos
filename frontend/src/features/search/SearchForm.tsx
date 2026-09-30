@@ -54,7 +54,8 @@ export function SearchForm({ initial, compact = false }: { initial?: SearchCrite
         <DateTimeField label="Devolución" id="to" date={criteria.toDate} time={criteria.toTime}
           onDate={(v) => set('toDate', v)} onTime={(v) => set('toTime', v)} />
         <Field label="Edad del conductor" htmlFor="age" hint="Menores de 25 tienen recargo.">
-          <Input id="age" type="number" min={18} max={99} value={criteria.age} onChange={(e) => set('age', Number(e.target.value))} />
+          <Input id="age" type="number" inputMode="numeric" min={18} max={99} step={1} value={criteria.age}
+            onChange={(e) => set('age', Number(e.target.value.replace(/\D/g, '').slice(0, 2)))} />
         </Field>
         <Field label="Moneda" htmlFor="currency">
           <Select id="currency" value={criteria.currency} onChange={(e) => set('currency', e.target.value)}>

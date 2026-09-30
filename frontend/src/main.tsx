@@ -9,6 +9,7 @@ import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 import { CheckoutPage } from './features/checkout/CheckoutPage'
+import { CreditsPage } from './features/credits/CreditsPage'
 import { MyReservationsPage } from './features/reservations/MyReservationsPage'
 import { ReservationDetailPage } from './features/reservations/ReservationDetailPage'
 import { ResultsPage } from './features/search/ResultsPage'
@@ -43,6 +44,7 @@ const router = createBrowserRouter([
           { path: '/vehiculo/:id', element: <VehicleDetailPage /> },
           { path: '/ingresar', element: <LoginPage /> },
           { path: '/registro', element: <RegisterPage /> },
+          { path: '/creditos', element: <CreditsPage /> },
           { path: '/reservar/:vehicleId', element: <RequireAuth><CheckoutPage /></RequireAuth> },
           { path: '/mis-reservas', element: <RequireAuth><MyReservationsPage /></RequireAuth> },
           { path: '/mis-reservas/:id', element: <RequireAuth><ReservationDetailPage /></RequireAuth> },

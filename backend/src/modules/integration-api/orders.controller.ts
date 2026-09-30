@@ -17,7 +17,8 @@ import { OrderCreateRequestDto, OrderHoldRequestDto, OrderModifyRequestDto, Orde
 import { toOrderDetail, toOrderHoldResponse, toOrderPreviewResponse } from './mappers/order.mapper';
 
 const DRIVER_DETAILS_FIELDS = {
-  firstName: 'driver_details.first_name', lastName: 'driver_details.last_name', email: 'driver_details.email',
+  firstName: 'driver_details.first_name', lastName: 'driver_details.last_name',
+  email: 'driver_details.email', phone: 'driver_details.phone_number',
 };
 
 /**

@@ -7,9 +7,11 @@ import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
+import { PhoneInput } from '../../components/ui/PhoneInput'
 import { LoadingBlock } from '../../components/ui/Spinner'
-import { ApiError } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
+import { useFormValidation } from '../../lib/use-form-validation'
+import { collectErrors, sanitizeNameInput, validateEmail, validateName, validatePhone } from '../../lib/validation'
 import type { Offer } from '../../lib/types'
 import { useAuth } from '../auth/AuthContext'
 import { readLastSearch, useExtras } from '../catalog/queries'
@@ -87,7 +89,7 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
 
   // 3. Confirmación.
   const confirm = useMutation({
-    mutationFn: () => confirmReservation(preview.data!.orderPreviewId, { ...driver, phone: driver.phone?.trim() || undefined }, idempotencyKey),
+    mutationFn: () => confirmReservation(preview.data!.orderPreviewId, { ...driver, firstName: driver.firstName.trim(), lastName: driver.lastName.trim(), phone: driver.phone || undefined }, idempotencyKey),
     onSuccess: (reservation) => {
       queryClient.invalidateQueries({ queryKey: ['my-reservations'] })
       navigate(`/mis-reservas/${reservation.id}?nueva=1`, { replace: true })
@@ -104,13 +106,22 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
     return next
   })
 
+  const driverErrors = collectErrors<keyof DriverInput>({
+    firstName: validateName(driver.firstName, 'nombre'),
+    lastName: validateName(driver.lastName, 'apellido'),
+    email: validateEmail(driver.email),
+    phone: validatePhone(driver.phone ?? ''),
+  })
+  const { errorFor, touch, canSubmit } = useFormValidation<keyof DriverInput>(driverErrors, confirm.error, 'driver.')
+
   function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (!canSubmit()) return
     confirm.mutate()
   }
 
-  const fieldError = (name: string) => (confirm.error instanceof ApiError ? confirm.error.fieldError(`driver.${name}`) : undefined)
-  const set = (key: keyof DriverInput) => (e: React.ChangeEvent<HTMLInputElement>) => setDriver({ ...driver, [key]: e.target.value })
+  const setName = (key: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDriver({ ...driver, [key]: sanitizeNameInput(e.target.value) })
 
   if (hold.isLoading) return <LoadingBlock label="Bloqueando el vehículo para ti…" />
   if (hold.isError) {
@@ -144,18 +155,20 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
           <Card className="p-6">
             <h2 className="mb-4 font-semibold text-slate-800">2. Datos del conductor principal</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre" htmlFor="firstName" error={fieldError('firstName')}>
-                <Input id="firstName" value={driver.firstName} onChange={set('firstName')} error={fieldError('firstName')} />
+              <Field label="Nombre" htmlFor="firstName" error={errorFor('firstName')}>
+                <Input id="firstName" autoComplete="given-name" value={driver.firstName} onChange={setName('firstName')} onBlur={touch('firstName')} error={errorFor('firstName')} />
               </Field>
-              <Field label="Apellido" htmlFor="lastName" error={fieldError('lastName')}>
-                <Input id="lastName" value={driver.lastName} onChange={set('lastName')} error={fieldError('lastName')} />
+              <Field label="Apellido" htmlFor="lastName" error={errorFor('lastName')}>
+                <Input id="lastName" autoComplete="family-name" value={driver.lastName} onChange={setName('lastName')} onBlur={touch('lastName')} error={errorFor('lastName')} />
               </Field>
-              <Field label="Correo" htmlFor="email" error={fieldError('email')}>
-                <Input id="email" type="email" value={driver.email} onChange={set('email')} error={fieldError('email')} />
+              <Field label="Correo" htmlFor="email" error={errorFor('email')}>
+                <Input id="email" type="email" autoComplete="email" placeholder="nombre@dominio.com" value={driver.email}
+                  onChange={(e) => setDriver({ ...driver, email: e.target.value.replace(/\s/g, '') })} onBlur={touch('email')} error={errorFor('email')} />
               </Field>
-              <Field label="Teléfono" htmlFor="phone">
-                <Input id="phone" type="tel" value={driver.phone} onChange={set('phone')} />
-              </Field>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label htmlFor="phone" className="text-xs font-semibold uppercase tracking-wide text-slate-500">Teléfono de contacto (opcional)</label>
+                <PhoneInput id="phone" value={driver.phone ?? ''} onChange={(phone) => setDriver({ ...driver, phone })} onBlur={touch('phone')} error={errorFor('phone')} />
+              </div>
             </div>
           </Card>
         </div>

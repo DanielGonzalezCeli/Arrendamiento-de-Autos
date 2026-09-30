@@ -38,6 +38,7 @@ Hosting: Render (API en Docker + sitio estático) · Base de datos: Supabase (Po
 | `/ingresar`, `/registro` | Cuenta de cliente |
 | `/reservar/:id` | Checkout: hold de 15 min, extras con precio en vivo, conductor, confirmación (pago simulado) |
 | `/mis-reservas`, `/mis-reservas/:id` | Consultar, modificar extras y cancelar |
+| `/creditos` | Autores y licencias de las fotos (Wikimedia Commons, Creative Commons) |
 
 ## Rutas del backend
 

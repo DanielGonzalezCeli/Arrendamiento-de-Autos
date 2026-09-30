@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { normalizeName, normalizePhone } from '../../domain/contact-rules';
 import { DomainError, ProblemCode } from '../../domain/domain-error';
 import { User } from '../users/user.entity';
 import { PublicUser, toPublicUser, UsersService } from '../users/users.service';
@@ -33,9 +34,9 @@ export class AuthService {
     const user = await this.users.createCustomer({
       email: dto.email,
       passwordHash: await bcrypt.hash(dto.password, BCRYPT_COST),
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone ?? null,
+      firstName: normalizeName(dto.firstName),
+      lastName: normalizeName(dto.lastName),
+      phone: dto.phone ? normalizePhone(dto.phone) : null,
     });
     return this.issueToken(user);
   }

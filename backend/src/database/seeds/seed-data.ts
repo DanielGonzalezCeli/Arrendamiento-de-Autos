@@ -56,7 +56,9 @@ export const CATEGORIES = [
 ];
 
 type ModelSeed = {
-  key: string; supplierId: number; category: string; make: string; model: string; acriss: string;
+  key: string;
+  /** Archivo en frontend/public/cars/ (créditos en /creditos). */
+  image: string; supplierId: number; category: string; make: string; model: string; acriss: string;
   transmission: Transmission; fuelType: FuelType; seats: number; doors: number; bags: number;
   /** Unidades físicas por agencia. */
   units: Record<number, number>;
@@ -69,16 +71,16 @@ const D = FuelType.Diesel;
 const H = FuelType.Hybrid;
 
 export const VEHICLE_MODELS: ModelSeed[] = [
-  { key: 'andes-picanto', supplierId: 1, category: 'ECONOMY', make: 'Kia', model: 'Picanto', acriss: 'MBMR', transmission: M, fuelType: G, seats: 4, doors: 5, bags: 1, units: { 1: 2, 2: 2, 3: 1 } },
-  { key: 'andes-onix', supplierId: 1, category: 'COMPACT', make: 'Chevrolet', model: 'Onix', acriss: 'CDAR', transmission: A, fuelType: G, seats: 5, doors: 4, bags: 2, units: { 1: 2, 2: 1, 3: 2 } },
-  { key: 'andes-corolla', supplierId: 1, category: 'SEDAN', make: 'Toyota', model: 'Corolla Hybrid', acriss: 'IDAR', transmission: A, fuelType: H, seats: 5, doors: 4, bags: 3, units: { 1: 2, 3: 1 } },
-  { key: 'andes-sportage', supplierId: 1, category: 'SUV', make: 'Kia', model: 'Sportage', acriss: 'IFAR', transmission: A, fuelType: G, seats: 5, doors: 5, bags: 3, units: { 1: 2, 2: 1, 3: 1 } },
-  { key: 'andes-hilux', supplierId: 1, category: 'PICKUP', make: 'Toyota', model: 'Hilux 4x4', acriss: 'FPMD', transmission: M, fuelType: D, seats: 5, doors: 4, bags: 4, units: { 1: 1, 3: 1 } },
-  { key: 'pacif-accent', supplierId: 2, category: 'COMPACT', make: 'Hyundai', model: 'Accent', acriss: 'CDMR', transmission: M, fuelType: G, seats: 5, doors: 4, bags: 2, units: { 4: 2, 5: 2, 6: 1 } },
-  { key: 'pacif-sentra', supplierId: 2, category: 'SEDAN', make: 'Nissan', model: 'Sentra', acriss: 'IDAR', transmission: A, fuelType: G, seats: 5, doors: 4, bags: 3, units: { 4: 2, 6: 1 } },
-  { key: 'pacif-tucson', supplierId: 2, category: 'SUV', make: 'Hyundai', model: 'Tucson', acriss: 'SFAR', transmission: A, fuelType: G, seats: 5, doors: 5, bags: 3, units: { 4: 1, 5: 1, 6: 1 } },
-  { key: 'pacif-fortuner', supplierId: 2, category: 'SUV', make: 'Toyota', model: 'Fortuner', acriss: 'FFAD', transmission: A, fuelType: D, seats: 7, doors: 5, bags: 4, units: { 4: 1, 5: 1 } },
-  { key: 'pacif-h1', supplierId: 2, category: 'VAN', make: 'Hyundai', model: 'H-1', acriss: 'LVMD', transmission: M, fuelType: D, seats: 12, doors: 4, bags: 6, units: { 4: 1, 5: 1 } },
+  { key: 'andes-picanto', image: 'kia-picanto', supplierId: 1, category: 'ECONOMY', make: 'Kia', model: 'Picanto', acriss: 'MBMR', transmission: M, fuelType: G, seats: 4, doors: 5, bags: 1, units: { 1: 2, 2: 2, 3: 1 } },
+  { key: 'andes-onix', image: 'chevrolet-onix', supplierId: 1, category: 'COMPACT', make: 'Chevrolet', model: 'Onix', acriss: 'CDAR', transmission: A, fuelType: G, seats: 5, doors: 4, bags: 2, units: { 1: 2, 2: 1, 3: 2 } },
+  { key: 'andes-corolla', image: 'toyota-corolla-hybrid', supplierId: 1, category: 'SEDAN', make: 'Toyota', model: 'Corolla Hybrid', acriss: 'IDAR', transmission: A, fuelType: H, seats: 5, doors: 4, bags: 3, units: { 1: 2, 3: 1 } },
+  { key: 'andes-sportage', image: 'kia-sportage', supplierId: 1, category: 'SUV', make: 'Kia', model: 'Sportage', acriss: 'IFAR', transmission: A, fuelType: G, seats: 5, doors: 5, bags: 3, units: { 1: 2, 2: 1, 3: 1 } },
+  { key: 'andes-hilux', image: 'toyota-hilux', supplierId: 1, category: 'PICKUP', make: 'Toyota', model: 'Hilux 4x4', acriss: 'FPMD', transmission: M, fuelType: D, seats: 5, doors: 4, bags: 4, units: { 1: 1, 3: 1 } },
+  { key: 'pacif-accent', image: 'hyundai-accent', supplierId: 2, category: 'COMPACT', make: 'Hyundai', model: 'Accent', acriss: 'CDMR', transmission: M, fuelType: G, seats: 5, doors: 4, bags: 2, units: { 4: 2, 5: 2, 6: 1 } },
+  { key: 'pacif-sentra', image: 'nissan-sentra', supplierId: 2, category: 'SEDAN', make: 'Nissan', model: 'Sentra', acriss: 'IDAR', transmission: A, fuelType: G, seats: 5, doors: 4, bags: 3, units: { 4: 2, 6: 1 } },
+  { key: 'pacif-tucson', image: 'hyundai-tucson', supplierId: 2, category: 'SUV', make: 'Hyundai', model: 'Tucson', acriss: 'SFAR', transmission: A, fuelType: G, seats: 5, doors: 5, bags: 3, units: { 4: 1, 5: 1, 6: 1 } },
+  { key: 'pacif-fortuner', image: 'toyota-fortuner', supplierId: 2, category: 'SUV', make: 'Toyota', model: 'Fortuner', acriss: 'FFAD', transmission: A, fuelType: D, seats: 7, doors: 5, bags: 4, units: { 4: 1, 5: 1 } },
+  { key: 'pacif-h1', image: 'hyundai-h1', supplierId: 2, category: 'VAN', make: 'Hyundai', model: 'H-1', acriss: 'LVMD', transmission: M, fuelType: D, seats: 12, doors: 4, bags: 6, units: { 4: 1, 5: 1 } },
 ];
 
 /** Tarifa diaria USD por proveedor y categoría. */

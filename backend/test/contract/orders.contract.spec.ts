@@ -80,7 +80,7 @@ describe('Contrato autos-openapi.yaml — órdenes', () => {
   const orderBody = (previewId: string) => ({
     order_preview_id: previewId,
     payment_reference: `PAY-${randomUUID().slice(0, 8)}`,
-    driver_details: { first_name: 'Lucía', last_name: 'Mora', email: 'lucia.mora@correo.ec', phone_number: '0998765432' },
+    driver_details: { first_name: 'Lucía', last_name: 'Mora', email: 'lucia.mora@correo.ec', phone_number: '+593998765432' },
   });
 
   describe('Flujo completo', () => {

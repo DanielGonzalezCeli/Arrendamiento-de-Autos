@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, ValidateNested } from 'class-validator';
+import { IsInternationalPhone, IsPersonName, IsStrictEmail } from '../../../common/validation/contact.decorators';
 import { RFC3339 } from '../../integration-api/dto/catalog-requests.dto';
 
 export class CheckoutHoldDto {
@@ -16,10 +17,10 @@ export class CheckoutPreviewDto {
 }
 
 export class CheckoutDriverDto {
-  @ApiProperty({ example: 'Ana' }) @IsString() @MaxLength(60) firstName: string;
-  @ApiProperty({ example: 'Pérez' }) @IsString() @MaxLength(60) lastName: string;
-  @ApiProperty({ example: 'ana.perez@correo.ec' }) @IsString() @MaxLength(120) email: string;
-  @ApiPropertyOptional({ example: '0991234567' }) @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @ApiProperty({ example: 'Ana' }) @IsPersonName() firstName: string;
+  @ApiProperty({ example: 'Pérez' }) @IsPersonName() lastName: string;
+  @ApiProperty({ example: 'ana.perez@correo.ec' }) @IsStrictEmail() email: string;
+  @ApiPropertyOptional({ example: '+593991234567' }) @IsOptional() @IsInternationalPhone() phone?: string;
 }
 
 export class CheckoutConfirmDto {

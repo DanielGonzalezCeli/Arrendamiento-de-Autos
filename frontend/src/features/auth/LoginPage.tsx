@@ -5,6 +5,8 @@ import { ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
+import { useFormValidation } from '../../lib/use-form-validation'
+import { collectErrors, validateEmail } from '../../lib/validation'
 import { useAuth } from './AuthContext'
 
 /** Solo se permite volver a rutas internas (evita redirecciones abiertas a otros dominios). */
@@ -21,8 +23,15 @@ export function LoginPage() {
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
 
+  const localErrors = collectErrors<'email' | 'password'>({
+    email: validateEmail(email),
+    password: password ? null : 'Ingresa tu contraseña.',
+  })
+  const { errorFor, touch, canSubmit } = useFormValidation(localErrors, null)
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (!canSubmit()) return
     setLoading(true)
     setError(null)
     try {
@@ -40,11 +49,13 @@ export function LoginPage() {
     <AuthLayout title="Inicia sesión" subtitle="Para reservar y ver tus reservas.">
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         {error !== null && <ErrorAlert error={error} />}
-        <Field label="Correo" htmlFor="email">
-          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field label="Correo" htmlFor="email" error={errorFor('email')}>
+          <Input id="email" type="email" autoComplete="email" placeholder="nombre@dominio.com" value={email}
+            onChange={(e) => setEmail(e.target.value.replace(/\s/g, ''))} onBlur={touch('email')} error={errorFor('email')} />
         </Field>
-        <Field label="Contraseña" htmlFor="password">
-          <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field label="Contraseña" htmlFor="password" error={errorFor('password')}>
+          <Input id="password" type="password" autoComplete="current-password" value={password}
+            onChange={(e) => setPassword(e.target.value)} onBlur={touch('password')} error={errorFor('password')} />
         </Field>
         <Button type="submit" loading={loading}>
           <LogIn className="h-4 w-4" /> Ingresar

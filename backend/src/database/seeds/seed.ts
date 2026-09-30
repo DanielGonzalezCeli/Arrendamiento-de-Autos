@@ -87,6 +87,7 @@ async function seedCatalog(manager: EntityManager) {
       doors: seed.doors,
       bagCapacity: seed.bags,
       published: true,
+      imageUrl: `/cars/${seed.image}.jpg`,
       description: `${seed.make} ${seed.model} o similar.`,
     });
     for (const [depotId, quantity] of Object.entries(seed.units)) {
@@ -121,7 +122,7 @@ const DEMO_USERS = [
     passwordEnv: 'SEED_ADMIN_PASSWORD', devPassword: DEV_ADMIN_PASSWORD,
   },
   {
-    email: 'cliente@rutalibre.ec', firstName: 'Camila', lastName: 'Torres', phone: '0991234567', role: UserRole.Customer,
+    email: 'cliente@rutalibre.ec', firstName: 'Camila', lastName: 'Torres', phone: '+593991234567', role: UserRole.Customer,
     passwordEnv: 'SEED_CUSTOMER_PASSWORD', devPassword: DEV_CUSTOMER_PASSWORD,
   },
 ];

@@ -1,16 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsInternationalPhone, IsPersonName, IsStrictEmail } from '../../../common/validation/contact.decorators';
 import { UserRole } from '../../../domain/enums';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
-const NAME_PATTERN = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$/;
 
 export class RegisterDto {
   @ApiProperty({ example: 'ana.perez@correo.ec' })
   @Transform(trim)
-  @IsEmail({}, { message: 'Correo electrónico inválido' })
-  @MaxLength(120)
+  @IsStrictEmail()
   email: string;
 
   /** bcrypt solo usa los primeros 72 bytes: se limita la longitud. */
@@ -23,22 +22,19 @@ export class RegisterDto {
 
   @ApiProperty({ example: 'Ana' })
   @Transform(trim)
-  @IsString()
-  @Length(2, 60)
-  @Matches(NAME_PATTERN, { message: 'Nombre: solo letras' })
+  @IsPersonName()
   firstName: string;
 
   @ApiProperty({ example: 'Pérez' })
   @Transform(trim)
-  @IsString()
-  @Length(2, 60)
-  @Matches(NAME_PATTERN, { message: 'Apellido: solo letras' })
+  @IsPersonName()
   lastName: string;
 
-  @ApiPropertyOptional({ example: '0991234567' })
+  /** Formato internacional E.164 (código de país + número), validado según el país. */
+  @ApiPropertyOptional({ example: '+593991234567' })
   @IsOptional()
   @Transform(trim)
-  @Matches(/^\+?[0-9]{7,15}$/, { message: 'Teléfono inválido' })
+  @IsInternationalPhone()
   phone?: string;
 }
 

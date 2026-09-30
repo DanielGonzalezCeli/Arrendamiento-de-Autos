@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { inTransaction } from '../../common/transaction';
 import { evaluateCancellation } from '../../domain/cancellation-policy';
+import { normalizeName, normalizePhone } from '../../domain/contact-rules';
 import { isDepotOpenAt } from '../../domain/depot-schedule';
 import { LocationQuery, resolveDepots } from '../../domain/depot-locator';
 import { DomainError, ProblemCode } from '../../domain/domain-error';
@@ -32,7 +33,7 @@ export interface CreateReservationInput {
   paymentReference: string;
   driver: DriverDetails;
   /** Nombres de campo de la API que llama (para invalidParams). */
-  driverFields: { firstName: string; lastName: string; email: string };
+  driverFields: { firstName: string; lastName: string; email: string; phone: string };
   ownerSub: string;
   channel: OrderChannel;
   userId?: string | null;
@@ -116,10 +117,10 @@ export class ReservationService {
         dropoffDepotId: dropoffDepot.id,
         pickupAt: session.pickupAt,
         dropoffAt: session.dropoffAt,
-        driverFirstName: input.driver.firstName!.trim(),
-        driverLastName: input.driver.lastName!.trim(),
+        driverFirstName: normalizeName(input.driver.firstName!),
+        driverLastName: normalizeName(input.driver.lastName!),
         driverEmail: input.driver.email!.trim().toLowerCase(),
-        driverPhone: input.driver.phone?.trim() || null,
+        driverPhone: input.driver.phone?.trim() ? normalizePhone(input.driver.phone) : null,
         driverAge: session.driverAge,
         bookerCountry: session.bookerCountry,
         vehicleSnapshot: buildVehicleSnapshot(model, breakdown),

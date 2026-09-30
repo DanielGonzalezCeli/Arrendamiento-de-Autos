@@ -14,7 +14,7 @@ import { ReservationService } from '../orders/reservation.service';
 import { CheckoutConfirmDto, CheckoutHoldDto, CheckoutPreviewDto, ModifyMyReservationDto } from './dto/checkout.dto';
 import { toReservationView } from './mappers/reservation.mapper';
 
-const DRIVER_FIELDS = { firstName: 'driver.firstName', lastName: 'driver.lastName', email: 'driver.email' };
+const DRIVER_FIELDS = { firstName: 'driver.firstName', lastName: 'driver.lastName', email: 'driver.email', phone: 'driver.phone' };
 
 /**
  * Pasarela de pago SIMULADA. El contrato dice que el pago pertenece a otro dominio: la web genera una

@@ -1,0 +1,102 @@
+[
+  {
+    "image": "/cars/kia-picanto.jpg",
+    "vehicle": "Kia Picanto",
+    "make": "Kia",
+    "model": "Picanto",
+    "source": "https://commons.wikimedia.org/wiki/File:Kia_Picanto_(TA)_facelift.jpg",
+    "author": "Sturm",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/chevrolet-onix.jpg",
+    "vehicle": "Chevrolet Onix",
+    "make": "Chevrolet",
+    "model": "Onix",
+    "source": "https://commons.wikimedia.org/wiki/File:2020_SAIC-GM_Chevrolet_Onix_sedan.jpg",
+    "author": "User3204",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/toyota-corolla-hybrid.jpg",
+    "vehicle": "Toyota Corolla Hybrid",
+    "make": "Toyota",
+    "model": "Corolla Hybrid",
+    "source": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Hybrid_Sedan,_GIMS_2019,_Le_Grand-Saconnex_(GIMS1338).jpg",
+    "author": "Matti Blume",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/kia-sportage.jpg",
+    "vehicle": "Kia Sportage",
+    "make": "Kia",
+    "model": "Sportage",
+    "source": "https://commons.wikimedia.org/wiki/File:Kia_Sportage_(NQ5)_1X7A0326.jpg",
+    "author": "Alexander Migl",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/toyota-hilux.jpg",
+    "vehicle": "Toyota Hilux 4x4",
+    "make": "Toyota",
+    "model": "Hilux 4x4",
+    "source": "https://commons.wikimedia.org/wiki/File:Toyota_HiLux_GR_Sport_1X7A7281.jpg",
+    "author": "Alexander-93",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/hyundai-accent.jpg",
+    "vehicle": "Hyundai Accent",
+    "make": "Hyundai",
+    "model": "Accent",
+    "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_Accent_(United_States).jpg",
+    "author": "Greg Gjerdingen",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  {
+    "image": "/cars/nissan-sentra.jpg",
+    "vehicle": "Nissan Sentra",
+    "make": "Nissan",
+    "model": "Sentra",
+    "source": "https://commons.wikimedia.org/wiki/File:2020_Nissan_Sentra_SV,_front_right,_06-17-2026.jpg",
+    "author": "BuickCentury04",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/hyundai-tucson.jpg",
+    "vehicle": "Hyundai Tucson",
+    "make": "Hyundai",
+    "model": "Tucson",
+    "source": "https://commons.wikimedia.org/wiki/File:Hyundai_Tucson_Plug-in_N-Line_Auto_Zuerich_2021_IMG_0366.jpg",
+    "author": "Alexander Migl",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/toyota-fortuner.jpg",
+    "vehicle": "Toyota Fortuner",
+    "make": "Toyota",
+    "model": "Fortuner",
+    "source": "https://commons.wikimedia.org/wiki/File:2021_Toyota_Fortuner_SRZ_2.7_4x2_(Indonesia)_front_view_01.jpg",
+    "author": "Andra Febrian",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "image": "/cars/hyundai-h1.jpg",
+    "vehicle": "Hyundai H-1",
+    "make": "Hyundai",
+    "model": "H-1",
+    "source": "https://commons.wikimedia.org/wiki/File:2018_Hyundai_H-1_Elite.jpg",
+    "author": "Chanokchon",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  }
+]

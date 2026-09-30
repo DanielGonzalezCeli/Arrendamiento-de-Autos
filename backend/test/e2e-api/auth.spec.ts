@@ -55,6 +55,19 @@ describe('API interna — autenticación', () => {
     expect(Object.keys(res.body).sort()).toEqual(['code', 'detail', 'invalidParams', 'status', 'title', 'type']);
   });
 
+  it('rechaza nombres con números, correos sin dominio y teléfonos inválidos para su país', async () => {
+    const res = await http().post('/api/auth/register')
+      .send({ email: 'ana@correo', password, firstName: 'Ana2', lastName: 'P3rez', phone: '+59399123' }).expect(400);
+    expect(res.body.invalidParams.map((p: { name: string }) => p.name).sort()).toEqual(['email', 'firstName', 'lastName', 'phone']);
+  });
+
+  it('acepta un turista con teléfono de otro país y lo guarda en formato internacional', async () => {
+    const res = await http().post('/api/auth/register').send({
+      email: `test+tourist${Date.now()}@rutalibre.test`, password, firstName: 'John', lastName: "O'Brien", phone: '+1 202 555 0143',
+    }).expect(201);
+    expect(res.body.user.phone).toBe('+12025550143');
+  });
+
   it('login correcto → token que sirve para /api/auth/me', async () => {
     const login = await http().post('/api/auth/login').send({ email, password }).expect(200);
     const me = await http().get('/api/auth/me').set('Authorization', `Bearer ${login.body.accessToken}`).expect(200);
