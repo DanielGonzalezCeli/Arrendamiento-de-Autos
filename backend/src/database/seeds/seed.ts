@@ -15,14 +15,18 @@ import { Supplier } from '../../modules/catalog/entities/supplier.entity';
 import { VehicleCategory } from '../../modules/catalog/entities/vehicle-category.entity';
 import { VehicleModel } from '../../modules/catalog/entities/vehicle-model.entity';
 import { Affiliate } from '../../modules/integration-auth/entities/affiliate.entity';
+import { ApiClient } from '../../modules/integration-auth/entities/api-client.entity';
+import { DepotReview } from '../../modules/reviews/depot-review.entity';
 import { User } from '../../modules/users/user.entity';
 import {
-  AFFILIATES, CATEGORIES, CITIES, COLORS, CURRENCY_RATES, DAILY_RATES, DEPOTS, EXTRAS, RATE_VALIDITY, SUPPLIERS, VEHICLE_MODELS,
+  AFFILIATES, CATEGORIES, CITIES, COLORS, CURRENCY_RATES, DAILY_RATES, DEMO_API_CLIENT, DEPOTS, EXTRAS, RATE_VALIDITY, SAMPLE_REVIEWS,
+  SUPPLIERS, VEHICLE_MODELS,
 } from './seed-data';
 
 const BCRYPT_COST = 12;
 const DEV_ADMIN_PASSWORD = 'Admin12345!';
 const DEV_CUSTOMER_PASSWORD = 'Cliente12345!';
+const DEV_HUB_CLIENT_SECRET = 'hub-demo-secret-2026';
 
 /**
  * Seed idempotente, ejecutado en cada arranque del contenedor (Dockerfile):
@@ -45,6 +49,8 @@ async function main() {
         console.log('[seed] El catálogo ya existe; no se modifica.');
       }
       await seedUsers(manager, isProduction);
+      await seedApiClient(manager, isProduction);
+      await seedReviews(manager);
     });
   } finally {
     await dataSource.destroy();
@@ -133,6 +139,25 @@ async function seedUsers(manager: EntityManager, isProduction: boolean) {
     await manager.save(User, { ...user, passwordHash: await bcrypt.hash(password, BCRYPT_COST) });
     console.log(`[seed] Usuario ${user.email} creado.`);
   }
+}
+
+/** Cliente OAuth2 del Hub para el emisor local (RDA1). El secreto se guarda con hash. */
+async function seedApiClient(manager: EntityManager, isProduction: boolean) {
+  if (await manager.exists(ApiClient, { where: { clientId: DEMO_API_CLIENT.clientId } })) return;
+  const secret = process.env.SEED_HUB_CLIENT_SECRET || (isProduction ? undefined : DEV_HUB_CLIENT_SECRET);
+  if (!secret) {
+    console.warn(`[seed] SEED_HUB_CLIENT_SECRET no definida: no se crea el cliente ${DEMO_API_CLIENT.clientId}.`);
+    return;
+  }
+  await manager.save(ApiClient, { ...DEMO_API_CLIENT, clientSecretHash: await bcrypt.hash(secret, BCRYPT_COST) });
+  console.log(`[seed] Cliente OAuth2 ${DEMO_API_CLIENT.clientId} creado.`);
+}
+
+async function seedReviews(manager: EntityManager) {
+  if ((await manager.count(DepotReview)) > 0) return;
+  const reviews = SAMPLE_REVIEWS.flatMap(({ depotId, scores }) => scores.map((score) => ({ depotId, score })));
+  await manager.save(DepotReview, reviews);
+  console.log(`[seed] ${reviews.length} reseñas de ejemplo creadas.`);
 }
 
 function loadLocalEnv() {

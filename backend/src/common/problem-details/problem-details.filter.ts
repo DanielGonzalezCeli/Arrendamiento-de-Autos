@@ -15,6 +15,7 @@ const DEFAULT_TITLES: Record<number, string> = {
   404: 'Recurso no encontrado',
   409: 'Conflicto',
   429: 'Demasiadas peticiones',
+  501: 'No implementado',
 };
 
 /**

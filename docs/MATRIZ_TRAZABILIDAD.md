@@ -8,12 +8,12 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 
 | Rúbrica | Requisito | Contrato | Componente | Endpoint | Prueba | Evidencia | Estado |
 |---|---|---|---|---|---|---|---|
-| C4 C6 C3 | Buscar disponibilidad | `CarSearchRequest/Response`, `X-Affiliate-Id` | `AutosSearchController` → `SearchService` → `AvailabilityService`, `PricingService` | `POST /autos/v1/search` | contract `search.spec`, unit pricing/availability | Swagger try-out + resultados en la web | Pendiente |
-| C4 C7 | Listar agencias | `DepotsRequest/Response` | `AutosDepotsController` → `DepotService` → `DepotMapper` | `POST /autos/v1/depots` | contract `depots.spec` | Swagger | Pendiente |
-| C4 C7 | Puntuaciones de agencias | `DepotScores*` | → `ReviewService` | `POST /autos/v1/depots/reviews/scores` | contract | Swagger | Pendiente |
-| C4 C7 | Detalles de vehículos | `CarDetails*` | → `VehicleService` → `VehicleMapper` | `POST /autos/v1/details` | contract | Swagger | Pendiente |
-| C4 C7 | Proveedores | `Suppliers*` | → `SupplierService` | `POST /autos/v1/suppliers` | contract | Swagger | Pendiente |
-| C4 C7 | Constantes | `CarConstants*` | → `ConstantsService` | `POST /autos/v1/constants` | contract | Swagger | Pendiente |
+| C4 C6 C3 | Buscar disponibilidad | `CarSearchRequest/Response`, `X-Affiliate-Id` | `AutosSearchController` → `SearchService` → `AvailabilityService`, `PricingService` | `POST /autos/v1/search` | contract `search.spec`, unit pricing/availability | Swagger try-out + resultados en la web | Hecho ✔ (contract/catalog) |
+| C4 C7 | Listar agencias | `DepotsRequest/Response` | `AutosDepotsController` → `DepotService` → `DepotMapper` | `POST /autos/v1/depots` | contract `depots.spec` | Swagger | Hecho ✔ (contract/catalog) |
+| C4 C7 | Puntuaciones de agencias | `DepotScores*` | → `ReviewService` | `POST /autos/v1/depots/reviews/scores` | contract | Swagger | Hecho ✔ (contract/catalog) |
+| C4 C7 | Detalles de vehículos | `CarDetails*` | → `VehicleService` → `VehicleMapper` | `POST /autos/v1/details` | contract | Swagger | Hecho ✔ (contract/catalog) |
+| C4 C7 | Proveedores | `Suppliers*` | → `SupplierService` | `POST /autos/v1/suppliers` | contract | Swagger | Hecho ✔ (contract/catalog) |
+| C4 C7 | Constantes | `CarConstants*` | → `ConstantsService` | `POST /autos/v1/constants` | contract | Swagger | Hecho ✔ (contract/catalog) |
 | C4 C6 C3 | Bloqueo temporal | `OrderHold*`, `autos:book`, 409 | `AutosOrdersController` → `HoldService` | `POST /autos/v1/orders/hold` | contract + integración (concurrencia) | Swagger + 409 en vivo | Pendiente |
 | C4 C6 C3 | Resumen de precio | `OrderPreview*`, `autos:read` | → `OrderPreviewService` → `PricingService` | `POST /autos/v1/orders/preview` | contract + unit | Swagger + checkout web | Pendiente |
 | C4 C6 C3 C5 | Crear reserva sin duplicados | `OrderCreateRequest`, `OrderDetail`, `Idempotency-Key`, 201/409 | → `IdempotencyInterceptor` → `ReservationService` → outbox | `POST /autos/v1/orders/create` | contract + integración (idempotencia, concurrencia, EXCLUDE) | Doble envío = 1 reserva | Pendiente |
@@ -38,7 +38,7 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C6 | Contrato inalterado | `contracts/autos-openapi.yaml` + `UPSTREAM.md` | test de checksum | CI verde | Copiado ✔ |
 | C4 | Docs públicas desde el contrato | `DocsModule` (Swagger UI + Redoc desde el YAML) | API: `/autos/v1/docs` 200 | URL pública | Pendiente |
 | C6 C4 | Errores estándar | `ProblemDetailsFilter` | e2e-api/auth (400/401/409, solo campos permitidos) | Swagger | Hecho (filtro global) ✔ |
-| C6 | Seguridad entre sistemas | `OAuth2Guard`, `ScopesGuard`, emisor local | API: 401/403 | Token → llamada | Pendiente |
+| C6 | Seguridad entre sistemas | `IntegrationAuthGuard` (RS256 + scopes), `AffiliateGuard`, emisor local `/oauth2/token` | e2e-api/integration-auth (401/403, token falsificado) | Token → llamada | Hecho ✔ |
 | C2 | CRUD de administración | `internal-api/admin/*` + frontend `/admin` | API + E2E | Demo | Pendiente |
 | C2 | Gestión operativa | `RentalOperationsService`, `vehicle_blocks` | unit + E2E | Demo | Pendiente |
 | C3 | Publicación → marketplace | `vehicles.published` + búsqueda | E2E | Demo | Pendiente |

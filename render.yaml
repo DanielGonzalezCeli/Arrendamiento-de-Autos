@@ -26,6 +26,12 @@ services:
         sync: false
       - key: SEED_CUSTOMER_PASSWORD
         sync: false
+      # Secreto del cliente OAuth2 de demo (booking-hub-demo) del emisor local RDA1.
+      - key: SEED_HUB_CLIENT_SECRET
+        sync: false
+      # Clave RSA del emisor local; sin ella se genera una efímera en cada arranque.
+      - key: LOCAL_OAUTH_PRIVATE_KEY
+        sync: false
 
   - type: web
     name: arrendamiento-autos-web

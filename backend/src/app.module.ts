@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RouterModule } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 
@@ -13,6 +14,8 @@ import { INTEGRATION_BASE_PATH } from './modules/docs/contract-docs';
 import { INTERNAL_BASE_PATH } from './modules/docs/internal-docs';
 import { HealthModule } from './modules/health/health.module';
 import { IntegrationApiModule } from './modules/integration-api/integration-api.module';
+import { IntegrationAuthModule } from './modules/integration-auth/integration-auth.module';
+import { InternalApiModule } from './modules/internal-api/internal-api.module';
 
 /** Campos que nunca deben aparecer en los logs. */
 const REDACTED_PATHS = [
@@ -55,13 +58,19 @@ const REDACTED_PATHS = [
       }),
     }),
 
+    // Límite global por defecto (los endpoints sensibles definen el suyo con @Throttle).
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+
     HealthModule,
     AvailabilityModule,
     AuthModule,
+    IntegrationAuthModule,
+    InternalApiModule,
     IntegrationApiModule,
     // /api/*       → API interna (frontend)       · /autos/v1/* → API de integración (Booking Hub)
     RouterModule.register([
       { path: INTERNAL_BASE_PATH, module: AuthModule },
+      { path: INTERNAL_BASE_PATH, module: InternalApiModule },
       { path: INTEGRATION_BASE_PATH, module: IntegrationApiModule },
     ]),
   ],

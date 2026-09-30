@@ -1,5 +1,8 @@
-import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, IsUrl, Max, Min, MinLength, validateSync } from 'class-validator';
+import { plainToInstance, Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
+
+/** "true"/"false" de las variables de entorno → boolean (Boolean('false') sería true). */
+const toBoolean = ({ value }: { value: unknown }) => value === true || value === 'true';
 
 export enum NodeEnv {
   Development = 'development',
@@ -49,6 +52,42 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   LOG_LEVEL?: string;
+
+  // ── API de integración (Booking Hub) ──────────────────────────────────────
+  /** Emisor esperado en los tokens OAuth2 (y el que usa el emisor local de RDA1). */
+  @IsString()
+  INTEGRATION_JWT_ISSUER: string = 'rutalibre-local-idp';
+
+  @IsString()
+  INTEGRATION_JWT_AUDIENCE: string = 'autos-api';
+
+  /** RDA2: JWKS del IdP central. Si se define, los tokens se verifican contra él. */
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  INTEGRATION_JWKS_URL?: string;
+
+  /** RDA1: habilita POST /oauth2/token y /.well-known/jwks.json (emisor self-signed). */
+  @Transform(toBoolean)
+  @IsBoolean()
+  LOCAL_OAUTH_ISSUER_ENABLED: boolean = true;
+
+  /** Clave privada RSA en PEM (PKCS#8). Sin ella se usa una clave efímera. */
+  @IsOptional()
+  @IsString()
+  LOCAL_OAUTH_PRIVATE_KEY?: string;
+
+  @IsInt()
+  @Min(60)
+  INTEGRATION_TOKEN_TTL_SECONDS: number = 3600;
+
+  /** lenient (RDA1): cualquier X-Affiliate-Id entero · strict: debe existir en affiliates. */
+  @IsIn(['lenient', 'strict'])
+  AFFILIATE_VALIDATION: 'lenient' | 'strict' = 'lenient';
+
+  /** Valor del header X-API-Deprecation-Date (YYYY-MM-DD). Opcional. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  API_DEPRECATION_DATE?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

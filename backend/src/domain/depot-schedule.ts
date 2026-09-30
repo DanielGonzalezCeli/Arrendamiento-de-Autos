@@ -23,6 +23,11 @@ export function localWeekdayAndTime(instant: Date, timeZone: string): { weekday:
   return { weekday: WEEKDAY_INDEX[get('weekday')], time: `${get('hour')}:${get('minute')}` };
 }
 
+/** Fecha local "YYYY-MM-DD" de un instante en la zona horaria de la agencia (para elegir la tarifa vigente). */
+export function localDate(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(instant);
+}
+
 /** RN05: la agencia está abierta en ese instante (apertura y cierre inclusive). */
 export function isDepotOpenAt(hours: OpeningHoursRule[], timeZone: string, instant: Date): boolean {
   const { weekday, time } = localWeekdayAndTime(instant, timeZone);

@@ -7,6 +7,7 @@ import { ProblemDetailsFilter } from './common/problem-details/problem-details.f
 import { AuthModule } from './modules/auth/auth.module';
 import { resolveContractPath, setupContractDocs } from './modules/docs/contract-docs';
 import { setupInternalDocs } from './modules/docs/internal-docs';
+import { InternalApiModule } from './modules/internal-api/internal-api.module';
 
 /** Configuración HTTP común a main.ts y a los tests, para probar la app tal como corre en producción. */
 export function configureApp(app: INestApplication): void {
@@ -42,5 +43,5 @@ export function configureApp(app: INestApplication): void {
   app.useGlobalFilters(new ProblemDetailsFilter());
 
   setupContractDocs(app, resolveContractPath(config.get('CONTRACT_PATH')), config.get('PUBLIC_BASE_URL'));
-  setupInternalDocs(app, [AuthModule]);
+  setupInternalDocs(app, [AuthModule, InternalApiModule]);
 }

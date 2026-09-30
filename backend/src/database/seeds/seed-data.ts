@@ -109,3 +109,21 @@ export const CURRENCY_RATES = [
 export const AFFILIATES = [{ id: 1001, name: 'Booking Hub (demo)', commissionRate: 0.08, rateLimitPerMin: 300 }];
 
 export const COLORS = ['Blanco', 'Gris plata', 'Negro', 'Rojo', 'Azul'];
+
+/** Cliente OAuth2 (client_credentials) de demostración para el Booking Hub (emisor local RDA1). */
+export const DEMO_API_CLIENT = {
+  clientId: 'booking-hub-demo',
+  name: 'Booking Hub (demo RDA1)',
+  scopes: ['autos:read', 'autos:book', 'autos:cancel', 'autos:webhooks'],
+  affiliateId: 1001,
+};
+
+/** Reseñas históricas (importadas, sin reserva asociada) para que /depots/reviews/scores tenga datos. Puntaje 1–10. */
+export const SAMPLE_REVIEWS: { depotId: number; scores: number[] }[] = [
+  { depotId: 1, scores: [9, 8, 9, 10, 8] },
+  { depotId: 2, scores: [8, 7, 9] },
+  { depotId: 3, scores: [9, 9, 8, 8] },
+  { depotId: 4, scores: [7, 8, 8] },
+  { depotId: 5, scores: [9, 10, 9] },
+  { depotId: 6, scores: [8, 9] },
+];
