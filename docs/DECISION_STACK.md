@@ -36,7 +36,7 @@ Apartarse de esa base aumenta el riesgo de incompatibilidad en RDA2 sin ningún 
 | **React 19 + Vite 8 + TypeScript** | Experiencia previa (Sal-y-Canela); build rápido; despliegue estático | — | **Frontend** |
 | React Router 6 | Estándar | — | Rutas y áreas protegidas |
 | TanStack Query | Caché y estados de carga y error sin reducer gigante (problema de Sal-y-Canela) | Una librería más | Sí |
-| React Hook Form + Zod | Formularios validados y tipados | — | Sí |
+| React Hook Form + Zod | Formularios validados y tipados | Dos dependencias más para 4 formularios | **No** (decisión Fase 6): formularios controlados simples; el backend valida y devuelve `invalidParams`, que se muestran por campo |
 | Tailwind CSS (+ componentes propios) | UI moderna y consistente sin un CSS de 2 000 líneas | Clases largas | Sí |
 | Angular + Spring Boot | Robusto, empresarial | Sin experiencia; no coincide con la plantilla | Descartado |
 | Express puro | Conocido | Hay que reinventar DI y guards; diverge de la plantilla | Descartado |
@@ -49,14 +49,14 @@ Apartarse de esa base aumenta el riesgo de incompatibilidad en RDA2 sin ningún 
 | `nestjs-pino` | Logs JSON con `request_id` y redacción de secretos | — | Sí |
 | Jest + supertest | Default de NestJS | — | Unit, integración y API |
 | `jest-openapi` | Valida respuestas reales contra `autos-openapi.yaml` | — | **Tests de contrato** |
-| Playwright | E2E del marketplace | — | Flujos críticos |
+| Playwright | E2E del marketplace | Descarga de navegador | Flujo de compra completo + móvil, **en CI** |
 | Kafka / RabbitMQ | EDA "real" | Sobreingeniería para la rúbrica | **No** (outbox + webhooks basta) |
 | Docker (compose local, Dockerfile de deploy) | Paridad con Render; la plantilla ya trae compose | — | Sí |
 
 ## 4. Resultado
 
 ```
-Frontend : React 19 + Vite 8 + TS + React Router + TanStack Query + RHF/Zod + Tailwind  → Render (sitio estático)
+Frontend : React 19 + Vite 8 + TS + React Router + TanStack Query + Tailwind + lucide-react  → Render (sitio estático)
 Backend  : NestJS 10 + TypeORM 0.3 + class-validator + @nestjs/swagger + jose          → Render (Docker)
 BD       : PostgreSQL (Supabase como Postgres gestionado; local: PostgreSQL 18 o docker-compose)
 Tests    : Jest, supertest, jest-openapi, Playwright

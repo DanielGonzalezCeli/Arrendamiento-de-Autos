@@ -25,7 +25,19 @@ Hosting: Render (API en Docker + sitio estático) · Base de datos: Supabase (Po
 | [`backend/`](backend/) | NestJS 10 + TypeORM + PostgreSQL (basado en la plantilla oficial del equipo de integración) |
 | [`frontend/`](frontend/) | React 19 + Vite + TypeScript + Tailwind |
 | [`contracts/`](contracts/) | Contrato oficial (copia exacta) y su origen |
+| [`e2e/`](e2e/) | Tests end-to-end con Playwright (flujo de compra y móvil) |
 | [`docs/`](docs/) | Análisis, arquitectura, modelo de datos, SOA/EDA, despliegue, trazabilidad y plan |
+
+## Marketplace (frontend)
+
+| Ruta | Página |
+|---|---|
+| `/` | Portada con buscador (aeropuerto, ciudad o agencia; fechas, horas, edad, moneda) |
+| `/buscar` | Resultados con filtros y orden |
+| `/vehiculo/:id` | Detalle, condiciones y precio |
+| `/ingresar`, `/registro` | Cuenta de cliente |
+| `/reservar/:id` | Checkout: hold de 15 min, extras con precio en vivo, conductor, confirmación (pago simulado) |
+| `/mis-reservas`, `/mis-reservas/:id` | Consultar, modificar extras y cancelar |
 
 ## Rutas del backend
 
@@ -61,6 +73,9 @@ npm run dev                     # http://localhost:5173
 ```
 
 Tests del backend: `npm test` (necesita la BD). Solo tests de contrato: `npm run test:contract`.
+Tests del frontend: `cd frontend && npm test`.
+E2E (con backend y frontend levantados): `cd e2e && npm ci && npx playwright install chromium && npx playwright test`
+(`SCREENSHOTS=1` guarda capturas en `e2e/screenshots/`; `E2E_BASE_URL=<url>` prueba otro entorno).
 
 ## Documentación
 

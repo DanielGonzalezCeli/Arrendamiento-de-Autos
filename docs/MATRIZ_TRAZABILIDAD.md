@@ -41,8 +41,8 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C6 | Seguridad entre sistemas | `IntegrationAuthGuard` (RS256 + scopes), `AffiliateGuard`, emisor local `/oauth2/token` | e2e-api/integration-auth (401/403, token falsificado) | Token → llamada | Hecho ✔ |
 | C2 | CRUD de administración | `internal-api/admin/*` + frontend `/admin` | API + E2E | Demo | Pendiente |
 | C2 | Gestión operativa | `RentalOperationsService`, `vehicle_blocks` | unit + E2E | Demo | Pendiente |
-| C3 | Publicación → marketplace | `vehicles.published` + búsqueda | E2E | Demo | Pendiente |
-| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Backend hecho ✔ (e2e-api/web-checkout); UI pendiente |
+| C3 | Publicación → marketplace | `vehicle_models.published` + búsqueda | E2E | Demo | Búsqueda filtra publicados ✔; publicar desde admin en Fase 5 |
+| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Hecho ✔ (e2e-api/web-checkout + e2e/purchase-flow en CI) |
 | C5 | Integridad | migración `InitialSchema`, EXCLUDE (placa y tarifas), FK, CHECK, seed | integration/schema-alignment, integration/availability | ER + 409 | Hecho ✔ |
 | C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs en README | Esqueleto desplegado ✔ |
 | C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Hecho ✔ (`contracts/autos-events.asyncapi.yaml`) |
