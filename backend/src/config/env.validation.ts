@@ -84,6 +84,22 @@ export class EnvironmentVariables {
   @IsIn(['lenient', 'strict'])
   AFFILIATE_VALIDATION: 'lenient' | 'strict' = 'lenient';
 
+  // ── Eventos / webhooks ────────────────────────────────────────────────────
+  /** Cada cuánto corre el dispatcher de webhooks (ms). 0 = desactivado (tests). */
+  @IsInt()
+  @Min(0)
+  WEBHOOK_DISPATCH_INTERVAL_MS: number = 10_000;
+
+  /** Cada cuánto corre la limpieza (holds vencidos, idempotencia caducada). 0 = desactivado. */
+  @IsInt()
+  @Min(0)
+  MAINTENANCE_INTERVAL_MS: number = 600_000;
+
+  /** Clave AES-256 (32 bytes en base64) para los secrets de webhooks. Sin ella se deriva con HKDF de USER_JWT_SECRET. */
+  @IsOptional()
+  @IsString()
+  DATA_ENCRYPTION_KEY?: string;
+
   /** Valor del header X-API-Deprecation-Date (YYYY-MM-DD). Opcional. */
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)

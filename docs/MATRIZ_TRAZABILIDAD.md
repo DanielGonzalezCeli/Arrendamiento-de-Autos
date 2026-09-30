@@ -20,8 +20,8 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C4 C3 | Consultar orden | `OrderDetail`, 404 | → `ReservationService.getForOwner` → `OrderMapper` (+`_links`) | `GET /autos/v1/orders/{orderId}` | contract + API (ownership) | Swagger | Hecho ✔ (contract/orders) |
 | C4 C3 | Modificar orden | `OrderModifyRequest`, 409 | → `ReservationService.modify` | `POST /autos/v1/orders/{id}/modify` | contract + unit | Swagger + web | Hecho ✔ (contract/orders) |
 | C4 C3 C8 | Cancelar orden | `autos:cancel`, 409 | → `ReservationService.cancel` → outbox | `POST /autos/v1/orders/{id}/cancel` | contract + unit (política) | Webhook `CAR_ORDER_CANCELLED` | Hecho ✔ (contract/orders) |
-| C4 C8 | Suscripciones webhook | `WebhookSubscription`, `autos:webhooks` | `WebhooksController` → `WebhookSubscriptionService` | `GET/POST /autos/v1/webhooks`, `DELETE /autos/v1/webhooks/{id}` | contract | Swagger | Pendiente |
-| C8 | Entrega de eventos | callback `carEvent`, `WebhookPayload` | `OutboxService` → `WebhookDispatcher` | (saliente) | integración (firma, reintentos) | webhook.site en vivo | Pendiente |
+| C4 C8 | Suscripciones webhook | `WebhookSubscription`, `autos:webhooks` | `WebhooksController` → `WebhookSubscriptionService` | `GET/POST /autos/v1/webhooks`, `DELETE /autos/v1/webhooks/{id}` | contract | Swagger | Hecho ✔ (integration/webhooks) |
+| C8 | Entrega de eventos | callback `carEvent`, `WebhookPayload` | `OutboxService` → `WebhookDispatcher` | (saliente) | integración (firma, reintentos) | webhook.site en vivo | Hecho ✔ (integration/webhooks) |
 
 ## 2. Requisitos no ligados a un path
 
@@ -45,6 +45,6 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Backend hecho ✔ (e2e-api/web-checkout); UI pendiente |
 | C5 | Integridad | migración `InitialSchema`, EXCLUDE (placa y tarifas), FK, CHECK, seed | integration/schema-alignment, integration/availability | ER + 409 | Hecho ✔ |
 | C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs en README | Esqueleto desplegado ✔ |
-| C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Pendiente |
+| C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Hecho ✔ (`contracts/autos-events.asyncapi.yaml`) |
 | C9 | Documentación | `docs/*` | — | Carpeta docs | Análisis ✔ |
 | C10 | Defensa | `GUIA_DEFENSA.md` | ensayo | — | Pendiente |

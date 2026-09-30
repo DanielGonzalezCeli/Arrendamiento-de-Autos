@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module';
+import { EventsModule } from '../events/events.module';
 import { IdempotencyModule } from '../idempotency/idempotency.module';
 import { OrdersModule } from '../orders/orders.module';
 import { ReviewsModule } from '../reviews/reviews.module';
@@ -15,7 +16,7 @@ import { WebhooksController } from './webhooks.controller';
  * con la API interna (SearchService, ReservationService…).
  */
 @Module({
-  imports: [CatalogModule, SearchModule, ReviewsModule, OrdersModule, IdempotencyModule],
+  imports: [CatalogModule, SearchModule, ReviewsModule, OrdersModule, IdempotencyModule, EventsModule],
   controllers: [CatalogController, OrdersController, WebhooksController],
   providers: [DeprecationHeaderInterceptor],
 })

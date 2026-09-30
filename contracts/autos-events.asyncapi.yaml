@@ -1,0 +1,170 @@
+# Catálogo de eventos del servicio de autos (EDA).
+# Documento PROPIO y COMPLEMENTARIO: no reemplaza ni modifica contracts/autos-openapi.yaml.
+# Describe los mensajes que el servicio envía a las URLs registradas con POST /webhooks
+# (callback `carEvent` del contrato OpenAPI). Payload = components.schemas.WebhookPayload del contrato.
+asyncapi: 2.6.0
+
+info:
+  title: GDS Autos — Eventos (webhooks)
+  version: 1.0.0
+  description: |
+    Eventos de dominio del servicio de alquiler de autos, entregados por webhook.
+
+    **Garantía:** al menos una entrega (patrón Transactional Outbox). El receptor debe deduplicar por `eventId`.
+
+    **Reintentos:** si el receptor no responde 2xx en 5 s, se reintenta a los 1 min, 5 min, 30 min, 2 h y 12 h;
+    después la entrega queda en estado DEAD.
+
+    **Firma:** cada entrega lleva `X-Hub-Signature-256: sha256=<hex>`, el HMAC-SHA256 del cuerpo exacto
+    con el `secret` de la suscripción. El receptor debe verificarla en tiempo constante antes de procesar.
+
+    **Privacidad:** los eventos de una orden solo se entregan al sistema dueño de la orden (claim `sub`).
+    `DEPOT_UPDATE` se entrega a todos los suscriptores.
+
+servers:
+  subscriber:
+    url: '{subscriberUrl}'
+    protocol: https
+    description: URL registrada por el suscriptor en POST /webhooks (campo `url`).
+    variables:
+      subscriberUrl:
+        default: https://example.com/webhooks/autos
+
+channels:
+  '{subscriberUrl}':
+    parameters:
+      subscriberUrl:
+        schema:
+          type: string
+          format: uri
+    publish:
+      summary: El servicio de autos envía (POST) un evento al suscriptor.
+      operationId: carEvent
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: 0.3.0
+      message:
+        oneOf:
+          - $ref: '#/components/messages/CarOrderConfirmed'
+          - $ref: '#/components/messages/CarOrderCancelled'
+          - $ref: '#/components/messages/DepotUpdate'
+
+components:
+  messages:
+    CarOrderConfirmed:
+      name: CAR_ORDER_CONFIRMED
+      title: Orden confirmada
+      summary: Se creó una orden (POST /orders/create) y quedó CONFIRMED.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/DeliveryHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookPayload'
+          - properties:
+              eventType:
+                const: CAR_ORDER_CONFIRMED
+              data:
+                $ref: '#/components/schemas/OrderEventData'
+      examples:
+        - payload:
+            eventId: 7b1f7c1e-6a0f-4a57-9d0d-0f8f5f2d2a11
+            eventType: CAR_ORDER_CONFIRMED
+            timestamp: '2026-10-15T14:03:22.000Z'
+            resourceId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            data:
+              order_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              locator: ANDES-7K2Q9M
+              status: CONFIRMED
+              vehicle_id: 6459ce13-be7f-4b14-bbd1-0a3b8e3248c1
+              pickup_datetime: '2026-10-20T15:00:00.000Z'
+              dropoff_datetime: '2026-10-23T15:00:00.000Z'
+              total_price: 179.4
+              currency: USD
+
+    CarOrderCancelled:
+      name: CAR_ORDER_CANCELLED
+      title: Orden cancelada
+      summary: Una orden pasó a CANCELLED (POST /orders/{orderId}/cancel o cancelación desde la web/admin).
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/DeliveryHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookPayload'
+          - properties:
+              eventType:
+                const: CAR_ORDER_CANCELLED
+              data:
+                allOf:
+                  - $ref: '#/components/schemas/OrderEventData'
+                  - properties:
+                      cancellation_fee:
+                        type: number
+                        description: Penalización informativa (0 si fue gratuita). El reembolso lo ejecuta el dominio de pagos.
+
+    DepotUpdate:
+      name: DEPOT_UPDATE
+      title: Agencia actualizada
+      summary: Se creó, modificó o desactivó una agencia; el suscriptor debe refrescar POST /depots.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/DeliveryHeaders'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookPayload'
+          - properties:
+              eventType:
+                const: DEPOT_UPDATE
+              resourceId:
+                description: depot_id (como string).
+
+  schemas:
+    # Idéntico a components.schemas.WebhookPayload de autos-openapi.yaml.
+    WebhookPayload:
+      type: object
+      required: [eventId, eventType, timestamp, resourceId]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Identificador único del evento (clave de deduplicación).
+        eventType:
+          type: string
+          enum: [CAR_ORDER_CONFIRMED, CAR_ORDER_CANCELLED, DEPOT_UPDATE]
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento en que ocurrió el evento (no el de la entrega).
+        resourceId:
+          type: string
+          description: order_id (eventos de órdenes) o depot_id (DEPOT_UPDATE).
+        data:
+          type: object
+
+    OrderEventData:
+      type: object
+      properties:
+        order_id: { type: string, format: uuid }
+        locator: { type: string }
+        status: { type: string, enum: [CONFIRMED, CANCELLED, PENDING] }
+        vehicle_id: { type: string }
+        pickup_datetime: { type: string, format: date-time }
+        dropoff_datetime: { type: string, format: date-time }
+        total_price: { type: number }
+        currency: { type: string }
+
+    DeliveryHeaders:
+      type: object
+      properties:
+        X-Hub-Signature-256:
+          type: string
+          pattern: '^sha256=[0-9a-f]{64}$'
+          description: HMAC-SHA256 del cuerpo con el secret de la suscripción.
+        X-Webhook-Event-Id:
+          type: string
+          format: uuid
+        X-Webhook-Event-Type:
+          type: string

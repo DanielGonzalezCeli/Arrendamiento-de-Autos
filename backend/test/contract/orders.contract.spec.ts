@@ -295,6 +295,11 @@ describe('Contrato autos-openapi.yaml — órdenes', () => {
 /** Borra lo que creó esta ejecución (orden inverso a las FK). */
 async function cleanUp(db: DataSource, ownerSub: string, since: Date) {
   await db.query(
+    `DELETE FROM webhook_deliveries WHERE event_id IN (SELECT e.id FROM outbox_events e JOIN reservations r ON r.id::text = e.resource_id
+      WHERE r.owner_sub = $1 AND r.created_at >= $2)`,
+    [ownerSub, since],
+  );
+  await db.query(
     `DELETE FROM outbox_events WHERE resource_id IN (SELECT id::text FROM reservations WHERE owner_sub = $1 AND created_at >= $2)`,
     [ownerSub, since],
   );

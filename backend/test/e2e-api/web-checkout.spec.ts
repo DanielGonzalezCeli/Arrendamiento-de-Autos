@@ -25,6 +25,7 @@ describe('API interna — checkout y mis reservas', () => {
   afterAll(async () => {
     const db = app.get(DataSource);
     const ids = (await db.query(`SELECT id FROM users WHERE email = ANY($1)`, [users])).map((u: { id: string }) => `user:${u.id}`);
+    await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT e.id FROM outbox_events e JOIN reservations r ON r.id::text = e.resource_id WHERE r.owner_sub = ANY($1))`, [ids]);
     await db.query(`DELETE FROM outbox_events WHERE resource_id IN (SELECT id::text FROM reservations WHERE owner_sub = ANY($1))`, [ids]);
     for (const table of ['reservations', 'order_previews', 'holds', 'idempotency_records']) {
       await db.query(`DELETE FROM ${table} WHERE owner_sub = ANY($1)`, [ids]);
