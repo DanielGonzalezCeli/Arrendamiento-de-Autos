@@ -29,6 +29,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autos_db
       CORS_ORIGINS: http://localhost:5173
       USER_JWT_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+      # URL base fija para los enlaces HATEOAS (igual que en producción)
+      PUBLIC_BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
