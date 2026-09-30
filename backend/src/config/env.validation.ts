@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, IsUrl, Max, Min, validateSync } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUrl, Max, Min, MinLength, validateSync } from 'class-validator';
 
 export enum NodeEnv {
   Development = 'development',
@@ -22,6 +22,15 @@ export class EnvironmentVariables {
 
   @IsString()
   DATABASE_URL: string;
+
+  /** Secreto HS256 de los JWT de usuarios web (≥ 32 caracteres). Distinto de las claves de integración. */
+  @IsString()
+  @MinLength(32)
+  USER_JWT_SECRET: string;
+
+  @IsOptional()
+  @IsString()
+  USER_JWT_EXPIRES_IN?: string;
 
   /** Orígenes permitidos para la API interna, separados por coma. */
   @IsString()

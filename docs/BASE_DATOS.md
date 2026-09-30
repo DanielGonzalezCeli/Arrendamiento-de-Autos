@@ -22,7 +22,7 @@ reservations 1─0..1 depot_reviews *─1 depots
 search_sessions 1─* holds, 1─* order_previews
 holds 0..1─* order_previews 1─0..1 reservations
 affiliates · api_clients · idempotency_records · webhook_subscriptions 1─* webhook_deliveries *─1 outbox_events
-currency_rates · system_settings
+currency_rates
 ```
 
 ## 2. Enums
@@ -58,7 +58,7 @@ currency_rates · system_settings
 | `rates` | `id`, `supplier_id FK`, `category_id FK`, `daily_rate numeric(12,2)`, `currency char(3) DEFAULT 'USD'`, `valid_from date`, `valid_to date` | CHECK `daily_rate>0`; EXCLUDE sin solapamiento de vigencia por (`supplier`, `category`) |
 | `extras` | `id`, `code UNIQUE` (`GPS`, `CHILD_SEAT`, `ADDITIONAL_DRIVER`, `CDW`...), `name`, `type`, `price_per_day`, `max_price NULL`, `active` | — |
 | `currency_rates` | `currency char(3) PK`, `rate_from_usd numeric(12,6)`, `updated_at` | USD = 1 |
-| `system_settings` | `key PK`, `value jsonb` | TAX_RATE, TTLs, fees, cancellation hours |
+| ~~`system_settings`~~ | — | **No se creó** (decisión Fase 2): los parámetros de negocio viven como constantes con nombre en `src/domain/business-rules.ts`; son fijos para el MVP y así quedan versionados y probados |
 
 ### Usuarios e integración
 | Tabla | Columnas clave | Restricciones |

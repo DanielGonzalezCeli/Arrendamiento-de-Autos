@@ -7,7 +7,10 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
+import { AuthModule } from './modules/auth/auth.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 import { INTEGRATION_BASE_PATH } from './modules/docs/contract-docs';
+import { INTERNAL_BASE_PATH } from './modules/docs/internal-docs';
 import { HealthModule } from './modules/health/health.module';
 import { IntegrationApiModule } from './modules/integration-api/integration-api.module';
 
@@ -53,8 +56,14 @@ const REDACTED_PATHS = [
     }),
 
     HealthModule,
+    AvailabilityModule,
+    AuthModule,
     IntegrationApiModule,
-    RouterModule.register([{ path: INTEGRATION_BASE_PATH, module: IntegrationApiModule }]),
+    // /api/*       → API interna (frontend)       · /autos/v1/* → API de integración (Booking Hub)
+    RouterModule.register([
+      { path: INTERNAL_BASE_PATH, module: AuthModule },
+      { path: INTEGRATION_BASE_PATH, module: IntegrationApiModule },
+    ]),
   ],
 })
 export class AppModule {}

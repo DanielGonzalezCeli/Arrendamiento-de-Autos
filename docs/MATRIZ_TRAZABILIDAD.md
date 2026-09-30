@@ -27,15 +27,23 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 
 | Rúbrica | Requisito | Componente | Prueba | Evidencia | Estado |
 |---|---|---|---|---|---|
+| C2 C3 | Autenticación web y roles | `AuthModule` (`/api/auth/*`), `UserJwtGuard`, `RolesGuard` | e2e-api/auth, unit/auth/roles.guard | `/api/docs` | Hecho ✔ |
+| C5 C6 | Reglas de dominio (precio, días, horario, edad, cancelación) | `src/domain/*` | unit/domain (28 casos) | Tests | Hecho ✔ |
+| C5 | Disponibilidad por inventario | `AvailabilityService` | integration/availability (11 casos) | Tests | Hecho ✔ |
+
+**Tabla general:**
+
+| Rúbrica | Requisito | Componente | Prueba | Evidencia | Estado |
+|---|---|---|---|---|---|
 | C6 | Contrato inalterado | `contracts/autos-openapi.yaml` + `UPSTREAM.md` | test de checksum | CI verde | Copiado ✔ |
 | C4 | Docs públicas desde el contrato | `DocsModule` (Swagger UI + Redoc desde el YAML) | API: `/autos/v1/docs` 200 | URL pública | Pendiente |
-| C6 C4 | Errores estándar | `ProblemDetailsFilter` | contract (400/404/409/429) | Swagger | Pendiente |
+| C6 C4 | Errores estándar | `ProblemDetailsFilter` | e2e-api/auth (400/401/409, solo campos permitidos) | Swagger | Hecho (filtro global) ✔ |
 | C6 | Seguridad entre sistemas | `OAuth2Guard`, `ScopesGuard`, emisor local | API: 401/403 | Token → llamada | Pendiente |
 | C2 | CRUD de administración | `internal-api/admin/*` + frontend `/admin` | API + E2E | Demo | Pendiente |
 | C2 | Gestión operativa | `RentalOperationsService`, `vehicle_blocks` | unit + E2E | Demo | Pendiente |
 | C3 | Publicación → marketplace | `vehicles.published` + búsqueda | E2E | Demo | Pendiente |
 | C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Pendiente |
-| C5 | Integridad | migraciones, EXCLUDE, FK, CHECK | integración | ER + 409 | Pendiente |
+| C5 | Integridad | migración `InitialSchema`, EXCLUDE (placa y tarifas), FK, CHECK, seed | integration/schema-alignment, integration/availability | ER + 409 | Hecho ✔ |
 | C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs en README | Esqueleto desplegado ✔ |
 | C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Pendiente |
 | C9 | Documentación | `docs/*` | — | Carpeta docs | Análisis ✔ |

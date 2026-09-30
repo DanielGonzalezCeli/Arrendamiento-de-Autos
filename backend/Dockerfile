@@ -17,5 +17,6 @@ COPY --from=build /app/backend/package.json ./
 COPY contracts/ /app/contracts/
 USER node
 EXPOSE 3000
-# Las migraciones se aplican antes de levantar la API; si fallan, el deploy falla.
-CMD ["sh", "-c", "npm run migration:run && node dist/main"]
+# Al arrancar: migraciones → seed idempotente (solo llena una BD vacía) → API.
+# Si las migraciones fallan, el deploy falla y Render mantiene la versión anterior.
+CMD ["sh", "-c", "npm run migration:run && npm run seed && node dist/main"]

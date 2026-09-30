@@ -18,6 +18,14 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
+      # Secreto de los JWT de usuarios web: Render lo genera aleatoriamente.
+      - key: USER_JWT_SECRET
+        generateValue: true
+      # Contraseñas de los usuarios de demo que crea el seed en una BD vacía.
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_CUSTOMER_PASSWORD
+        sync: false
 
   - type: web
     name: arrendamiento-autos-web
