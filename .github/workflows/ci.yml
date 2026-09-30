@@ -41,7 +41,7 @@ jobs:
       - run: npm run build
       - run: npm run migration:run
       - run: npm run seed
-      - run: npm test
+      - run: npm test -- --reporters=default --reporters=github-actions
 
   frontend:
     name: Frontend (build)
