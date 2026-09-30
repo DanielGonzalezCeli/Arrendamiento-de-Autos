@@ -38,7 +38,7 @@ export function configureAuth(token: string | null, unauthorizedHandler: (() => 
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   headers?: Record<string, string>
 }

@@ -12,6 +12,7 @@ import { Reservation } from './entities/reservation.entity';
 import { HoldService } from './hold.service';
 import { OrderPreviewService } from './order-preview.service';
 import { OrderPricingService } from './order-pricing.service';
+import { RentalOperationsService } from './rental-operations.service';
 import { ReservationService } from './reservation.service';
 
 /** Dominio de órdenes: hold, preview y reservas. Compartido por la API interna y la de integración. */
@@ -23,7 +24,7 @@ import { ReservationService } from './reservation.service';
     AvailabilityModule,
     EventsModule,
   ],
-  providers: [HoldService, OrderPreviewService, OrderPricingService, ReservationService],
-  exports: [HoldService, OrderPreviewService, ReservationService],
+  providers: [HoldService, OrderPreviewService, OrderPricingService, ReservationService, RentalOperationsService],
+  exports: [HoldService, OrderPreviewService, ReservationService, RentalOperationsService],
 })
 export class OrdersModule {}

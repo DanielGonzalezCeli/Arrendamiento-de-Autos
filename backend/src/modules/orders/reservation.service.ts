@@ -210,8 +210,19 @@ export class ReservationService {
     });
   }
 
-  /** POST /orders/{orderId}/cancel — RN22. */
-  async cancel(id: string, ownerSub: string, manager?: EntityManager, now = new Date()): Promise<Reservation> {
+  /** POST /orders/{orderId}/cancel — RN22. Solo el dueño. */
+  cancel(id: string, ownerSub: string, manager?: EntityManager, now = new Date()): Promise<Reservation> {
+    return this.doCancel(id, ownerSub, ownerSub, manager, now);
+  }
+
+  /** Cancelación desde el panel de administración: cualquier reserva; el historial registra al admin. */
+  cancelAsAdmin(id: string, adminSub: string, now = new Date()): Promise<Reservation> {
+    return this.doCancel(id, null, adminSub, undefined, now);
+  }
+
+  private async doCancel(
+    id: string, ownerSub: string | null, actorSub: string, manager: EntityManager | undefined, now: Date,
+  ): Promise<Reservation> {
     return inTransaction(this.dataSource, manager, async (m) => {
       const reservation = await this.lockOwned(m, id, ownerSub);
       const baseLine = reservation.priceBreakdown.lines.find((line) => line.code === 'BASE');
@@ -225,7 +236,7 @@ export class ReservationService {
         status: OrderStatus.Cancelled, cancelledAt: now, cancellationFee: fee, version: reservation.version + 1,
       });
       const cancelled = await this.reload(m, reservation.id);
-      await this.history(m, cancelled, ReservationAction.Cancelled, ownerSub, before);
+      await this.history(m, cancelled, ReservationAction.Cancelled, actorSub, before);
       await this.outbox.record(m, DomainEventType.CarOrderCancelled, cancelled.id, { ...eventPayload(cancelled), cancellation_fee: fee });
       return cancelled;
     });
@@ -241,10 +252,13 @@ export class ReservationService {
     return { model, pickupDepot, dropoffDepot };
   }
 
-  /** Bloquea la fila (FOR UPDATE) para que dos modificaciones/cancelaciones no se pisen. */
-  private async lockOwned(m: EntityManager, id: string, ownerSub: string): Promise<Reservation> {
+  /**
+   * Bloquea la fila (FOR UPDATE) para que dos modificaciones/cancelaciones no se pisen.
+   * ownerSub = null → acceso de administrador (sin comprobar dueño).
+   */
+  private async lockOwned(m: EntityManager, id: string, ownerSub: string | null): Promise<Reservation> {
     const locked = isUuid(id) ? await m.findOne(Reservation, { where: { id }, lock: { mode: 'pessimistic_write' } }) : null;
-    if (!locked || locked.ownerSub !== ownerSub) throw DomainError.notFound('La orden no existe');
+    if (!locked || (ownerSub !== null && locked.ownerSub !== ownerSub)) throw DomainError.notFound('La orden no existe');
     return this.reload(m, id);
   }
 

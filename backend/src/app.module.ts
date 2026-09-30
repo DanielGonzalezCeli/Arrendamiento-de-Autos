@@ -8,6 +8,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { INTEGRATION_BASE_PATH } from './modules/docs/contract-docs';
@@ -66,11 +67,13 @@ const REDACTED_PATHS = [
     AuthModule,
     IntegrationAuthModule,
     InternalApiModule,
+    AdminModule,
     IntegrationApiModule,
     // /api/*       → API interna (frontend)       · /autos/v1/* → API de integración (Booking Hub)
     RouterModule.register([
       { path: INTERNAL_BASE_PATH, module: AuthModule },
       { path: INTERNAL_BASE_PATH, module: InternalApiModule },
+      { path: INTERNAL_BASE_PATH, module: AdminModule },
       { path: INTEGRATION_BASE_PATH, module: IntegrationApiModule },
     ]),
   ],

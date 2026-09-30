@@ -24,6 +24,8 @@ const DEPOT_SERVICES: Labels = {
   CITY_OFFICE: { es: 'Oficina en ciudad', en: 'City office' },
   DELIVERY: { es: 'Entrega a domicilio', en: 'Delivery' },
 };
+/** Servicios de agencia válidos (los valida el panel de administración). */
+export const DEPOT_SERVICE_CODES = Object.keys(DEPOT_SERVICES);
 const FUEL_POLICIES: Labels = {
   [FuelPolicy.FullToFull]: { es: 'Lleno a lleno', en: 'Full to full' },
   [FuelPolicy.SameToSame]: { es: 'Mismo nivel', en: 'Same to same' },

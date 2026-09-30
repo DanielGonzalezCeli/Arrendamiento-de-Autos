@@ -22,27 +22,27 @@ const CITY_HOURS = [
 export const DEPOTS = [
   {
     id: 1, supplierId: 1, cityId: 1, name: 'Andes — Aeropuerto Mariscal Sucre (UIO)', address: 'Aeropuerto Internacional Mariscal Sucre, Tababela',
-    airportCode: 'UIO', latitude: -0.129167, longitude: -78.3575, phone: '022000001', services: ['AIRPORT_COUNTER', 'SHUTTLE', 'AFTER_HOURS_RETURN'], hours: AIRPORT_HOURS,
+    airportCode: 'UIO', latitude: -0.129167, longitude: -78.3575, phone: '+59322000001', services: ['AIRPORT_COUNTER', 'SHUTTLE', 'AFTER_HOURS_RETURN'], hours: AIRPORT_HOURS,
   },
   {
     id: 2, supplierId: 1, cityId: 1, name: 'Andes — Quito Norte', address: 'Av. Amazonas N39-123 y Pereira',
-    airportCode: null, latitude: -0.176700, longitude: -78.480000, phone: '022000002', services: ['CITY_OFFICE'], hours: CITY_HOURS,
+    airportCode: null, latitude: -0.176700, longitude: -78.480000, phone: '+59322000002', services: ['CITY_OFFICE'], hours: CITY_HOURS,
   },
   {
     id: 3, supplierId: 1, cityId: 2, name: 'Andes — Aeropuerto José Joaquín de Olmedo (GYE)', address: 'Av. de las Américas s/n, Guayaquil',
-    airportCode: 'GYE', latitude: -2.157419, longitude: -79.883558, phone: '042000003', services: ['AIRPORT_COUNTER', 'SHUTTLE'], hours: AIRPORT_HOURS,
+    airportCode: 'GYE', latitude: -2.157419, longitude: -79.883558, phone: '+59342000003', services: ['AIRPORT_COUNTER', 'SHUTTLE'], hours: AIRPORT_HOURS,
   },
   {
     id: 4, supplierId: 2, cityId: 2, name: 'Pacífico — Aeropuerto José Joaquín de Olmedo (GYE)', address: 'Av. de las Américas s/n, Guayaquil',
-    airportCode: 'GYE', latitude: -2.157500, longitude: -79.883700, phone: '042000004', services: ['AIRPORT_COUNTER'], hours: AIRPORT_HOURS,
+    airportCode: 'GYE', latitude: -2.157500, longitude: -79.883700, phone: '+59342000004', services: ['AIRPORT_COUNTER'], hours: AIRPORT_HOURS,
   },
   {
     id: 5, supplierId: 2, cityId: 2, name: 'Pacífico — Guayaquil Centro', address: 'Av. 9 de Octubre 100 y Malecón',
-    airportCode: null, latitude: -2.194600, longitude: -79.882700, phone: '042000005', services: ['CITY_OFFICE', 'DELIVERY'], hours: CITY_HOURS,
+    airportCode: null, latitude: -2.194600, longitude: -79.882700, phone: '+59342000005', services: ['CITY_OFFICE', 'DELIVERY'], hours: CITY_HOURS,
   },
   {
     id: 6, supplierId: 2, cityId: 3, name: 'Pacífico — Aeropuerto Mariscal Lamar (CUE)', address: 'Av. España s/n, Cuenca',
-    airportCode: 'CUE', latitude: -2.889470, longitude: -78.984397, phone: '072000006', services: ['AIRPORT_COUNTER'], hours: AIRPORT_HOURS,
+    airportCode: 'CUE', latitude: -2.889470, longitude: -78.984397, phone: '+59372000006', services: ['AIRPORT_COUNTER'], hours: AIRPORT_HOURS,
   },
 ];
 

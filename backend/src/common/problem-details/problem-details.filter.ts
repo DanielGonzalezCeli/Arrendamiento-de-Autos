@@ -7,6 +7,7 @@ import { buildProblem, ProblemDetails, ProblemException } from './problem-detail
 /** Códigos de error de PostgreSQL relevantes. */
 const PG_EXCLUSION_VIOLATION = '23P01';
 const PG_UNIQUE_VIOLATION = '23505';
+const PG_FOREIGN_KEY_VIOLATION = '23503';
 
 const DEFAULT_TITLES: Record<number, string> = {
   400: 'Petición inválida',
@@ -53,7 +54,14 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     }
 
     if (exception instanceof QueryFailedError) {
-      const pgCode = (exception as QueryFailedError & { code?: string }).code;
+      const { code: pgCode, constraint } = exception as QueryFailedError & { code?: string; constraint?: string };
+      if (pgCode === PG_EXCLUSION_VIOLATION && constraint === 'rates_no_overlap') {
+        return buildProblem(409, 'Conflicto', ProblemCode.ValidationFailed,
+          'Ya existe una tarifa para ese proveedor y categoría con una vigencia que se solapa');
+      }
+      if (pgCode === PG_FOREIGN_KEY_VIOLATION) {
+        return buildProblem(400, 'Petición inválida', ProblemCode.ValidationFailed, 'Una de las referencias (proveedor, categoría, agencia…) no existe');
+      }
       if (pgCode === PG_EXCLUSION_VIOLATION) {
         return buildProblem(409, 'Vehículo no disponible', ProblemCode.CarNoLongerAvailable, 'El vehículo ya está reservado en ese periodo');
       }
