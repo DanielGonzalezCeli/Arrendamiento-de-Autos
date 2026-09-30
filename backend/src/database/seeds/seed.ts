@@ -25,8 +25,11 @@ const DEV_ADMIN_PASSWORD = 'Admin12345!';
 const DEV_CUSTOMER_PASSWORD = 'Cliente12345!';
 
 /**
- * Seed idempotente: si ya hay proveedores, no hace nada. Se ejecuta en cada arranque del
- * contenedor (Dockerfile), así una BD nueva queda lista para la demo sin pasos manuales.
+ * Seed idempotente, ejecutado en cada arranque del contenedor (Dockerfile):
+ * - Catálogo: solo si la BD no tiene proveedores.
+ * - Usuarios de demo: cada uno se crea si falta y su contraseña está configurada. Es independiente
+ *   del catálogo, para que un arranque sin SEED_ADMIN_PASSWORD no impida crear el admin después.
+ * Nunca modifica datos existentes (no cambia contraseñas ya creadas).
  */
 async function main() {
   loadLocalEnv();
@@ -34,15 +37,15 @@ async function main() {
   const dataSource = await new DataSource(buildTypeOrmOptions(process.env.DATABASE_URL ?? '')).initialize();
 
   try {
-    if ((await dataSource.getRepository(Supplier).count()) > 0) {
-      console.log('[seed] La BD ya tiene datos; no se modifica.');
-      return;
-    }
     await dataSource.transaction(async (manager) => {
-      await seedCatalog(manager);
+      if ((await manager.count(Supplier)) === 0) {
+        await seedCatalog(manager);
+        console.log('[seed] Catálogo de demostración creado.');
+      } else {
+        console.log('[seed] El catálogo ya existe; no se modifica.');
+      }
       await seedUsers(manager, isProduction);
     });
-    console.log('[seed] Datos de demostración creados.');
   } finally {
     await dataSource.destroy();
   }
@@ -106,23 +109,29 @@ async function seedCatalog(manager: EntityManager) {
   await manager.save(Affiliate, AFFILIATES);
 }
 
-async function seedUsers(manager: EntityManager, isProduction: boolean) {
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || (isProduction ? undefined : DEV_ADMIN_PASSWORD);
-  const customerPassword = process.env.SEED_CUSTOMER_PASSWORD || (isProduction ? undefined : DEV_CUSTOMER_PASSWORD);
+const DEMO_USERS = [
+  {
+    email: 'admin@rutalibre.ec', firstName: 'Admin', lastName: 'RutaLibre', phone: null, role: UserRole.Admin,
+    passwordEnv: 'SEED_ADMIN_PASSWORD', devPassword: DEV_ADMIN_PASSWORD,
+  },
+  {
+    email: 'cliente@rutalibre.ec', firstName: 'Camila', lastName: 'Torres', phone: '0991234567', role: UserRole.Customer,
+    passwordEnv: 'SEED_CUSTOMER_PASSWORD', devPassword: DEV_CUSTOMER_PASSWORD,
+  },
+];
 
-  if (adminPassword) {
-    await manager.save(User, {
-      email: 'admin@rutalibre.ec', firstName: 'Admin', lastName: 'RutaLibre', role: UserRole.Admin,
-      passwordHash: await bcrypt.hash(adminPassword, BCRYPT_COST),
-    });
-  } else {
-    console.warn('[seed] SEED_ADMIN_PASSWORD no definida: no se crea el usuario administrador.');
-  }
-  if (customerPassword) {
-    await manager.save(User, {
-      email: 'cliente@rutalibre.ec', firstName: 'Camila', lastName: 'Torres', phone: '0991234567', role: UserRole.Customer,
-      passwordHash: await bcrypt.hash(customerPassword, BCRYPT_COST),
-    });
+async function seedUsers(manager: EntityManager, isProduction: boolean) {
+  for (const { passwordEnv, devPassword, ...user } of DEMO_USERS) {
+    if (await manager.exists(User, { where: { email: user.email } })) continue;
+
+    // En producción la contraseña es obligatoria (nunca se usa la de desarrollo).
+    const password = process.env[passwordEnv] || (isProduction ? undefined : devPassword);
+    if (!password) {
+      console.warn(`[seed] ${passwordEnv} no definida: no se crea ${user.email}.`);
+      continue;
+    }
+    await manager.save(User, { ...user, passwordHash: await bcrypt.hash(password, BCRYPT_COST) });
+    console.log(`[seed] Usuario ${user.email} creado.`);
   }
 }
 
