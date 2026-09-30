@@ -28,6 +28,8 @@ export class DomainError extends Error {
     readonly title: string,
     readonly detail?: string,
     readonly invalidParams?: InvalidParam[],
+    /** Segundos para el header Retry-After (409/429 del contrato). */
+    readonly retryAfterSeconds?: number,
   ) {
     super(detail ?? title);
   }
@@ -36,8 +38,8 @@ export class DomainError extends Error {
     return new DomainError(ProblemCode.ValidationFailed, 400, 'Petición inválida', detail, invalidParams);
   }
 
-  static conflict(code: ProblemCode, title: string, detail?: string): DomainError {
-    return new DomainError(code, 409, title, detail);
+  static conflict(code: ProblemCode, title: string, detail?: string, retryAfterSeconds?: number): DomainError {
+    return new DomainError(code, 409, title, detail, undefined, retryAfterSeconds);
   }
 
   static notFound(detail: string): DomainError {

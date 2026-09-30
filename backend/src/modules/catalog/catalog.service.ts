@@ -41,6 +41,15 @@ export class CatalogService {
     });
   }
 
+  /** Modelo activo aunque ya no esté publicado (las reservas existentes lo siguen necesitando). */
+  findModel(id: string): Promise<VehicleModel | null> {
+    return this.models.findOne({ where: { id, active: true }, relations: { category: true, supplier: true } });
+  }
+
+  findDepot(id: number): Promise<Depot | null> {
+    return this.depots.findOne({ where: { id, active: true }, relations: { openingHours: true, city: true, supplier: true } });
+  }
+
   findPublishedModel(id: string): Promise<VehicleModel | null> {
     return this.models.findOne({ where: { id, active: true, published: true }, relations: { category: true, supplier: true } });
   }

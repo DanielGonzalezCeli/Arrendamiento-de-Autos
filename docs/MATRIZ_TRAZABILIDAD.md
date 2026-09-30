@@ -14,12 +14,12 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C4 C7 | Detalles de vehículos | `CarDetails*` | → `VehicleService` → `VehicleMapper` | `POST /autos/v1/details` | contract | Swagger | Hecho ✔ (contract/catalog) |
 | C4 C7 | Proveedores | `Suppliers*` | → `SupplierService` | `POST /autos/v1/suppliers` | contract | Swagger | Hecho ✔ (contract/catalog) |
 | C4 C7 | Constantes | `CarConstants*` | → `ConstantsService` | `POST /autos/v1/constants` | contract | Swagger | Hecho ✔ (contract/catalog) |
-| C4 C6 C3 | Bloqueo temporal | `OrderHold*`, `autos:book`, 409 | `AutosOrdersController` → `HoldService` | `POST /autos/v1/orders/hold` | contract + integración (concurrencia) | Swagger + 409 en vivo | Pendiente |
-| C4 C6 C3 | Resumen de precio | `OrderPreview*`, `autos:read` | → `OrderPreviewService` → `PricingService` | `POST /autos/v1/orders/preview` | contract + unit | Swagger + checkout web | Pendiente |
-| C4 C6 C3 C5 | Crear reserva sin duplicados | `OrderCreateRequest`, `OrderDetail`, `Idempotency-Key`, 201/409 | → `IdempotencyInterceptor` → `ReservationService` → outbox | `POST /autos/v1/orders/create` | contract + integración (idempotencia, concurrencia, EXCLUDE) | Doble envío = 1 reserva | Pendiente |
-| C4 C3 | Consultar orden | `OrderDetail`, 404 | → `ReservationService.getForOwner` → `OrderMapper` (+`_links`) | `GET /autos/v1/orders/{orderId}` | contract + API (ownership) | Swagger | Pendiente |
-| C4 C3 | Modificar orden | `OrderModifyRequest`, 409 | → `ReservationService.modify` | `POST /autos/v1/orders/{id}/modify` | contract + unit | Swagger + web | Pendiente |
-| C4 C3 C8 | Cancelar orden | `autos:cancel`, 409 | → `ReservationService.cancel` → outbox | `POST /autos/v1/orders/{id}/cancel` | contract + unit (política) | Webhook `CAR_ORDER_CANCELLED` | Pendiente |
+| C4 C6 C3 | Bloqueo temporal | `OrderHold*`, `autos:book`, 409 | `AutosOrdersController` → `HoldService` | `POST /autos/v1/orders/hold` | contract + integración (concurrencia) | Swagger + 409 en vivo | Hecho ✔ (contract/orders) |
+| C4 C6 C3 | Resumen de precio | `OrderPreview*`, `autos:read` | → `OrderPreviewService` → `PricingService` | `POST /autos/v1/orders/preview` | contract + unit | Swagger + checkout web | Hecho ✔ (contract/orders) |
+| C4 C6 C3 C5 | Crear reserva sin duplicados | `OrderCreateRequest`, `OrderDetail`, `Idempotency-Key`, 201/409 | → `IdempotencyInterceptor` → `ReservationService` → outbox | `POST /autos/v1/orders/create` | contract + integración (idempotencia, concurrencia, EXCLUDE) | Doble envío = 1 reserva | Hecho ✔ (contract/orders) |
+| C4 C3 | Consultar orden | `OrderDetail`, 404 | → `ReservationService.getForOwner` → `OrderMapper` (+`_links`) | `GET /autos/v1/orders/{orderId}` | contract + API (ownership) | Swagger | Hecho ✔ (contract/orders) |
+| C4 C3 | Modificar orden | `OrderModifyRequest`, 409 | → `ReservationService.modify` | `POST /autos/v1/orders/{id}/modify` | contract + unit | Swagger + web | Hecho ✔ (contract/orders) |
+| C4 C3 C8 | Cancelar orden | `autos:cancel`, 409 | → `ReservationService.cancel` → outbox | `POST /autos/v1/orders/{id}/cancel` | contract + unit (política) | Webhook `CAR_ORDER_CANCELLED` | Hecho ✔ (contract/orders) |
 | C4 C8 | Suscripciones webhook | `WebhookSubscription`, `autos:webhooks` | `WebhooksController` → `WebhookSubscriptionService` | `GET/POST /autos/v1/webhooks`, `DELETE /autos/v1/webhooks/{id}` | contract | Swagger | Pendiente |
 | C8 | Entrega de eventos | callback `carEvent`, `WebhookPayload` | `OutboxService` → `WebhookDispatcher` | (saliente) | integración (firma, reintentos) | webhook.site en vivo | Pendiente |
 
@@ -42,7 +42,7 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C2 | CRUD de administración | `internal-api/admin/*` + frontend `/admin` | API + E2E | Demo | Pendiente |
 | C2 | Gestión operativa | `RentalOperationsService`, `vehicle_blocks` | unit + E2E | Demo | Pendiente |
 | C3 | Publicación → marketplace | `vehicles.published` + búsqueda | E2E | Demo | Pendiente |
-| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Pendiente |
+| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Backend hecho ✔ (e2e-api/web-checkout); UI pendiente |
 | C5 | Integridad | migración `InitialSchema`, EXCLUDE (placa y tarifas), FK, CHECK, seed | integration/schema-alignment, integration/availability | ER + 409 | Hecho ✔ |
 | C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs en README | Esqueleto desplegado ✔ |
 | C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Pendiente |

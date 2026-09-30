@@ -1,4 +1,5 @@
 import { Page } from '../../../common/pagination';
+import { depotLocationPoint } from '../../catalog/depot-location';
 import { Depot } from '../../catalog/entities/depot.entity';
 import { Supplier } from '../../catalog/entities/supplier.entity';
 import { VehicleModel } from '../../catalog/entities/vehicle-model.entity';
@@ -12,15 +13,6 @@ import { DepotScore } from '../../reviews/reviews.service';
 
 function metadata(page: Page<unknown>) {
   return { total_results: page.total, next_page: page.nextPage };
-}
-
-/** LocationPoint: airport solo si la agencia está en un aeropuerto. */
-export function toLocationPoint(depot: Depot) {
-  return {
-    ...(depot.airportCode ? { airport: depot.airportCode } : {}),
-    city_id: depot.cityId,
-    coordinates: { latitude: depot.latitude, longitude: depot.longitude },
-  };
 }
 
 /** CarSearchResponse */
@@ -37,7 +29,7 @@ export function toCarSearchResponse(requestId: string, searchToken: string, page
 export function toDepotsResponse(requestId: string, page: Page<Depot>) {
   return {
     request_id: requestId,
-    data: page.items.map((d) => ({ depot_id: d.id, name: d.name, location: toLocationPoint(d) })),
+    data: page.items.map((d) => ({ depot_id: d.id, name: d.name, location: depotLocationPoint(d) })),
     metadata: metadata(page),
   };
 }

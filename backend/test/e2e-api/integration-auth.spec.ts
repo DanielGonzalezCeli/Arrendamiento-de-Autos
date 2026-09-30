@@ -93,9 +93,11 @@ describe('API de integración — OAuth2 y scopes', () => {
       expect(res.body.detail).toContain('autos:cancel');
     });
 
-    it('con el scope correcto pasa la seguridad (la operación aún no está implementada → 501)', async () => {
+    it('con el scope correcto pasa la seguridad y llega a la validación del body (400)', async () => {
       const readToken = await token('autos:read');
-      await http().post('/autos/v1/orders/preview').set('Authorization', `Bearer ${readToken}`).send({}).expect(501);
+      const res = await http().post('/autos/v1/orders/preview').set('Authorization', `Bearer ${readToken}`).send({});
+      expect(res.status).toBe(400);
+      expect(res.body.invalidParams.map((p: { name: string }) => p.name)).toEqual(expect.arrayContaining(['vehicle_id', 'search_token']));
     });
 
     it('orders/create exige Idempotency-Key UUID (400) después de autenticar', async () => {
