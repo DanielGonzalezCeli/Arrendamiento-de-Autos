@@ -1,8 +1,11 @@
 import { plainToInstance, Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
 
-/** "true"/"false" de las variables de entorno → boolean (Boolean('false') sería true). */
-const toBoolean = ({ value }: { value: unknown }) => value === true || value === 'true';
+/**
+ * "true"/"false" de las variables de entorno → boolean. Se lee el valor ORIGINAL (obj[key]):
+ * la conversión implícita ya habría convertido "false" en Boolean("false") === true.
+ */
+const toBoolean = ({ obj, key }: { obj: Record<string, unknown>; key: string }) => obj[key] === true || obj[key] === 'true';
 
 export enum NodeEnv {
   Development = 'development',
@@ -107,7 +110,9 @@ export class EnvironmentVariables {
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
-  const validated = plainToInstance(EnvironmentVariables, config, { enableImplicitConversion: true });
+  // "VAR=" (vacía, como en .env.example) equivale a no definida: se aplica el valor por defecto.
+  const defined = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== ''));
+  const validated = plainToInstance(EnvironmentVariables, defined, { enableImplicitConversion: true });
   const errors = validateSync(validated, { skipMissingProperties: false });
   if (errors.length > 0) {
     const detail = errors.map((e) => `${e.property}: ${Object.values(e.constraints ?? {}).join(', ')}`);
