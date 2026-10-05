@@ -189,12 +189,20 @@ function normalize(fields: FieldSpec[], values: Values): Values {
 }
 
 // ── Tabla y piezas pequeñas ──────────────────────────────────────────────────
-export function Table({ head, children, empty }: { head: ReactNode[]; children: ReactNode; empty?: boolean }) {
+/** Encabezado de columna: texto, o { label, className } para ocultarla en pantallas pequeñas. */
+type Head = ReactNode | { label: ReactNode; className: string }
+
+export function Table({ head, children, empty }: { head: Head[]; children: ReactNode; empty?: boolean }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-          <tr>{head.map((h, i) => <th key={i} className="px-4 py-3 font-semibold">{h}</th>)}</tr>
+          <tr>
+            {head.map((h, i) => {
+              const col = h && typeof h === 'object' && 'label' in h ? h : { label: h as ReactNode, className: '' }
+              return <th key={i} className={`px-3 py-3 font-semibold first:pl-4 last:pr-4 ${col.className}`}>{col.label}</th>
+            })}
+          </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {empty ? (
@@ -206,7 +214,7 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
   )
 }
 
-export const TD = 'px-4 py-3 align-middle text-slate-700'
+export const TD = 'px-3 py-3 align-middle text-slate-700 first:pl-4 last:pr-4'
 
 type PillTone = 'green' | 'amber' | 'red' | 'slate' | 'blue'
 const PILL: Record<PillTone, string> = {

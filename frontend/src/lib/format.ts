@@ -19,6 +19,19 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso))
 }
 
+/** Fecha y hora compactas para tablas: "7 oct 2026, 10:00". */
+export function formatShortDateTime(iso: string): string {
+  return new Intl.DateTimeFormat(LOCALE, {
+    timeZone: APP_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso))
+}
+
 export function formatDate(iso: string): string {
   return new Intl.DateTimeFormat(LOCALE, { timeZone: APP_TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso))
 }

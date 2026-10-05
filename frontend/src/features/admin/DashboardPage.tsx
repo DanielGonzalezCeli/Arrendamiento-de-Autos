@@ -2,7 +2,7 @@ import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CalendarClock, CarFron
 import { Link } from 'react-router-dom'
 import { ErrorAlert } from '../../components/ui/Alert'
 import { LoadingBlock } from '../../components/ui/Spinner'
-import { formatDateTime, formatMoney } from '../../lib/format'
+import { formatMoney, formatShortDateTime } from '../../lib/format'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, UNIT_STATUS_LABEL, useAdminQuery, type Dashboard } from './admin-api'
 import { SectionHeader, StatCard, TD, Table } from './components'
@@ -75,10 +75,10 @@ export function DashboardPage() {
         <Table head={['Localizador', 'Vehículo', 'Conductor', 'Recogida', 'Canal', 'Estado', 'Total']} empty={!data.recentReservations.length}>
           {data.recentReservations.map((r) => (
             <tr key={r.id} className="hover:bg-slate-50">
-              <td className={TD}><Link to={`/admin/reservas/${r.id}`} className="font-mono font-semibold text-brand-700 hover:underline">{r.locator}</Link></td>
+              <td className={`${TD} whitespace-nowrap`}><Link to={`/admin/reservas/${r.id}`} className="font-mono font-semibold text-brand-700 hover:underline">{r.locator}</Link></td>
               <td className={TD}>{r.vehicle}</td>
               <td className={TD}>{r.driver}</td>
-              <td className={TD}>{formatDateTime(r.pickupAt)}</td>
+              <td className={`${TD} whitespace-nowrap`}>{formatShortDateTime(r.pickupAt)}</td>
               <td className={TD}>{CHANNEL_LABEL[r.channel]}</td>
               <td className={TD}><StatusBadge status={r.status} rentalStatus={r.rentalStatus} /></td>
               <td className={`${TD} text-right font-medium`}>{formatMoney(r.totalPrice, r.currency)}</td>
