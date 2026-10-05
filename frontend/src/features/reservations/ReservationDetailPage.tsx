@@ -1,14 +1,15 @@
-import { ArrowLeft, MapPin, PartyPopper, XCircle } from 'lucide-react'
+import { ArrowLeft, PartyPopper, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
+import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime, formatMoney, TRANSMISSION_LABEL } from '../../lib/format'
 import type { Reservation, RouteEndpoint } from '../../lib/types'
-import { useExtras } from '../catalog/queries'
+import { useExtras, useLocations } from '../catalog/queries'
 import { ExtrasSelector } from '../checkout/ExtrasSelector'
 import { PriceSummary } from '../checkout/PriceSummary'
 import { useCancelReservation, useModifyExtras, useMyReservation } from './reservations-api'
@@ -88,14 +89,11 @@ export function ReservationDetailPage() {
   )
 }
 
+/** El snapshot de la reserva guarda nombre y dirección; teléfono, horario y mapa salen de la agencia actual. */
 function RoutePoint({ title, point }: { title: string; point: RouteEndpoint }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <p className="text-sm font-medium text-slate-800">{formatDateTime(point.datetime)}</p>
-      <p className="flex items-start gap-1 text-sm text-slate-600"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />{point.name}</p>
-    </div>
-  )
+  const { data: cities } = useLocations()
+  const depot = cities?.flatMap((c) => c.depots).find((d) => d.id === point.depot_id)
+  return <DepotCard title={title} when={point.datetime} depot={depot ? { ...depot, name: point.name, address: point.address } : point} />
 }
 
 function ModifyExtras({ reservation }: { reservation: Reservation }) {

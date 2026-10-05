@@ -27,6 +27,7 @@ export interface Depot {
   id: number
   name: string
   address: string
+  phone?: string | null
   airportCode: string | null
   city?: { id: number; name: string }
   supplier?: { id: number; name: string }

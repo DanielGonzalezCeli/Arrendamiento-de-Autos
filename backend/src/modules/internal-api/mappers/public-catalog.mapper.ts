@@ -10,6 +10,7 @@ export function toDepotSummary(depot: Depot) {
     id: depot.id,
     name: depot.name,
     address: depot.address,
+    phone: depot.phone,
     airportCode: depot.airportCode,
     city: depot.city ? { id: depot.city.id, name: depot.city.name } : undefined,
     supplier: depot.supplier ? { id: depot.supplier.id, name: depot.supplier.name } : undefined,

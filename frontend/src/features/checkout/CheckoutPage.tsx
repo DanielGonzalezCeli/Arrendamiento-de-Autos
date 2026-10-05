@@ -3,13 +3,13 @@ import { ArrowLeft, CheckCircle2, Lock } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
+import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { LoadingBlock } from '../../components/ui/Spinner'
-import { formatDateTime } from '../../lib/format'
 import { useFormValidation } from '../../lib/use-form-validation'
 import { collectErrors, sanitizeNameInput, validateEmail, validateName, validatePhone } from '../../lib/validation'
 import type { Offer } from '../../lib/types'
@@ -178,10 +178,10 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
             <div className="h-36"><CarIllustration category={offer.vehicle.category.code} imageUrl={offer.vehicle.imageUrl} alt={offer.vehicle.displayName} /></div>
             <div className="p-6">
               <h2 className="font-semibold text-slate-800">Resumen</h2>
-              <dl className="mt-2 mb-4 space-y-1 text-sm text-slate-600">
-                <div><dt className="inline font-medium">Recogida: </dt><dd className="inline">{formatDateTime(pickupAt)} · {offer.pickupDepot.name}</dd></div>
-                <div><dt className="inline font-medium">Devolución: </dt><dd className="inline">{formatDateTime(dropoffAt)} · {offer.dropoffDepot.name}</dd></div>
-              </dl>
+              <div className="mt-3 mb-4 flex flex-col gap-3">
+                <DepotCard title="Recogida" depot={offer.pickupDepot} when={pickupAt} />
+                <DepotCard title="Devolución" depot={offer.dropoffDepot} when={dropoffAt} />
+              </div>
               {preview.isError && <ErrorAlert error={preview.error} />}
               {preview.data ? <PriceSummary price={preview.data.price} updating={preview.isFetching} /> : <PriceSummary price={offer.price} updating />}
               {confirm.isError && <div className="mt-4"><ErrorAlert error={confirm.error} /></div>}

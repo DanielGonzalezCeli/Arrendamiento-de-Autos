@@ -21,10 +21,12 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
   // 1. Portada y búsqueda
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Alquila el auto ideal/ })).toBeVisible()
-  await expect(page.locator('#pickup option[value="airport:UIO"]')).toHaveCount(1)
+  // Sin opciones duplicadas: cada mostrador del aeropuerto aparece una sola vez, como agencia
+  await expect(page.locator('#pickup option', { hasText: 'Aeropuerto Mariscal Sucre (UIO) · Andes' })).toHaveCount(1)
+  await expect(page.locator('#pickup option[value^="airport:"]')).toHaveCount(0)
   await snap(page, '01-home')
 
-  await page.locator('#pickup').selectOption('airport:UIO')
+  await page.locator('#pickup').selectOption({ label: 'Aeropuerto Mariscal Sucre (UIO) · Andes' })
   await page.locator('#from-date').fill(inDays(start))
   await page.locator('#to-date').fill(inDays(start + 3))
   await page.getByRole('button', { name: 'Buscar vehículos' }).first().click()
@@ -66,6 +68,10 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
 
   // 6. Confirmación
   await expect(page.getByText('¡Reserva confirmada!')).toBeVisible()
+  // Dónde retirar y devolver: agencia, dirección, teléfono y mapa
+  await expect(page.getByText('Aeropuerto Mariscal Sucre (UIO) · Andes').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /Ver en Google Maps/ })).toHaveCount(2)
+  await expect(page.getByRole('link', { name: '+59322000001' }).first()).toBeVisible()
   const locator = await page.locator('strong.font-mono').first().textContent()
   expect(locator).toMatch(/^[A-Z]+-[A-Z2-9]{6}$/)
   await expect(page.getByText('Navegador GPS').first()).toBeVisible()

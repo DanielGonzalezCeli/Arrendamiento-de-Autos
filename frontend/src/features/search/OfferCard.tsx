@@ -1,3 +1,4 @@
+import { depotLabel } from '../../lib/depots'
 import { Briefcase, DoorOpen, Fuel, MapPin, Settings2, Snowflake, Users } from 'lucide-react'
 import { CarIllustration } from '../../components/CarIllustration'
 import { ButtonLink } from '../../components/ui/Button'
@@ -29,10 +30,18 @@ export function OfferCard({ offer, searchToken }: { offer: Offer; searchToken: s
             <Spec icon={<Fuel className="h-4 w-4" />}>{FUEL_LABEL[vehicle.fuelType] ?? vehicle.fuelType}</Spec>
             {vehicle.airConditioning && <Spec icon={<Snowflake className="h-4 w-4" />}>A/C</Spec>}
           </ul>
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
-            <MapPin className="h-3.5 w-3.5" /> {offer.pickupDepot.name}
-            {offer.oneWay && <span className="text-amber-600"> → {offer.dropoffDepot.name}</span>}
-          </p>
+          <div className="mt-3 flex flex-col gap-0.5 text-xs text-slate-500">
+            <p className="flex items-start gap-1.5">
+              <MapPin className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>Retiras en <strong className="font-medium text-slate-700">{depotLabel(offer.pickupDepot)}</strong></span>
+            </p>
+            {offer.oneWay && (
+              <p className="flex items-start gap-1.5 text-amber-700">
+                <MapPin className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span>Devuelves en <strong className="font-medium">{depotLabel(offer.dropoffDepot)}</strong></span>
+              </p>
+            )}
+          </div>
           {offer.availableUnits <= 2 && (
             <p className="mt-1 text-xs font-semibold text-rose-600">{offer.availableUnits === 1 ? '¡Solo queda 1!' : `¡Solo quedan ${offer.availableUnits}!`}</p>
           )}

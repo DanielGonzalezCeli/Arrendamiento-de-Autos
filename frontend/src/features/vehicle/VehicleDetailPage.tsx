@@ -1,12 +1,12 @@
-import { ArrowLeft, Briefcase, CalendarClock, DoorOpen, Fuel, Gauge, MapPin, Settings2, ShieldCheck, Snowflake, Users } from 'lucide-react'
+import { ArrowLeft, Briefcase, DoorOpen, Fuel, Gauge, Settings2, ShieldCheck, Snowflake, Users } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
+import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { ButtonLink } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { LoadingBlock } from '../../components/ui/Spinner'
-import { formatDateTime, FUEL_LABEL, FUEL_POLICY_LABEL, TRANSMISSION_LABEL, WEEKDAYS } from '../../lib/format'
-import type { Depot } from '../../lib/types'
+import { FUEL_LABEL, FUEL_POLICY_LABEL, TRANSMISSION_LABEL } from '../../lib/format'
 import { PriceSummary } from '../checkout/PriceSummary'
 import { readLastSearch, useVehicle } from '../catalog/queries'
 import { criteriaToParams } from '../search/search-criteria'
@@ -70,8 +70,10 @@ export function VehicleDetailPage() {
           {offer ? (
             <Card className="p-6 lg:sticky lg:top-6">
               <h2 className="mb-4 font-semibold text-slate-800">Tu alquiler</h2>
-              <DepotInfo title="Recogida" depot={offer.pickupDepot} when={last!.result.pickupAt} />
-              <DepotInfo title="Devolución" depot={offer.dropoffDepot} when={last!.result.dropoffAt} />
+              <div className="flex flex-col gap-4">
+                <DepotCard title="Recogida" depot={offer.pickupDepot} when={last!.result.pickupAt} />
+                <DepotCard title="Devolución" depot={offer.dropoffDepot} when={last!.result.dropoffAt} />
+              </div>
               <div className="my-4 border-t border-slate-100" />
               <PriceSummary price={offer.price} />
               <ButtonLink to={`/reservar/${v.id}?token=${token}`} className="mt-5 w-full">Reservar este vehículo</ButtonLink>
@@ -96,23 +98,6 @@ function Spec({ icon, label, value }: { icon: React.ReactNode; label: string; va
         <dt className="text-xs text-slate-500">{label}</dt>
         <dd className="text-sm font-medium text-slate-800">{value}</dd>
       </div>
-    </div>
-  )
-}
-
-function DepotInfo({ title, depot, when }: { title: string; depot: Depot; when: string }) {
-  const hours = [...depot.openingHours].sort((a, b) => a.weekday - b.weekday)
-  return (
-    <div className="mb-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800"><CalendarClock className="h-4 w-4 text-slate-400" /> {formatDateTime(when)}</p>
-      <p className="flex items-start gap-1.5 text-sm text-slate-600"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" /> {depot.name}<br />{depot.address}</p>
-      <details className="mt-1 text-xs text-slate-500">
-        <summary className="cursor-pointer">Horario de la agencia</summary>
-        <ul className="mt-1 grid grid-cols-2 gap-x-3">
-          {hours.map((h) => <li key={h.weekday}>{WEEKDAYS[h.weekday]}: {h.opens}–{h.closes}</li>)}
-        </ul>
-      </details>
     </div>
   )
 }

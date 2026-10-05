@@ -1,3 +1,4 @@
+import { depotLabel } from '../../lib/depots'
 import { Search } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -77,12 +78,16 @@ function LocationSelect({ id, value, onChange, cities, loading }: {
 }) {
   return (
     <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={loading}>
-      <option value="">{loading ? 'Cargando ubicaciones…' : 'Aeropuerto, ciudad o agencia'}</option>
+      <option value="">{loading ? 'Cargando ubicaciones…' : 'Ciudad o agencia'}</option>
       {cities?.map((city) => (
         <optgroup key={city.id} label={city.name}>
           <option value={`city:${city.id}`}>{city.name} — todas las agencias</option>
-          {city.airports.map((code) => <option key={code} value={`airport:${code}`}>Aeropuerto {code}</option>)}
-          {city.depots.map((d) => <option key={d.id} value={`depot:${d.id}`}>{d.name}</option>)}
+          {/* La búsqueda por aeropuerto (contrato) sigue siendo válida en enlaces y accesos de la portada,
+              pero solo se lista si ya viene elegida: cada mostrador aparece como agencia. */}
+          {city.airports.filter((code) => value === `airport:${code}`).map((code) => (
+            <option key={code} value={`airport:${code}`}>Aeropuerto {code} — todos los mostradores</option>
+          ))}
+          {city.depots.map((d) => <option key={d.id} value={`depot:${d.id}`}>{depotLabel(d)}</option>)}
         </optgroup>
       ))}
     </Select>
