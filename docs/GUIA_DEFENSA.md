@@ -1,5 +1,7 @@
 # Guía de defensa — RutaLibre (Reto 1: Arrendamiento de vehículos)
 
+> **Versión interactiva:** abre [`GUIA_DEFENSA.html`](GUIA_DEFENSA.html) en el navegador (índice, casillas, diagrama, patrones filtrables y preguntas desplegables). Funciona sin internet.
+
 Para preparar la presentación: qué revisar antes, en qué orden mostrar la demo, cómo recorrer el código y las preguntas probables con su respuesta. Los criterios C1–C10 son los de la rúbrica ([`ANALISIS_RUBRICA.md`](ANALISIS_RUBRICA.md)).
 
 ## 1. Antes de la defensa (30 minutos antes)

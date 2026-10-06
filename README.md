@@ -109,6 +109,6 @@ E2E (con backend y frontend levantados): `cd e2e && npm ci && npx playwright ins
 | [`docs/ANALISIS_CONTRATO.md`](docs/ANALISIS_CONTRATO.md) | Análisis de las 15 operaciones del contrato |
 | [`docs/REGLAS_NEGOCIO.md`](docs/REGLAS_NEGOCIO.md) | Reglas RN01–RN31 |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Despliegue en Render y Supabase |
-| [`docs/GUIA_DEFENSA.md`](docs/GUIA_DEFENSA.md) | Guion de la demo y preguntas de la defensa |
+| [`docs/GUIA_DEFENSA.md`](docs/GUIA_DEFENSA.md) · [versión HTML](docs/GUIA_DEFENSA.html) | Guion de la demo, arquitectura, patrones, tecnología y preguntas de la defensa |
 
  El avance por fases está en [`docs/PLAN_IMPLEMENTACION.md`](docs/PLAN_IMPLEMENTACION.md) y la relación rúbrica → evidencia en [`docs/MATRIZ_TRAZABILIDAD.md`](docs/MATRIZ_TRAZABILIDAD.md).

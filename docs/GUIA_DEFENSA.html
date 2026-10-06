@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía de defensa · RutaLibre</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2: #f1f4f9;
+    --text: #172033;
+    --muted: #5b6577;
+    --border: #e2e7ef;
+    --brand: #1d5bd8;
+    --brand-soft: #e8f0ff;
+    --accent: #f59e0b;
+    --ok: #0f9d63;
+    --ok-soft: #e6f6ee;
+    --warn: #b45309;
+    --warn-soft: #fff4e0;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 4px 16px rgba(16, 24, 40, .06);
+    --c1: #2563eb; --c2: #7c3aed; --c3: #0891b2; --c4: #059669; --c5: #ca8a04;
+    --c6: #dc2626; --c7: #db2777; --c8: #ea580c; --c9: #4f46e5; --c10: #475569;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d121c; --surface: #151c2a; --surface-2: #1b2435; --text: #e7ecf5; --muted: #9aa6ba;
+      --border: #263147; --brand: #6b9cff; --brand-soft: #1a2a4d; --ok: #3ccf8e; --ok-soft: #11392a;
+      --warn: #fbbf24; --warn-soft: #3a2a0a; --code-bg: #0a0f1a; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d121c; --surface: #151c2a; --surface-2: #1b2435; --text: #e7ecf5; --muted: #9aa6ba;
+    --border: #263147; --brand: #6b9cff; --brand-soft: #1a2a4d; --ok: #3ccf8e; --ok-soft: #11392a;
+    --warn: #fbbf24; --warn-soft: #3a2a0a; --code-bg: #0a0f1a; --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  a { color: var(--brand); }
+  code {
+    font: .86em/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    background: var(--surface-2); border: 1px solid var(--border); padding: .08em .35em; border-radius: 6px;
+    overflow-wrap: anywhere;
+  }
+  h1, h2, h3 { line-height: 1.25; letter-spacing: -.01em; }
+  h2 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  h3 { font-size: 1.15rem; margin: 2rem 0 .75rem; }
+  .lead { color: var(--muted); margin: 0 0 1.5rem; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); max-width: 1280px; margin: 0 auto; }
+  nav.toc {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 28px 16px 28px 24px;
+    border-right: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; margin-bottom: 4px; }
+  .brand span { color: var(--accent); }
+  .brand-sub { color: var(--muted); font-size: .8rem; margin-bottom: 20px; }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; }
+  nav.toc li a {
+    display: block; padding: 7px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: .92rem;
+  }
+  nav.toc li a:hover { background: var(--surface-2); color: var(--text); }
+  nav.toc li a.active { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+  nav.toc .sub a { padding-left: 24px; font-size: .85rem; }
+  .toc-tools { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+  main { padding: 32px 40px 80px; min-width: 0; }
+  section { margin-bottom: 64px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); padding: 7px 12px; border-radius: 9px; font: inherit; font-size: .85rem; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--brand); color: var(--brand); }
+  .btn:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1d4ed8, #0e7490); color: #fff; border-radius: 20px; padding: 32px;
+    margin-bottom: 48px; box-shadow: var(--shadow);
+  }
+  .hero h1 { margin: 0 0 .5rem; font-size: 2rem; }
+  .hero p { margin: 0; opacity: .92; max-width: 760px; }
+  .hero-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .hero-links a {
+    color: #fff; text-decoration: none; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
+    padding: 7px 12px; border-radius: 999px; font-size: .88rem;
+  }
+  .hero-links a:hover { background: rgba(255,255,255,.24); }
+  .rubric { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block; font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff;
+    white-space: nowrap; text-decoration: none;
+  }
+  .hero .badge { border: 1px solid rgba(255,255,255,.35); }
+  .b-C1 { background: var(--c1); } .b-C2 { background: var(--c2); } .b-C3 { background: var(--c3); }
+  .b-C4 { background: var(--c4); } .b-C5 { background: var(--c5); } .b-C6 { background: var(--c6); }
+  .b-C7 { background: var(--c7); } .b-C8 { background: var(--c8); } .b-C9 { background: var(--c9); } .b-C10 { background: var(--c10); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+
+  /* Checklist */
+  .progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; color: var(--muted); font-size: .9rem; }
+  .bar { flex: 1; height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .25s; }
+  .checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .checklist li { display: flex; gap: 12px; align-items: flex-start; }
+  .checklist input { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--ok); flex-shrink: 0; cursor: pointer; }
+  .checklist label { cursor: pointer; min-width: 0; flex: 1; }
+  .checklist li { min-width: 0; }
+  .checklist li.done label > strong { text-decoration: line-through; color: var(--muted); }
+  .checklist ul { margin: 6px 0 0; padding-left: 18px; }
+
+  /* Code */
+  .code { position: relative; margin: 10px 0 0; }
+  .code pre {
+    margin: 0; background: var(--code-bg); color: var(--code-text); padding: 44px 18px 16px; border-radius: 12px; overflow-x: auto;
+    font: .85rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  .code .btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.08); color: #cbd5e1; border-color: rgba(255,255,255,.2); }
+
+  /* Callouts */
+  .callout { display: flex; gap: 12px; padding: 14px 16px; border-radius: 12px; border: 1px solid; margin: 18px 0; }
+  .callout .icon { font-size: 1.2rem; line-height: 1.4; }
+  .callout.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  .callout.tip { background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
+  .callout p { margin: 0; }
+
+  /* Demo timeline */
+  .timeline { position: relative; display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; }
+  .num {
+    width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-weight: 800;
+    background: var(--brand-soft); color: var(--brand);
+  }
+  .step .card { padding: 16px 18px; }
+  .step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .step-head h4 { margin: 0; font-size: 1rem; }
+  .flow { color: var(--text); margin: 0 0 10px; }
+  .flow .arrow { color: var(--muted); margin: 0 4px; }
+  .say {
+    background: var(--surface-2); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 10px 10px 0;
+    font-style: italic; color: var(--text); margin: 0;
+  }
+  .say::before { content: "Qué decir · "; font-style: normal; font-weight: 700; color: var(--warn); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* Walkthrough */
+  .walk { counter-reset: w; display: grid; gap: 0; }
+  .walk-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; position: relative; padding-bottom: 18px; }
+  .walk-item::before {
+    counter-increment: w; content: counter(w); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--brand); color: #fff; font-weight: 700; z-index: 1;
+  }
+  .walk-item:not(:last-child)::after {
+    content: ""; position: absolute; left: 17px; top: 36px; bottom: 0; width: 2px; background: var(--border);
+  }
+  .walk-item .file { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; font-weight: 600; }
+  .walk-item p { margin: 4px 0 0; color: var(--muted); }
+  .walk-item .tx { display: inline-block; font-size: .72rem; font-weight: 700; color: var(--ok); background: var(--ok-soft); padding: 1px 8px; border-radius: 99px; margin-left: 6px; }
+
+  /* Architecture diagram */
+  .arch { display: grid; gap: 10px; }
+  .arch-row { display: grid; gap: 10px; }
+  .arch-row.two { grid-template-columns: 1fr 1fr; }
+  .box { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface); text-align: center; }
+  .box small { display: block; color: var(--muted); font-size: .8rem; }
+  .box.client { background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+  .box.api { background: color-mix(in srgb, var(--c4) 10%, var(--surface)); }
+  .box.domain { background: color-mix(in srgb, var(--c2) 10%, var(--surface)); }
+  .box.db { background: color-mix(in srgb, var(--c5) 12%, var(--surface)); }
+  .box.event { background: color-mix(in srgb, var(--c8) 12%, var(--surface)); }
+  .down { text-align: center; color: var(--muted); font-size: .8rem; }
+  .arch-side { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface-2); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { font-weight: 600; }
+
+  /* Pattern cards */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .filters button[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .pattern h4 { margin: 0 0 6px; font-size: 1rem; }
+  .pattern .where { font-family: ui-monospace, Consolas, monospace; font-size: .8rem; color: var(--brand); margin: 0 0 8px; overflow-wrap: anywhere; }
+  .pattern p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .tag { display: inline-block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
+  .star { color: var(--accent); }
+
+  /* Tech */
+  .tech { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .tech .card h4 { margin: 0 0 8px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px 9px; font-size: .85rem; font-weight: 600; }
+  .tech p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  /* FAQ */
+  .faq-tools { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .faq-tools input {
+    flex: 1; min-width: 220px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font: inherit;
+  }
+  details.faq { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  details.faq summary { cursor: pointer; padding: 14px 18px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after { content: "+"; color: var(--brand); font-weight: 700; font-size: 1.2rem; line-height: 1; }
+  details.faq[open] summary::after { content: "–"; }
+  details.faq .answer { padding: 0 18px 16px; color: var(--text); }
+  details.faq .answer p, details.faq .answer ul, details.faq .answer ol { margin: 0 0 8px; }
+
+  .quote {
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--brand); border-radius: 12px;
+    padding: 16px 18px; font-size: 1.02rem; box-shadow: var(--shadow);
+  }
+  .quote::before { content: "Respuesta corta"; display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); margin-bottom: 6px; }
+
+  .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .docs a { display: block; text-decoration: none; color: var(--text); }
+  .docs a:hover .card { border-color: var(--brand); }
+  .docs .card { padding: 14px 16px; height: 100%; }
+  .docs strong { display: block; }
+  .docs span { color: var(--muted); font-size: .85rem; font-family: ui-monospace, Consolas, monospace; }
+
+  .menu-btn { display: none; }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc {
+      position: fixed; inset: 0 auto 0 0; width: 280px; background: var(--surface); z-index: 20; transform: translateX(-100%);
+      transition: transform .2s; box-shadow: var(--shadow);
+    }
+    nav.toc.open { transform: none; }
+    .menu-btn { display: inline-flex; position: fixed; top: 12px; right: 12px; z-index: 30; }
+    main { padding: 56px 16px 60px; }
+    .hero { padding: 24px 20px; }
+    .hero h1 { font-size: 1.5rem; }
+    .arch-row.two, .arch-side { grid-template-columns: 1fr; }
+  }
+
+  @media print {
+    nav.toc, .menu-btn, .toc-tools, .filters, .faq-tools, .code .btn { display: none !important; }
+    .layout { display: block; }
+    main { padding: 0; }
+    .hero { background: none; color: var(--text); border: 1px solid #ccc; }
+    .hero-links a { color: var(--text); border-color: #ccc; }
+    details.faq { break-inside: avoid; }
+    details.faq .answer { display: block; }
+    .card, .table-wrap, details.faq { box-shadow: none; }
+    section { margin-bottom: 32px; }
+  }
+</style>
+</head>
+<body>
+<button class="btn menu-btn" type="button" aria-controls="toc" aria-expanded="false" id="menuBtn">☰ Índice</button>
+
+<div class="layout">
+  <nav class="toc" id="toc" aria-label="Índice">
+    <div class="brand">🚗 Ruta<span>Libre</span></div>
+    <div class="brand-sub">Guía de defensa · Reto 1</div>
+    <ol>
+      <li><a href="#antes">1. Antes de la defensa</a></li>
+      <li><a href="#demo">2. Guion de la demo</a></li>
+      <li><a href="#codigo">3. Recorrido por el código</a></li>
+      <li><a href="#arquitectura">4. Arquitectura y tecnología</a></li>
+      <li class="sub"><a href="#estilo">4.1 Estilo arquitectónico</a></li>
+      <li class="sub"><a href="#patrones">4.2 Patrones de diseño</a></li>
+      <li class="sub"><a href="#tecnologia">4.3 Tecnología usada</a></li>
+      <li class="sub"><a href="#microservicios">4.4 ¿Microservicios?</a></li>
+      <li><a href="#preguntas">5. Preguntas probables</a></li>
+      <li><a href="#documentos">6. Dónde está cada cosa</a></li>
+    </ol>
+    <div class="toc-tools">
+      <button class="btn" type="button" id="themeBtn">🌓 Cambiar tema</button>
+      <button class="btn" type="button" onclick="window.print()">🖨️ Imprimir / PDF</button>
+    </div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Guía de defensa</h1>
+      <p>Qué revisar antes, en qué orden mostrar la demo, cómo recorrer el código, cómo explicar la arquitectura y qué responder a las preguntas probables.</p>
+      <div class="hero-links">
+        <a href="https://arrendamiento-autos-web.onrender.com" target="_blank" rel="noreferrer">🛒 Marketplace</a>
+        <a href="https://arrendamiento-autos-web.onrender.com/admin" target="_blank" rel="noreferrer">🛠️ Panel admin</a>
+        <a href="https://arrendamiento-autos-api.onrender.com/health" target="_blank" rel="noreferrer">💚 /health</a>
+        <a href="https://arrendamiento-autos-api.onrender.com/autos/v1/docs" target="_blank" rel="noreferrer">📘 Swagger</a>
+        <a href="https://arrendamiento-autos-api.onrender.com/autos/v1/redoc" target="_blank" rel="noreferrer">📗 Redoc</a>
+        <a href="https://github.com/DanielGonzalezCeli/Arrendamiento-de-Autos/actions" target="_blank" rel="noreferrer">✅ CI</a>
+        <a href="https://webhook.site" target="_blank" rel="noreferrer">🪝 webhook.site</a>
+      </div>
+      <div class="rubric" aria-label="Criterios de la rúbrica">
+        <span class="badge b-C1" title="Despliegue público">C1 Despliegue</span>
+        <span class="badge b-C2" title="Administración">C2 Admin</span>
+        <span class="badge b-C3" title="Marketplace">C3 Marketplace</span>
+        <span class="badge b-C4" title="APIs + OpenAPI">C4 APIs</span>
+        <span class="badge b-C5" title="Base de datos">C5 BD</span>
+        <span class="badge b-C6" title="API-first">C6 API-first</span>
+        <span class="badge b-C7" title="Contratos">C7 Contratos</span>
+        <span class="badge b-C8" title="SOA / EDA">C8 SOA/EDA</span>
+        <span class="badge b-C9" title="Documentación">C9 Docs</span>
+        <span class="badge b-C10" title="Defensa">C10 Defensa</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="antes">
+      <h2>1. Antes de la defensa</h2>
+      <p class="lead">30 minutos antes. Las casillas se guardan en este navegador.</p>
+      <div class="card">
+        <div class="progress"><span id="progressText">0 de 6 listos</span><div class="bar"><i id="progressBar"></i></div><button class="btn" type="button" id="resetChecks">Reiniciar</button></div>
+        <ul class="checklist" id="checklist">
+          <li><input type="checkbox" id="ck1"><label for="ck1"><strong>Despertar la API.</strong> Abrir <a href="https://arrendamiento-autos-api.onrender.com/health" target="_blank" rel="noreferrer">/health</a> y esperar <code>"status":"ok"</code>. El plan gratuito duerme: la primera vez tarda ~50 s.</label></li>
+          <li><input type="checkbox" id="ck2"><label for="ck2"><strong>Supabase activo.</strong> Se pausa tras 7 días sin uso. Si <code>/health</code> dice que la BD está caída, reactivarlo desde el panel de Supabase.</label></li>
+          <li><input type="checkbox" id="ck3"><label for="ck3"><strong>Abrir las pestañas</strong> de los botones de arriba: marketplace, Swagger, Redoc, GitHub Actions (CI en verde) y una URL nueva de webhook.site.</label></li>
+          <li><input type="checkbox" id="ck4"><label for="ck4"><strong>Credenciales a mano, sin mostrarlas en pantalla:</strong> <code>admin@rutalibre.ec</code>, <code>cliente@rutalibre.ec</code> y el secreto de <code>booking-hub-demo</code>. Están en Render → Environment (<code>SEED_ADMIN_PASSWORD</code>, <code>SEED_CUSTOMER_PASSWORD</code>, <code>SEED_HUB_CLIENT_SECRET</code>).</label></li>
+          <li><input type="checkbox" id="ck5"><label for="ck5"><strong>Pedir un token para Swagger</strong> (dura 1 hora):
+            <div class="code"><button class="btn copy" type="button">Copiar</button><pre>curl -X POST https://arrendamiento-autos-api.onrender.com/oauth2/token \
+  -d grant_type=client_credentials -d client_id=booking-hub-demo \
+  -d client_secret=&lt;SECRETO&gt; \
+  -d "scope=autos:read autos:book autos:cancel autos:webhooks"</pre></div></label></li>
+          <li><input type="checkbox" id="ck6"><label for="ck6"><strong>VS Code abierto</strong> con los archivos del <a href="#codigo">recorrido por el código</a>.</label></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="demo">
+      <h2>2. Guion de la demo</h2>
+      <p class="lead">≈ 12 minutos. Cada paso indica qué criterio de la rúbrica cubre.</p>
+
+      <div class="timeline">
+        <div class="step"><div class="num">1</div><div class="card">
+          <div class="step-head"><span class="badge b-C1">C1</span><h4>Despliegue público</h4></div>
+          <p class="flow">Mostrar las dos URLs públicas y <code>/health</code>.</p>
+          <p class="say">Frontend estático y API en Docker en Render, PostgreSQL en Supabase. Cada push a main pasa por CI y se despliega solo.</p>
+        </div></div>
+
+        <div class="step"><div class="num">2</div><div class="card">
+          <div class="step-head"><span class="badge b-C3">C3</span><h4>Consulta</h4></div>
+          <p class="flow">Portada <span class="arrow">→</span> buscar en "Guayaquil — todas las agencias" <span class="arrow">→</span> filtros y orden <span class="arrow">→</span> detalle con dirección, horario y mapa.</p>
+          <p class="say">Cada oferta dice exactamente en qué agencia se retira. El precio ya incluye IVA, días con tolerancia de 59 min y recargos.</p>
+        </div></div>
+
+        <div class="step"><div class="num">3</div><div class="card">
+          <div class="step-head"><span class="badge b-C3">C3</span><h4>Flujo de venta</h4></div>
+          <p class="flow">Reservar <span class="arrow">→</span> registro <span class="arrow">→</span> checkout con cuenta regresiva del hold <span class="arrow">→</span> agregar GPS (el precio cambia en vivo) <span class="arrow">→</span> confirmar <span class="arrow">→</span> localizador.</p>
+          <p class="say">El hold aparta el auto 15 min para que nadie lo tome mientras paga. Confirmar lleva Idempotency-Key: un doble clic no crea dos reservas.</p>
+        </div></div>
+
+        <div class="step"><div class="num">4</div><div class="card">
+          <div class="step-head"><span class="badge b-C3">C3</span><h4>Posventa</h4></div>
+          <p class="flow">Mis reservas <span class="arrow">→</span> modificar extras <span class="arrow">→</span> cancelar.</p>
+          <p class="say">Cancelar es gratis hasta 24 h antes; después se cobra un día.</p>
+        </div></div>
+
+        <div class="step"><div class="num">5</div><div class="card">
+          <div class="step-head"><span class="badge b-C2">C2</span><span class="badge b-C3">C3</span><h4>Publicación</h4></div>
+          <p class="flow">Admin <span class="arrow">→</span> Modelos <span class="arrow">→</span> ocultar un modelo <span class="arrow">→</span> buscar en la web: ya no aparece <span class="arrow">→</span> publicarlo de nuevo.</p>
+          <p class="say">El admin publica la oferta y el marketplace la muestra: esa es la "publicación" de la rúbrica.</p>
+        </div></div>
+
+        <div class="step"><div class="num">6</div><div class="card">
+          <div class="step-head"><span class="badge b-C2">C2</span><h4>Gestión operativa</h4></div>
+          <p class="flow">Admin <span class="arrow">→</span> Reservas <span class="arrow">→</span> abrir la reserva <span class="arrow">→</span> <strong>Registrar entrega</strong> (eligiendo la placa) <span class="arrow">→</span> <strong>Registrar devolución</strong> <span class="arrow">→</span> historial.</p>
+          <p class="say">No es solo CRUD: el cliente reserva un modelo y la placa se asigna al entregar el auto, comprobando que esté libre en todo el periodo.</p>
+        </div></div>
+
+        <div class="step"><div class="num">7</div><div class="card">
+          <div class="step-head"><span class="badge b-C2">C2</span><h4>Reglas en el servidor</h4></div>
+          <p class="flow">Flota <span class="arrow">→</span> bloqueo de mantenimiento. Catálogo <span class="arrow">→</span> crear una tarifa que se superpone <span class="arrow">→</span> error 409.</p>
+          <p class="say">Las reglas están en el backend y en la BD: si alguien salta la interfaz, la API responde igual.</p>
+        </div></div>
+
+        <div class="step"><div class="num">8</div><div class="card">
+          <div class="step-head"><span class="badge b-C4">C4</span><span class="badge b-C6">C6</span><span class="badge b-C7">C7</span><h4>API del contrato</h4></div>
+          <p class="flow">Swagger: <strong>Authorize</strong> con el token <span class="arrow">→</span> <code>/search</code> <span class="arrow">→</span> <code>/orders/preview</code> <span class="arrow">→</span> <code>/orders/create</code>. Repetir create con la <strong>misma</strong> <code>Idempotency-Key</code> → misma respuesta.</p>
+          <p class="say">Swagger muestra el contrato oficial, sin generar nada desde nuestro código. La implementación se adapta al contrato, no al revés.</p>
+        </div></div>
+
+        <div class="step"><div class="num">9</div><div class="card">
+          <div class="step-head"><span class="badge b-C8">C8</span><h4>Eventos y webhooks</h4></div>
+          <p class="flow">Swagger <code>POST /webhooks</code> hacia webhook.site <span class="arrow">→</span> crear una orden <span class="arrow">→</span> ver <code>CAR_ORDER_CONFIRMED</code> con su firma <span class="arrow">→</span> Admin → Integración → entrega exitosa.</p>
+          <p class="say">Patrón transactional outbox: el evento se guarda en la misma transacción que la reserva y un despachador lo envía firmado con HMAC, con reintentos.</p>
+        </div></div>
+
+        <div class="step"><div class="num">10</div><div class="card">
+          <div class="step-head"><span class="badge b-C5">C5</span><h4>Base de datos</h4></div>
+          <p class="flow">Supabase o <code>docs/BASE_DATOS.md</code>: tablas, <code>EXCLUDE</code>, FK, CHECK.</p>
+          <p class="say">La BD también defiende la integridad: dos reservas de la misma placa que se cruzan son imposibles por el EXCLUDE, aunque haya un error en el código.</p>
+        </div></div>
+
+        <div class="step"><div class="num">11</div><div class="card">
+          <div class="step-head"><span class="badge b-C6">C6</span><h4>API-first verificado</h4></div>
+          <p class="flow">GitHub Actions: job con las pruebas de contrato y el checksum.</p>
+          <p class="say">Si alguien cambia un byte del contrato, CI falla. Las pruebas de contrato validan cada respuesta real contra el YAML.</p>
+        </div></div>
+
+        <div class="step"><div class="num">12</div><div class="card">
+          <div class="step-head"><span class="badge b-C9">C9</span><h4>Documentación</h4></div>
+          <p class="flow">Carpeta <code>docs/</code> y el README.</p>
+          <p class="say">Arquitectura, modelo de datos, API interna, guía de integración, SOA/EDA y trazabilidad de la rúbrica.</p>
+        </div></div>
+      </div>
+
+      <div class="callout warn" role="note">
+        <div class="icon">⚠️</div>
+        <p><strong>Ojo con el webhook (paso 9):</strong> los eventos de una orden se envían <strong>solo al dueño de la orden</strong>. Una reserva hecha desde la web <strong>no</strong> llega al webhook del Hub. Crea la orden <strong>desde Swagger con el token del Hub</strong>, o edita una agencia en el panel: <code>DEPOT_UPDATE</code> se envía a todos los suscriptores.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="codigo">
+      <h2>3. Recorrido por el código</h2>
+      <p class="lead">Seguir un request de punta a punta (crear una orden) es la mejor forma de demostrar dominio del código <span class="badge b-C10">C10</span>.</p>
+
+      <div class="card">
+        <div class="walk">
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/integration-api/orders.controller.ts">integration-api/orders.controller.ts</a>
+            <p><code>IntegrationAuthGuard</code> valida el JWT RS256 y el scope <code>autos:book</code>; <code>IdempotencyKeyGuard</code> exige el UUID.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/idempotency/idempotency.service.ts">idempotency/idempotency.service.ts</a>
+            <p>Reclama la clave con <code>INSERT … ON CONFLICT</code>. Si ya existía con el mismo cuerpo, devuelve la respuesta guardada; con otro cuerpo, 409.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/orders/reservation.service.ts">orders/reservation.service.ts → create()</a><span class="tx">inicio de la transacción</span>
+            <p>Valida la referencia de pago y el conductor; bloquea la preview (<code>FOR UPDATE</code>) para que no se use dos veces.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/availability/availability.service.ts">availability/availability.service.ts</a>
+            <p><code>lockVehicleModel</code> pone en fila las reservas del mismo modelo; <code>countAvailableUnits</code> calcula unidades − reservas que se cruzan − holds − bloqueos, con 60 min de limpieza.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/domain/pricing.ts">domain/pricing.ts</a>
+            <p>Recotiza: días, tarifa vigente, extras con tope, recargo joven y por devolver en otra agencia, IVA. Si la preview venció y el precio cambió → 409 <code>PRICE_CHANGED</code>.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <span class="file">reservation.service.ts</span>
+            <p>Guarda la reserva con <em>snapshots</em> (vehículo, ruta y precio congelados), marca el hold como consumido y escribe el historial.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/events/outbox.service.ts">events/outbox.service.ts</a><span class="tx">misma transacción · commit</span>
+            <p>Inserta <code>CAR_ORDER_CONFIRMED</code> en <code>outbox_events</code>.</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/events/webhook-dispatcher.service.ts">events/webhook-dispatcher.service.ts</a>
+            <p>Cada 10 s: <code>FOR UPDATE SKIP LOCKED</code>, firma HMAC, envía y reintenta (1 m, 5 m, 30 m, 2 h, 12 h).</p>
+          </div></div>
+          <div class="walk-item"><div>
+            <a class="file" href="../backend/src/modules/integration-api/mappers/order.mapper.ts">integration-api/mappers/order.mapper.ts</a>
+            <p>Convierte la entidad interna al <code>OrderDetail</code> del contrato (<code>snake_case</code>, <code>_links</code>).</p>
+          </div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="arquitectura">
+      <h2>4. Estilo arquitectónico, patrones y tecnología</h2>
+      <p class="lead">Lo que más suelen preguntar: cómo está organizado el sistema, qué patrones usa y con qué está construido.</p>
+
+      <h3 id="estilo">4.1 Estilo arquitectónico</h3>
+      <div class="quote">Es un <strong>monolito modular en capas</strong>, orientado a servicios hacia afuera (<strong>SOA</strong>) y con <strong>eventos</strong> para la integración (<strong>EDA</strong>). El frontend es una <strong>SPA</strong> separada que consume una API REST. La lógica de negocio vive en un solo lugar y la exponen dos APIs: una para nuestra web y otra, por contrato, para el Booking Hub.</div>
+
+      <h3 style="margin-top:1.5rem">Diagrama</h3>
+      <div class="card arch" role="img" aria-label="Diagrama de capas: clientes, APIs, servicios de dominio, base de datos y eventos">
+        <div class="arch-row two">
+          <div class="box client"><strong>Frontend React</strong><small>Marketplace + panel admin · Render (estático)</small></div>
+          <div class="box client"><strong>Booking Hub</strong><small>Otro equipo · cliente OAuth2</small></div>
+        </div>
+        <div class="arch-row two">
+          <div class="down">JWT de usuario · <code>/api/*</code> ↓</div>
+          <div class="down">Bearer + scopes · <code>/autos/v1/*</code> ↓</div>
+        </div>
+        <div class="arch-row two">
+          <div class="box api"><strong>API interna</strong><small>UserJwtGuard + RolesGuard · DTOs propios</small></div>
+          <div class="box api"><strong>API de integración</strong><small>OAuth2 + scopes · DTOs = contrato · mappers</small></div>
+        </div>
+        <div class="down">↓ ambas llaman a los mismos servicios ↓</div>
+        <div class="arch-side">
+          <div class="box domain"><strong>Servicios de dominio</strong><small>Search · Availability · Pricing · Hold · Preview · Reservation · RentalOperations · Idempotency</small></div>
+          <div class="box event"><strong>Outbox → Dispatcher</strong><small>Webhooks firmados (HMAC) al Hub</small></div>
+        </div>
+        <div class="down">↓ TypeORM (repositorios, transacciones, locks) ↓</div>
+        <div class="box db"><strong>PostgreSQL (Supabase)</strong><small>FK · CHECK · EXCLUDE anti-solapamiento · JSONB snapshots · outbox</small></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:16px">
+        <table>
+          <thead><tr><th>Estilo</th><th>Dónde se ve</th><th>Por qué</th></tr></thead>
+          <tbody>
+            <tr><td>Cliente-servidor + SPA</td><td>React en un sitio estático; NestJS como API</td><td>Front y back se despliegan y escalan por separado</td></tr>
+            <tr><td>Monolito modular</td><td>Un backend dividido en módulos NestJS (<code>catalog</code>, <code>orders</code>, <code>availability</code>, <code>events</code>, <code>admin</code>…)</td><td>Simple de desplegar y defender; cada módulo tiene fronteras claras y podría separarse después</td></tr>
+            <tr><td>Arquitectura en capas</td><td>Controladores → servicios de aplicación → dominio puro (<code>src/domain</code>) → persistencia</td><td>Las reglas de negocio no dependen de HTTP ni de la BD y se prueban solas</td></tr>
+            <tr><td>REST</td><td>Recursos, verbos HTTP, códigos de estado, <code>Cache-Control</code>, HATEOAS (<code>_links</code>)</td><td>Lo exige el contrato OpenAPI</td></tr>
+            <tr><td>SOA</td><td>Somos un servicio del ecosistema del Hub, con contrato estándar y OAuth2 entre servicios</td><td>El Hub orquesta autos, vuelos, alojamiento y pagos</td></tr>
+            <tr><td>EDA</td><td>Eventos de dominio → outbox → webhooks firmados</td><td>El Hub se entera de los cambios sin preguntar todo el tiempo (push en vez de polling)</td></tr>
+            <tr><td>API-first</td><td>El contrato YAML manda; el código se adapta</td><td>Permite que dos equipos trabajen en paralelo</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="patrones">4.2 Patrones de diseño</h3>
+      <div class="callout tip" role="note"><div class="icon">💡</div><p>Elige 4 o 5 que sepas explicar con el archivo abierto. Los marcados con <span class="star">★</span> son los más fáciles de mostrar en vivo.</p></div>
+      <div class="filters" role="group" aria-label="Filtrar patrones">
+        <button class="btn" type="button" data-filter="all" aria-pressed="true">Todos</button>
+        <button class="btn" type="button" data-filter="integ" aria-pressed="false">Arquitectura e integración</button>
+        <button class="btn" type="button" data-filter="gof" aria-pressed="false">Clásicos (GoF / framework)</button>
+        <button class="btn" type="button" data-filter="front" aria-pressed="false">Frontend</button>
+      </div>
+      <div class="grid" id="patterns">
+        <div class="card pattern" data-group="integ"><span class="tag">Integración</span><h4><span class="star">★</span> Transactional Outbox</h4><p class="where">events/outbox.service.ts · webhook-dispatcher.service.ts</p><p>El evento se guarda en la misma transacción que el cambio: nunca se anuncia algo que no ocurrió ni se pierde un evento.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Integración</span><h4>Publish / Subscribe</h4><p class="where">POST /autos/v1/webhooks</p><p>El Hub se suscribe y elige qué eventos recibir.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Integración</span><h4><span class="star">★</span> Idempotent Receiver</h4><p class="where">idempotency/idempotency.service.ts · IdempotencyKeyGuard</p><p>Un reintento con la misma clave no duplica la reserva.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Integración</span><h4>Retry con backoff</h4><p class="where">domain/webhook-rules.ts</p><p>Reintentos tras 1 m, 5 m, 30 m, 2 h y 12 h; luego <code>DEAD</code>. Tolera caídas temporales del suscriptor.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Integración</span><h4>Competing Consumers</h4><p class="where">FOR UPDATE SKIP LOCKED + lease</p><p>Varias instancias del despachador pueden trabajar sin enviar dos veces lo mismo.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Arquitectura</span><h4><span class="star">★</span> Anti-Corruption Layer / Adapter</h4><p class="where">integration-api/mappers/* · internal-api/mappers/*</p><p>El modelo interno (camelCase) no se filtra al contrato (snake_case), y el contrato no contamina el dominio.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Arquitectura</span><h4>Backend for Frontend (BFF)</h4><p class="where">API interna /api</p><p>Endpoints a la medida de la web, separados del contrato público.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Datos</span><h4>Unit of Work</h4><p class="where">common/transaction.ts (inTransaction)</p><p>Cada operación se aplica completa o no se aplica.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Datos</span><h4><span class="star">★</span> Pessimistic Locking</h4><p class="where">availability.lockVehicleModel (SELECT … FOR UPDATE)</p><p>Evita que dos personas reserven el último auto al mismo tiempo.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Datos</span><h4>Snapshot</h4><p class="where">orders/reservation-snapshots.ts (JSONB)</p><p>La reserva guarda vehículo, ruta y precio: no cambia si mañana cambia la tarifa.</p></div>
+        <div class="card pattern" data-group="integ"><span class="tag">Datos</span><h4>Repository / Data Mapper</h4><p class="where">TypeORM (getRepository, EntityManager)</p><p>Separa los objetos de dominio del SQL.</p></div>
+
+        <div class="card pattern" data-group="gof"><span class="tag">Framework</span><h4>Inyección de dependencias / IoC</h4><p class="where">Constructores de todos los servicios NestJS</p><p>Bajo acoplamiento y pruebas con dobles.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">GoF</span><h4>Singleton</h4><p class="where">Providers de NestJS</p><p>Una instancia por aplicación de cada servicio sin estado.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">GoF</span><h4><span class="star">★</span> Decorator</h4><p class="where">@Roles(ADMIN) · @RequireScopes · @CurrentUser · @IsPersonName</p><p>Agrega comportamiento o metadatos sin tocar la lógica.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">GoF</span><h4><span class="star">★</span> Chain of Responsibility</h4><p class="where">Guards → pipes → controlador → filtros</p><p>Cada eslabón (auth, roles/scopes, idempotencia, validación) decide si la petición sigue.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">GoF</span><h4>Strategy</h4><p class="where">AffiliateGuard (lenient / strict)</p><p>Cambia el comportamiento por configuración sin cambiar el código.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">Framework</span><h4>Interceptor</h4><p class="where">DeprecationHeaderInterceptor</p><p>Lógica transversal aplicada a la respuesta.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">Framework</span><h4>Exception Filter centralizado</h4><p class="where">ProblemDetailsFilter</p><p>Todos los errores salen con el mismo formato RFC 7807.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">GoF</span><h4>Factory</h4><p class="where">buildProblem · DomainError.validation / conflict / notFound</p><p>Crea errores consistentes en un solo lugar.</p></div>
+        <div class="card pattern" data-group="gof"><span class="tag">Dominio</span><h4>Guard Clause / Specification</h4><p class="where">domain/* (assertDepotOpen, assertDriverDetails…)</p><p>Reglas de negocio explícitas y probadas con pruebas unitarias.</p></div>
+
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Feature folders</h4><p class="where">src/features/{search, checkout, reservations, admin…}</p><p>El código se agrupa por funcionalidad, no por tipo de archivo.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Custom hooks</h4><p class="where">useSearch · useAdminQuery · useAdminMutation · useFormValidation</p><p>Lógica reutilizable separada de la vista.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Provider / Context</h4><p class="where">AuthProvider</p><p>La sesión del usuario disponible en toda la app.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Caché de estado del servidor</h4><p class="where">TanStack Query</p><p>Caché, reintentos e invalidación automática tras guardar.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Componentes reutilizables</h4><p class="where">components/ui/* · DepotCard · Table</p><p>Una sola implementación para botones, campos, tablas y tarjetas.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Formulario guiado por configuración</h4><p class="where">EntityForm + FieldSpec (panel admin)</p><p>Los campos se describen como datos y un solo componente los dibuja y valida.</p></div>
+        <div class="card pattern" data-group="front"><span class="tag">Frontend</span><h4>Rutas protegidas</h4><p class="where">RequireAuth role="ADMIN"</p><p>Oculta el panel a quien no es admin; el backend vuelve a validar.</p></div>
+      </div>
+
+      <h3 id="tecnologia">4.3 Tecnología usada</h3>
+      <div class="tech">
+        <div class="card"><h4>Lenguaje</h4><div class="chips"><span class="chip">TypeScript</span></div><p>Un solo lenguaje con tipos en frontend y backend.</p></div>
+        <div class="card"><h4>Backend</h4><div class="chips"><span class="chip">NestJS 10</span><span class="chip">Node 22</span><span class="chip">Express</span></div><p>Plantilla oficial del equipo de integración: módulos, DI, guards.</p></div>
+        <div class="card"><h4>Persistencia</h4><div class="chips"><span class="chip">TypeORM 0.3</span><span class="chip">Migraciones</span><span class="chip">SnakeNamingStrategy</span></div><p>Esquema versionado y reproducible.</p></div>
+        <div class="card"><h4>Base de datos</h4><div class="chips"><span class="chip">PostgreSQL</span><span class="chip">Supabase</span></div><p><code>EXCLUDE USING gist</code> + <code>tstzrange</code> contra solapamientos; JSONB para snapshots.</p></div>
+        <div class="card"><h4>Validación</h4><div class="chips"><span class="chip">class-validator</span><span class="chip">class-transformer</span><span class="chip">libphonenumber-js</span></div><p>DTOs validados; teléfonos según el país.</p></div>
+        <div class="card"><h4>Seguridad</h4><div class="chips"><span class="chip">jose (RS256 + JWKS)</span><span class="chip">@nestjs/jwt</span><span class="chip">bcryptjs</span><span class="chip">helmet</span><span class="chip">throttler</span><span class="chip">AES-256-GCM</span></div><p>OAuth2 para el Hub y JWT para usuarios web: dos dominios de seguridad separados.</p></div>
+        <div class="card"><h4>Documentación de API</h4><div class="chips"><span class="chip">OpenAPI 3</span><span class="chip">Swagger UI</span><span class="chip">Redoc</span><span class="chip">AsyncAPI 2.6</span></div><p>Contrato oficial, API interna generada y catálogo de eventos.</p></div>
+        <div class="card"><h4>Logs</h4><div class="chips"><span class="chip">pino</span><span class="chip">nestjs-pino</span></div><p>JSON con <code>request_id</code> para trazar cada petición.</p></div>
+        <div class="card"><h4>Frontend</h4><div class="chips"><span class="chip">React 19</span><span class="chip">Vite 8</span><span class="chip">React Router 7</span><span class="chip">TanStack Query 5</span><span class="chip">Tailwind CSS 4</span><span class="chip">lucide-react</span></div><p>SPA rápida y responsive.</p></div>
+        <div class="card"><h4>Pruebas</h4><div class="chips"><span class="chip">Jest + supertest</span><span class="chip">jest-openapi</span><span class="chip">Vitest</span><span class="chip">Playwright</span></div><p>210 backend · 9 frontend · 7 E2E.</p></div>
+        <div class="card"><h4>CI/CD</h4><div class="chips"><span class="chip">GitHub Actions</span></div><p>Typecheck, build, migraciones, pruebas y E2E en cada push; nada llega a producción con pruebas rojas.</p></div>
+        <div class="card"><h4>Infraestructura</h4><div class="chips"><span class="chip">Render</span><span class="chip">Docker</span><span class="chip">Supabase</span></div><p>API en Docker y sitio estático, accesibles públicamente.</p></div>
+      </div>
+
+      <h3 id="microservicios">4.4 Si preguntan "¿por qué no microservicios?"</h3>
+      <div class="quote">Porque el alcance no lo justifica y un monolito modular es más fácil de desplegar, probar y explicar. Pero lo diseñamos para poder separarlo: los módulos tienen fronteras claras, la comunicación hacia afuera ya es por contrato y por eventos, y el outbox podría publicar en un broker (Kafka, RabbitMQ) sin cambiar los servicios. La plantilla del equipo de integración también menciona una migración futura a microservicios.</div>
+    </section>
+
+    <!-- 5 -->
+    <section id="preguntas">
+      <h2>5. Preguntas probables</h2>
+      <p class="lead">Haz clic en una pregunta para ver la respuesta.</p>
+      <div class="faq-tools">
+        <input type="search" id="faqSearch" placeholder="Buscar en las preguntas (ej. idempotencia, outbox, precio)…" aria-label="Buscar en las preguntas">
+        <button class="btn" type="button" id="expandAll">Abrir todas</button>
+        <button class="btn" type="button" id="collapseAll">Cerrar todas</button>
+      </div>
+      <div id="faq">
+        <details class="faq"><summary>¿Qué significa API-first en su proyecto?</summary><div class="answer"><p>El contrato <code>autos-openapi.yaml</code> existía antes que el código y no se modifica. CI verifica su SHA-256, los DTO se escribieron a partir del YAML, Swagger y Redoc sirven el YAML original y las pruebas de contrato (<code>jest-openapi</code>) comprueban que cada respuesta real cumpla el esquema.</p></div></details>
+        <details class="faq"><summary>¿Por qué NestJS?</summary><div class="answer"><p>Era la plantilla oficial del equipo de integración. Sus módulos, inyección de dependencias, guards y pipes de validación encajan con un contrato grande. Y con TypeScript también en el frontend, hay un solo lenguaje en todo el proyecto.</p></div></details>
+        <details class="faq"><summary>¿Cómo evitan que dos personas reserven el último auto?</summary><div class="answer"><p>En tres niveles:</p><ol><li>El <strong>hold</strong> aparta el auto mientras se paga.</li><li>Al confirmar, <code>SELECT … FOR UPDATE</code> sobre el modelo pone en fila las transacciones concurrentes, que recalculan la disponibilidad en orden.</li><li>La BD tiene un <code>EXCLUDE</code> que impide dos reservas de la misma placa que se cruzan.</li></ol><p>Hay una prueba que lanza dos creaciones en paralelo sobre una sola unidad y exige exactamente un éxito.</p></div></details>
+        <details class="faq"><summary>¿Qué es la idempotencia y por qué la necesitan?</summary><div class="answer"><p>En redes, un timeout no dice si la operación se hizo. Con <code>Idempotency-Key</code> el cliente puede reintentar sin miedo: misma clave y mismo cuerpo → la misma respuesta; misma clave con otro cuerpo → 409. La respuesta se guarda en la misma transacción que la reserva.</p></div></details>
+        <details class="faq"><summary>¿Por qué el vehicle_id es un modelo y no una placa?</summary><div class="answer"><p>Así funciona el sector ("Kia Picanto o similar"): el cliente reserva una categoría y un modelo, y la placa concreta se asigna al entregar el auto, según la flota disponible.</p></div></details>
+        <details class="faq"><summary>¿Qué es el outbox y por qué no envían el webhook directamente?</summary><div class="answer"><p>Si se enviara dentro de la transacción y luego hubiera rollback, avisaríamos de una reserva inexistente. Si se enviara después del commit y el proceso cayera, el evento se perdería. Guardarlo en la misma transacción garantiza <em>at least once</em>; el consumidor deduplica por <code>eventId</code>.</p></div></details>
+        <details class="faq"><summary>¿Cómo sabe el Hub que el webhook viene de ustedes?</summary><div class="answer"><p>Por el header <code>X-Hub-Signature-256</code>: un HMAC-SHA256 del cuerpo con el secreto de la suscripción. El secreto se muestra una sola vez y se guarda cifrado con AES-256-GCM, porque hace falta en claro para firmar.</p></div></details>
+        <details class="faq"><summary>¿Cómo funciona la seguridad entre sistemas?</summary><div class="answer"><p>OAuth2 <em>client credentials</em>: el Hub pide un JWT RS256 con scopes. Cada operación exige su scope (<code>autos:read</code>, <code>autos:book</code>, <code>autos:cancel</code>, <code>autos:webhooks</code>). En RDA1 nuestro servicio emite los tokens; en RDA2 se validarán con el JWKS del IdP central sin tocar los controladores.</p></div></details>
+        <details class="faq"><summary>¿Por qué dos APIs (/api y /autos/v1)?</summary><div class="answer"><p><code>/autos/v1</code> es el contrato público y estable con el Hub. <code>/api</code> es la API de nuestro frontend y puede cambiar libremente sin romper al Hub. Por dentro, ambas usan los mismos servicios.</p></div></details>
+        <details class="faq"><summary>¿Qué pasa si se cae la URL del webhook?</summary><div class="answer"><p>La entrega queda <code>FAILED</code> y se reintenta tras 1 min, 5 min, 30 min, 2 h y 12 h. Después queda <code>DEAD</code> y se ve en el panel, donde se puede reintentar a mano.</p></div></details>
+        <details class="faq"><summary>¿Cómo calculan el precio?</summary><div class="answer"><ul><li>Días = bloques de 24 h, con 59 min de tolerancia.</li><li>Tarifa vigente de la categoría y el proveedor.</li><li>Extras por día, con tope.</li><li>+10 USD/día a menores de 25; +40 USD si se devuelve en otra agencia.</li><li>IVA 15 %.</li></ul><p>Todo en centavos enteros para no perder precisión, en <code>src/domain/pricing.ts</code>, con pruebas unitarias.</p></div></details>
+        <details class="faq"><summary>¿Qué pruebas tienen?</summary><div class="answer"><ul><li>210 pruebas del backend: dominio, integración con PostgreSQL real, API, contrato y checksum.</li><li>9 pruebas de frontend (Vitest).</li><li>7 pruebas E2E con Playwright: flujo de compra, móvil, validaciones y panel.</li><li>Todas corren en GitHub Actions en cada push.</li></ul></div></details>
+        <details class="faq"><summary>¿Qué es SOA y qué es EDA en su proyecto?</summary><div class="answer"><ul><li><strong>SOA:</strong> somos un servicio con contrato estándar dentro del ecosistema del Hub (vuelos, alojamiento, pagos…), con bajo acoplamiento y reutilización de servicios.</li><li><strong>EDA:</strong> publicamos eventos de dominio (<code>CAR_ORDER_CONFIRMED</code>, <code>CAR_ORDER_CANCELLED</code>, <code>DEPOT_UPDATE</code>) que el Hub consume de forma asíncrona, documentados en AsyncAPI.</li></ul></div></details>
+        <details class="faq"><summary>¿Por qué no usaron Kafka o microservicios?</summary><div class="answer"><p>La rúbrica pide un diseño preliminar de eventos y el contrato define webhooks. Un broker añadiría infraestructura que no se justifica en este alcance. El outbox deja el punto de extensión listo: el despachador podría publicar en un broker sin cambiar los servicios.</p></div></details>
+        <details class="faq"><summary>¿Qué hacen con los datos personales y los secretos?</summary><div class="answer"><ul><li>Contraseñas con bcrypt.</li><li>Ningún secreto en el repositorio: solo variables de entorno en Render.</li><li>Los secretos de webhooks se guardan cifrados.</li><li>Un cliente solo ve sus reservas (404 si no es suya).</li><li>Protección anti-SSRF en las URLs de webhook.</li></ul></div></details>
+        <details class="faq"><summary>¿Qué mejorarían?</summary><div class="answer"><ul><li>Pago real con el Payment API del Hub (hoy es simulado).</li><li>Correos de confirmación.</li><li>IdP central (RDA2).</li><li>Emitir la modificación de órdenes como evento cuando el contrato lo incluya.</li><li>Monitoreo con alertas.</li></ul></div></details>
+        <p id="faqEmpty" class="lead" hidden>Ninguna pregunta coincide con la búsqueda.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="documentos">
+      <h2>6. Dónde está cada cosa</h2>
+      <p class="lead">Los enlaces abren los documentos de esta misma carpeta.</p>
+      <div class="docs">
+        <a href="ARQUITECTURA.md"><div class="card"><strong>Arquitectura</strong><span>ARQUITECTURA.md</span></div></a>
+        <a href="BASE_DATOS.md"><div class="card"><strong>Modelo de datos</strong><span>BASE_DATOS.md</span></div></a>
+        <a href="REGLAS_NEGOCIO.md"><div class="card"><strong>Reglas de negocio (RN01–RN31)</strong><span>REGLAS_NEGOCIO.md</span></div></a>
+        <a href="ANALISIS_CONTRATO.md"><div class="card"><strong>Contrato analizado</strong><span>ANALISIS_CONTRATO.md</span></div></a>
+        <a href="CONTRATO_INTEGRACION.md"><div class="card"><strong>Guía para el Hub</strong><span>CONTRATO_INTEGRACION.md</span></div></a>
+        <a href="API_INTERNA.md"><div class="card"><strong>API interna</strong><span>API_INTERNA.md</span></div></a>
+        <a href="SOA_EDA.md"><div class="card"><strong>SOA y eventos</strong><span>SOA_EDA.md</span></div></a>
+        <a href="../contracts/autos-events.asyncapi.yaml"><div class="card"><strong>Catálogo de eventos</strong><span>autos-events.asyncapi.yaml</span></div></a>
+        <a href="DEPLOYMENT.md"><div class="card"><strong>Despliegue</strong><span>DEPLOYMENT.md</span></div></a>
+        <a href="ESTRATEGIA_TESTING.md"><div class="card"><strong>Pruebas</strong><span>ESTRATEGIA_TESTING.md</span></div></a>
+        <a href="MATRIZ_TRAZABILIDAD.md"><div class="card"><strong>Rúbrica → evidencia</strong><span>MATRIZ_TRAZABILIDAD.md</span></div></a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  // Almacenamiento local opcional (puede no estar disponible en algunos navegadores o modos privados)
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* sin persistencia */ } },
+  };
+
+  // Tema claro/oscuro
+  const root = document.documentElement;
+  const savedTheme = store.get('guia-theme');
+  if (savedTheme) root.dataset.theme = savedTheme;
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    store.set('guia-theme', root.dataset.theme);
+  });
+
+  // Checklist con progreso
+  const boxes = [...document.querySelectorAll('#checklist input[type=checkbox]')];
+  const saved = JSON.parse(store.get('guia-checks') || '{}');
+  function refresh() {
+    const done = boxes.filter((b) => b.checked).length;
+    document.getElementById('progressText').textContent = `${done} de ${boxes.length} listos`;
+    document.getElementById('progressBar').style.width = `${(done / boxes.length) * 100}%`;
+    boxes.forEach((b) => b.closest('li').classList.toggle('done', b.checked));
+  }
+  boxes.forEach((b) => {
+    b.checked = !!saved[b.id];
+    b.addEventListener('change', () => {
+      saved[b.id] = b.checked;
+      store.set('guia-checks', JSON.stringify(saved));
+      refresh();
+    });
+  });
+  document.getElementById('resetChecks').addEventListener('click', () => {
+    boxes.forEach((b) => { b.checked = false; saved[b.id] = false; });
+    store.set('guia-checks', JSON.stringify(saved));
+    refresh();
+  });
+  refresh();
+
+  // Copiar bloques de código
+  document.querySelectorAll('.copy').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const text = btn.parentElement.querySelector('pre').innerText;
+      try { await navigator.clipboard.writeText(text); btn.textContent = '¡Copiado!'; }
+      catch (err) { btn.textContent = 'Selecciona y copia'; }
+      setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
+    });
+  });
+
+  // Filtro de patrones
+  const filterButtons = document.querySelectorAll('.filters button');
+  filterButtons.forEach((btn) => btn.addEventListener('click', () => {
+    filterButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    const group = btn.dataset.filter;
+    document.querySelectorAll('#patterns .pattern').forEach((card) => {
+      card.hidden = group !== 'all' && card.dataset.group !== group;
+    });
+  }));
+
+  // Preguntas: buscar, abrir y cerrar todas
+  const faqs = [...document.querySelectorAll('details.faq')];
+  document.getElementById('expandAll').addEventListener('click', () => faqs.forEach((d) => { if (!d.hidden) d.open = true; }));
+  document.getElementById('collapseAll').addEventListener('click', () => faqs.forEach((d) => { d.open = false; }));
+  const normalize = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  document.getElementById('faqSearch').addEventListener('input', (e) => {
+    const q = normalize(e.target.value.trim());
+    let visible = 0;
+    faqs.forEach((d) => {
+      const match = !q || normalize(d.textContent).includes(q);
+      d.hidden = !match;
+      if (match) visible++;
+    });
+    document.getElementById('faqEmpty').hidden = visible > 0;
+  });
+  window.addEventListener('beforeprint', () => faqs.forEach((d) => { d.hidden = false; d.open = true; }));
+
+  // Índice: resaltar la sección visible y menú móvil
+  const links = [...document.querySelectorAll('nav.toc a[href^="#"]')];
+  const targets = links.map((a) => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  // La sección activa es la última cuyo título ya pasó por la parte superior de la pantalla
+  let ticking = false;
+  function updateActive() {
+    ticking = false;
+    let current = targets[0];
+    for (const t of targets) {
+      if (t.getBoundingClientRect().top <= 140) current = t;
+    }
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) current = targets[targets.length - 1];
+    links.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === `#${current.id}`));
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(updateActive); }
+  }, { passive: true });
+  updateActive();
+
+  const toc = document.getElementById('toc');
+  const menuBtn = document.getElementById('menuBtn');
+  menuBtn.addEventListener('click', () => {
+    const open = toc.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  links.forEach((a) => a.addEventListener('click', () => {
+    toc.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }));
+})();
+</script>
+</body>
+</html>
