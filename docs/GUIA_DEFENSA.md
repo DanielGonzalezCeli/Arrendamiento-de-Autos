@@ -58,7 +58,88 @@ Seguir un request de punta a punta es la mejor forma de mostrar dominio del cód
 
 **Arquitectura en una frase:** monolito modular por capas — controladores delgados → servicios de aplicación → dominio puro (`src/domain`, sin framework, con pruebas unitarias) → PostgreSQL. La web y el Hub comparten los mismos servicios; solo cambian los controladores y los mappers.
 
-## 4. Preguntas probables
+## 4. Estilo arquitectónico, patrones y tecnología
+
+### 4.1 Estilo arquitectónico
+
+**Respuesta corta:** *"Es un **monolito modular en capas**, orientado a servicios hacia afuera (**SOA**) y con **eventos** para la integración (**EDA**). El frontend es una **SPA** separada que consume una API REST. La lógica de negocio vive en un solo lugar y la exponen dos APIs: una para nuestra web y otra, por contrato, para el Booking Hub."*
+
+| Estilo | Dónde se ve | Por qué |
+|---|---|---|
+| **Cliente-servidor + SPA** | React en un sitio estático; NestJS como API | Front y back se despliegan y escalan por separado |
+| **Monolito modular** | Un solo backend dividido en módulos NestJS (`catalog`, `orders`, `availability`, `events`, `admin`…) | Simple de desplegar y de defender; cada módulo tiene fronteras claras y podría separarse en un microservicio después |
+| **Arquitectura en capas** | Controladores (HTTP) → servicios de aplicación → dominio puro (`src/domain`) → persistencia (TypeORM/PostgreSQL) | Cada capa tiene una responsabilidad; las reglas de negocio no dependen de HTTP ni de la BD y se prueban solas |
+| **REST** | Recursos y verbos HTTP, códigos de estado, `Cache-Control`, HATEOAS (`_links`) | Lo exige el contrato OpenAPI |
+| **SOA** | Somos *un servicio* del ecosistema del Hub, con contrato estándar, bajo acoplamiento y seguridad entre servicios (OAuth2) | El Hub orquesta autos, vuelos, alojamiento y pagos |
+| **EDA** | Eventos de dominio → outbox → webhooks firmados | El Hub se entera de los cambios sin preguntar todo el tiempo (*push* en vez de *polling*) |
+| **API-first** | El contrato YAML manda; el código se adapta | Permite que dos equipos trabajen en paralelo |
+
+### 4.2 Patrones de diseño
+
+**Backend — patrones de arquitectura e integración**
+
+| Patrón | Dónde | Para qué |
+|---|---|---|
+| **Transactional Outbox** | `events/outbox.service.ts` + `webhook-dispatcher.service.ts` | El evento se guarda en la misma transacción que el cambio: nunca se anuncia algo que no ocurrió ni se pierde un evento |
+| **Publish/Subscribe** | Suscripciones de webhooks (`POST /webhooks`) | El Hub elige qué eventos recibir |
+| **Idempotent Receiver (clave de idempotencia)** | `idempotency/idempotency.service.ts` + `IdempotencyKeyGuard` | Un reintento no duplica reservas |
+| **Retry con backoff** | `domain/webhook-rules.ts` (1 m, 5 m, 30 m, 2 h, 12 h → `DEAD`) | Tolerar caídas temporales del suscriptor |
+| **Competing Consumers** | `FOR UPDATE SKIP LOCKED` + lease en el dispatcher | Varias instancias pueden enviar sin duplicar |
+| **Anti-Corruption Layer / Adapter (Mappers + DTO)** | `integration-api/mappers/*`, `internal-api/mappers/*` | El modelo interno (camelCase, entidades) no se filtra al contrato (snake_case); el contrato no contamina el dominio |
+| **Backend for Frontend (BFF)** | API interna `/api` | Endpoints a la medida de la web, separados del contrato público |
+| **Unit of Work (transacciones)** | `common/transaction.ts` (`inTransaction`) | Todo o nada en cada operación |
+| **Pessimistic Locking** | `availability.lockVehicleModel` (`SELECT … FOR UPDATE`) | Evitar que dos personas reserven el último auto |
+| **Snapshot** | `orders/reservation-snapshots.ts` (vehículo, ruta y precio congelados en JSONB) | Una reserva no cambia si mañana cambia la tarifa o el nombre de la agencia |
+| **Repository / Data Mapper** | TypeORM (`getRepository`, `EntityManager`) | Separar los objetos de dominio del SQL |
+
+**Backend — patrones de diseño clásicos (GoF y del framework)**
+
+| Patrón | Dónde | Para qué |
+|---|---|---|
+| **Inyección de dependencias / IoC** | Todo NestJS (constructores de servicios) | Bajo acoplamiento y pruebas con dobles |
+| **Singleton** | Los *providers* de NestJS (una instancia por aplicación) | Servicios sin estado compartidos |
+| **Decorator** | `@Roles(ADMIN)`, `@RequireScopes`, `@CurrentUser`, `@ApiProperty`, validaciones `@IsPersonName` | Agregar comportamiento o metadatos sin tocar la lógica |
+| **Chain of Responsibility** | *Pipeline* de NestJS: guards (auth → roles/scopes → idempotencia) → pipes (validación) → controlador → filtros | Cada eslabón decide si deja pasar la petición |
+| **Strategy** | `AffiliateGuard` (`lenient` / `strict` según configuración) | Cambiar el comportamiento sin cambiar el código |
+| **Interceptor** | `DeprecationHeaderInterceptor` | Lógica transversal sobre la respuesta |
+| **Exception Filter (manejador centralizado)** | `ProblemDetailsFilter` | Todos los errores salen en un mismo formato RFC 7807 |
+| **Factory** | `buildProblem`, `DomainError.validation/conflict/notFound` | Crear errores consistentes |
+| **Guard Clause / Specification** | `domain/*` (`assertDepotOpen`, `assertDriverDetails`, `assertPaymentReference`) | Reglas de negocio explícitas y probadas |
+
+**Frontend**
+
+| Patrón | Dónde |
+|---|---|
+| **Feature folders** | `src/features/{search, checkout, reservations, admin…}` |
+| **Custom hooks** | `useSearch`, `useAdminQuery`, `useAdminMutation`, `useFormValidation` |
+| **Provider / Context** | `AuthProvider` (sesión del usuario) |
+| **Caché de estado del servidor** | TanStack Query (cache, reintentos, invalidación tras guardar) |
+| **Componentes de presentación reutilizables** | `components/ui/*`, `DepotCard`, `Table` |
+| **Formulario guiado por configuración** | `EntityForm` del panel: los campos se describen con `FieldSpec` |
+| **Rutas protegidas** | `RequireAuth role="ADMIN"` (y el backend vuelve a validar) |
+
+### 4.3 Tecnología usada
+
+| Capa | Tecnología | Para qué |
+|---|---|---|
+| Lenguaje | **TypeScript** en front y back | Un solo lenguaje y tipos en todo el proyecto |
+| Backend | **NestJS 10** (Node 22, Express) | Plantilla oficial del equipo de integración: módulos, DI, guards |
+| ORM | **TypeORM 0.3** + migraciones + `SnakeNamingStrategy` | Esquema versionado y reproducible |
+| Base de datos | **PostgreSQL** (Supabase en producción) | `EXCLUDE USING gist` + rangos de tiempo (`tstzrange`) para impedir solapamientos; JSONB para snapshots |
+| Validación | **class-validator / class-transformer**, **libphonenumber-js** | DTOs validados; teléfonos por país |
+| Seguridad | **jose** (JWT RS256 + JWKS, OAuth2 del Hub), **@nestjs/jwt** + **bcryptjs** (usuarios web), **helmet**, **@nestjs/throttler** (429), AES-256-GCM (secretos de webhooks) | Dos dominios de seguridad separados |
+| Documentación de API | **OpenAPI 3** (contrato), **Swagger UI**, **Redoc**, **@nestjs/swagger** (API interna), **AsyncAPI 2.6** (eventos) | C4 y C8 |
+| Logs | **pino** (`nestjs-pino`), JSON con `request_id` | Trazabilidad |
+| Frontend | **React 19**, **Vite 8**, **React Router 7**, **TanStack Query 5**, **Tailwind CSS 4**, **lucide-react** | SPA rápida y responsive |
+| Pruebas | **Jest + supertest**, **jest-openapi** (contrato), **Vitest**, **Playwright** (E2E) | 210 + 9 + 7 pruebas |
+| CI/CD | **GitHub Actions** (typecheck, build, migraciones, tests, E2E) → despliegue automático | Nada llega a producción con pruebas rojas |
+| Infraestructura | **Render** (API en **Docker** + sitio estático), **Supabase** (PostgreSQL gestionado) | Accesible públicamente (C1) |
+
+### 4.4 Si preguntan "¿por qué no microservicios?"
+
+*"Porque el alcance no lo justifica y un monolito modular es más fácil de desplegar, probar y explicar. Pero lo diseñamos para poder separarlo: los módulos tienen fronteras claras, la comunicación hacia afuera ya es por contrato y por eventos, y el outbox podría publicar en un broker (Kafka, RabbitMQ) sin cambiar los servicios. La plantilla del equipo de integración también menciona una migración futura a microservicios."*
+
+## 5. Preguntas probables
 
 **¿Qué significa API-first en su proyecto?**
 El contrato `autos-openapi.yaml` existía antes que el código y no se modifica. CI verifica su SHA-256, los DTO se escribieron a partir del YAML, Swagger y Redoc sirven el YAML original y las pruebas de contrato (`jest-openapi`) comprueban que cada respuesta real cumpla el esquema.
@@ -125,7 +206,7 @@ La rúbrica pide un diseño preliminar de eventos, y el contrato define webhooks
 - Emitir la modificación de órdenes como evento cuando el contrato lo incluya.
 - Monitoreo con alertas.
 
-## 5. Dónde está cada cosa
+## 6. Dónde está cada cosa
 
 | Tema | Documento |
 |---|---|
