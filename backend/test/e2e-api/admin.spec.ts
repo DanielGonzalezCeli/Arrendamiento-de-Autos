@@ -54,7 +54,7 @@ describe('API interna — administración', () => {
     const preview = await http().post('/api/checkout/preview').set(customer())
       .send({ searchToken: search.body.searchToken, vehicleId: offer.vehicle.id, holdId: hold.body.holdId, extras: [] }).expect(200);
     const confirmed = await http().post('/api/checkout/confirm').set(customer()).set('Idempotency-Key', randomUUID())
-      .send({ orderPreviewId: preview.body.orderPreviewId, driver: { firstName: 'Luis', lastName: 'Mora', email: 'luis@correo.ec' } })
+      .send({ orderPreviewId: preview.body.orderPreviewId, driver: { firstName: 'Luis', lastName: 'Mora', email: 'luis@correo.ec' }, paymentToken: 'tok_sim_visa_4242_admintest1' })
       .expect(201);
     return confirmed.body as { id: string; locator: string };
   }

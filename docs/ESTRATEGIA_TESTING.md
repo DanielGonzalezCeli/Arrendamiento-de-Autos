@@ -15,9 +15,9 @@
 
 | Suite | Casos | Dónde |
 |---|---|---|
-| Backend: unit, integración, API, contrato, checksum | 210 (20 suites) | `backend/test` |
-| Frontend (Vitest) | 9 | `frontend/src/**/*.test.ts` |
-| E2E (Playwright) | 7: flujo de compra, rutas privadas, móvil, validaciones de registro, fotos, panel admin (entrega → devolución), acceso de cliente al panel | `e2e/tests` |
+| Backend: unit, integración, API, contrato, checksum | 219 (21 suites) | `backend/test` |
+| Frontend (Vitest) | 15 | `frontend/src/**/*.test.ts` |
+| E2E (Playwright) | 7: flujo de compra (pago rechazado y aprobado en la pasarela simulada), rutas privadas, móvil, validaciones de registro, fotos, panel admin (entrega → devolución), acceso de cliente al panel | `e2e/tests` |
 
 Las tres suites corren en GitHub Actions en cada push. El E2E también se ejecutó contra producción (`E2E_BASE_URL`). La fila "Fuzz de contrato" de la tabla anterior quedó fuera del alcance.
 

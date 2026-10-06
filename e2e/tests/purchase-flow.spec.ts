@@ -64,20 +64,41 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
   await expect(total).not.toHaveText(totalBefore ?? '')
   await expect(page.locator('#firstName')).toHaveValue('Elena')
   await snap(page, '05-checkout')
-  await page.getByRole('button', { name: 'Confirmar y pagar' }).click()
+  await page.getByRole('button', { name: 'Continuar al pago' }).click()
 
-  // 6. Confirmación
+  // 6. Pasarela simulada: tarjeta inválida → rechazada por el banco → aprobada
+  const pay = page.getByRole('dialog')
+  await expect(pay.getByText('RutaPay · Pago seguro')).toBeVisible()
+  await pay.locator('#card-number').fill('4242 4242 4242 4241')
+  await pay.locator('#card-expiry').fill('12/30')
+  await pay.locator('#card-cvv').fill('123')
+  await pay.getByRole('button', { name: /^Pagar/ }).click()
+  await expect(pay.getByText('El número de tarjeta no es válido. Revisa que esté bien escrito.')).toBeVisible()
+
+  await pay.locator('#card-number').fill('4000 0000 0000 0002')
+  await pay.getByRole('button', { name: /^Pagar/ }).click()
+  await expect(pay.getByText(/Pago rechazado\. El banco emisor rechazó la tarjeta/)).toBeVisible({ timeout: 20_000 })
+  await snap(page, '05b-pago-rechazado')
+
+  await pay.locator('#card-number').fill('4242 4242 4242 4242')
+  await pay.locator('#card-cvv').fill('123')
+  await snap(page, '05c-pasarela')
+  await pay.getByRole('button', { name: /^Pagar/ }).click()
+  await expect(pay.getByText('Pago aprobado')).toBeVisible({ timeout: 20_000 })
+
+  // 7. Confirmación
   await expect(page.getByText('¡Reserva confirmada!')).toBeVisible()
   // Dónde retirar y devolver: agencia, dirección, teléfono y mapa
   await expect(page.getByText('Aeropuerto Mariscal Sucre (UIO) · Andes').first()).toBeVisible()
   await expect(page.getByRole('link', { name: /Ver en Google Maps/ })).toHaveCount(2)
   await expect(page.getByRole('link', { name: '+59322000001' }).first()).toBeVisible()
+  await expect(page.getByText('Visa •••• 4242')).toBeVisible()
   const locator = await page.locator('strong.font-mono').first().textContent()
   expect(locator).toMatch(/^[A-Z]+-[A-Z2-9]{6}$/)
   await expect(page.getByText('Navegador GPS').first()).toBeVisible()
   await snap(page, '06-confirmacion')
 
-  // 7. Mis reservas → cancelar
+  // 8. Mis reservas → cancelar
   await page.getByRole('link', { name: 'Mis reservas' }).first().click()
   await expect(page).toHaveURL(/\/mis-reservas$/)
   const card = page.getByRole('link', { name: new RegExp(locator!) })

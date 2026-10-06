@@ -39,7 +39,7 @@ async function bookAsCustomer(request: APIRequestContext): Promise<string> {
   })).json()
   const confirmed = await request.post(`${API}/api/checkout/confirm`, {
     headers: { ...headers, 'Idempotency-Key': randomUUID() },
-    data: { orderPreviewId: preview.orderPreviewId, driver: { firstName: 'Mario', lastName: 'Operación', email: 'mario@correo.ec' } },
+    data: { orderPreviewId: preview.orderPreviewId, driver: { firstName: 'Mario', lastName: 'Operación', email: 'mario@correo.ec' }, paymentToken: 'tok_sim_visa_4242_e2eadmin1' },
   })
   expect(confirmed.status()).toBe(201)
   return (await confirmed.json()).locator

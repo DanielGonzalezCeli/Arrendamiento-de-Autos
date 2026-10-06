@@ -18,11 +18,14 @@ export interface DriverInput {
   phone?: string
 }
 
-/** El Idempotency-Key se genera UNA vez por intento de compra: un doble clic no crea dos reservas. */
-export function confirmReservation(orderPreviewId: string, driver: DriverInput, idempotencyKey: string) {
+/**
+ * Paga (token de la pasarela simulada) y confirma. El Idempotency-Key es uno por intento de pago:
+ * un doble clic o un reintento por error de red no cobran ni reservan dos veces.
+ */
+export function confirmReservation(orderPreviewId: string, driver: DriverInput, paymentToken: string, idempotencyKey: string) {
   return apiFetch<Reservation>('/api/checkout/confirm', {
     method: 'POST',
-    body: { orderPreviewId, driver },
+    body: { orderPreviewId, driver, paymentToken },
     headers: { 'Idempotency-Key': idempotencyKey },
   })
 }

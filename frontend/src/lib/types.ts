@@ -180,6 +180,8 @@ export interface Reservation {
   currency: string
   extras: { code: string; name: string; subtotal: number }[]
   driver: { firstName: string; lastName: string; email: string; phone: string | null }
+  /** Medio de pago (pasarela simulada); card es null en reservas antiguas o del Booking Hub. */
+  payment?: { reference: string; card: { brand: string; last4: string } | null }
   cancelledAt: string | null
   cancellationFee: number | null
   canModify: boolean

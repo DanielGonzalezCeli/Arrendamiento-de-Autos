@@ -62,7 +62,7 @@ Búsqueda → Resultados → Detalle → Extras → Datos del conductor
 | Confirmación con localizador | Sí | Cierre de la venta |
 | Mis reservas: detalle, modificar, cancelar | Sí | Post-venta; espejo del contrato |
 | Calificar la agencia tras la devolución | Sí (mínimo) | Alimenta `/depots/reviews/scores` |
-| Pago real | **No** | El contrato dice que pagos es otro dominio. Usaremos una **pasarela simulada** que genera `payment_reference` |
+| Pago real | **No** | El contrato dice que pagos es otro dominio. Usaremos una **pasarela simulada** (RutaPay: tarjetas de prueba, tokenización en el navegador, aprobado/rechazado) que genera `payment_reference` |
 | Emails | **No** (opcional al final) | No aporta a la rúbrica |
 
 ### Administración

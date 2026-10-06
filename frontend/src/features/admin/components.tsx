@@ -1,40 +1,12 @@
-import { X } from 'lucide-react'
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { ApiError } from '../../lib/api'
 
-// ── Modal ────────────────────────────────────────────────────────────────────
-export function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  const titleId = useId()
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center" onMouseDown={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={`my-8 w-full rounded-2xl bg-white shadow-xl ${wide ? 'max-w-3xl' : 'max-w-xl'}`}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900">{title}</h2>
-          <button type="button" aria-label="Cerrar" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="px-5 py-4">{children}</div>
-      </div>
-    </div>
-  )
-}
+// ── Modal (compartido con el checkout) ───────────────────────────────────────
+export { Modal } from '../../components/ui/Modal'
 
 // ── Formulario configurable ──────────────────────────────────────────────────
 export type FieldSpec = {

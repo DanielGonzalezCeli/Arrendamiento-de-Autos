@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle2, Lock } from 'lucide-react'
+import { ArrowLeft, CreditCard, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
@@ -10,15 +10,17 @@ import { Card, PageContainer } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { LoadingBlock } from '../../components/ui/Spinner'
+import { ApiError } from '../../lib/api'
 import { useFormValidation } from '../../lib/use-form-validation'
 import { collectErrors, sanitizeNameInput, validateEmail, validateName, validatePhone } from '../../lib/validation'
-import type { Offer } from '../../lib/types'
+import type { Offer, Reservation } from '../../lib/types'
 import { useAuth } from '../auth/AuthContext'
 import { readLastSearch, useExtras } from '../catalog/queries'
 import { criteriaToParams } from '../search/search-criteria'
 import { confirmReservation, createHold, createPreview, type DriverInput } from './checkout-api'
 import { ExtrasSelector } from './ExtrasSelector'
 import { HoldCountdown } from './HoldCountdown'
+import { PaymentDialog } from './PaymentDialog'
 import { PriceSummary } from './PriceSummary'
 
 /**
@@ -66,8 +68,10 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
   const [driver, setDriver] = useState<DriverInput>({
     firstName: user?.firstName ?? '', lastName: user?.lastName ?? '', email: user?.email ?? '', phone: user?.phone ?? '',
   })
-  // Una clave por intento de compra: reintentos y doble clic reciben la misma reserva.
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
+  // Una clave por intento de pago: un doble clic o un reintento por red no cobran dos veces.
+  // Si el servidor ya respondió (p. ej. tarjeta rechazada), el siguiente intento usa una clave nueva.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
+  const [paying, setPaying] = useState(false)
 
   // 1. Hold al entrar (repetirlo devuelve el mismo hold vigente: es seguro con StrictMode).
   const hold = useQuery({
@@ -87,14 +91,23 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
     retry: false,
   })
 
-  // 3. Confirmación.
+  // 3. Pago (pasarela simulada) + confirmación en una sola llamada.
   const confirm = useMutation({
-    mutationFn: () => confirmReservation(preview.data!.orderPreviewId, { ...driver, firstName: driver.firstName.trim(), lastName: driver.lastName.trim(), phone: driver.phone || undefined }, idempotencyKey),
-    onSuccess: (reservation) => {
-      queryClient.invalidateQueries({ queryKey: ['my-reservations'] })
-      navigate(`/mis-reservas/${reservation.id}?nueva=1`, { replace: true })
+    mutationFn: (paymentToken: string) => confirmReservation(
+      preview.data!.orderPreviewId,
+      { ...driver, firstName: driver.firstName.trim(), lastName: driver.lastName.trim(), phone: driver.phone || undefined },
+      paymentToken,
+      idempotencyKey,
+    ),
+    onError: (error) => {
+      if (error instanceof ApiError) setIdempotencyKey(crypto.randomUUID())
     },
   })
+
+  const onPaid = useCallback((reservation: Reservation) => {
+    queryClient.invalidateQueries({ queryKey: ['my-reservations'] })
+    navigate(`/mis-reservas/${reservation.id}?nueva=1`, { replace: true })
+  }, [navigate, queryClient])
 
   const onExpire = useCallback(() => setHoldExpired(true), [])
   useEffect(() => setHoldExpired(false), [hold.data?.holdId])
@@ -116,8 +129,9 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!canSubmit()) return
-    confirm.mutate()
+    if (!canSubmit() || !preview.data) return
+    confirm.reset()
+    setPaying(true)
   }
 
   const setName = (key: 'firstName' | 'lastName') => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -184,17 +198,29 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
               </div>
               {preview.isError && <ErrorAlert error={preview.error} />}
               {preview.data ? <PriceSummary price={preview.data.price} updating={preview.isFetching} /> : <PriceSummary price={offer.price} updating />}
-              {confirm.isError && <div className="mt-4"><ErrorAlert error={confirm.error} /></div>}
-              <Button type="submit" className="mt-5 w-full" loading={confirm.isPending} disabled={!preview.data || preview.isFetching || holdExpired}>
-                <Lock className="h-4 w-4" /> Confirmar y pagar
+              {/* Un rechazo de la tarjeta (402) se muestra dentro de la pasarela, no aquí */}
+              {confirm.isError && !(confirm.error instanceof ApiError && confirm.error.status === 402) && <div className="mt-4"><ErrorAlert error={confirm.error} /></div>}
+              <Button type="submit" className="mt-5 w-full" disabled={!preview.data || preview.isFetching || holdExpired}>
+                <CreditCard className="h-4 w-4" /> Continuar al pago
               </Button>
               <p className="mt-2 flex items-center justify-center gap-1 text-center text-xs text-slate-400">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Pago simulado (el pago real pertenece a otro sistema del Booking Hub)
+                <ShieldCheck className="h-3.5 w-3.5" /> Pago seguro con RutaPay (pasarela simulada, sin cobros reales)
               </p>
             </div>
           </Card>
         </div>
       </form>
+      {paying && preview.data && (
+        <PaymentDialog
+          amount={preview.data.price.total}
+          currency={preview.data.price.currency}
+          defaultHolder={`${driver.firstName} ${driver.lastName}`.trim()}
+          disabled={holdExpired}
+          onPay={(token) => confirm.mutateAsync(token)}
+          onApproved={onPaid}
+          onClose={() => setPaying(false)}
+        />
+      )}
     </PageContainer>
   )
 }

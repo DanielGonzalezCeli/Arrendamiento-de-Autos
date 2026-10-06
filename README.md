@@ -38,7 +38,7 @@ Hosting: Render (API en Docker + sitio estático) · Base de datos: Supabase (Po
 | `/buscar` | Resultados con filtros y orden |
 | `/vehiculo/:id` | Detalle, condiciones y precio |
 | `/ingresar`, `/registro` | Cuenta de cliente |
-| `/reservar/:id` | Checkout: hold de 15 min, extras con precio en vivo, conductor, confirmación (pago simulado) |
+| `/reservar/:id` | Checkout: hold de 15 min, extras con precio en vivo, conductor y pago en la **pasarela simulada RutaPay** (tarjetas de prueba; aprobado o rechazado) |
 | `/mis-reservas`, `/mis-reservas/:id` | Consultar, modificar extras y cancelar |
 | `/creditos` | Autores y licencias de las fotos (Wikimedia Commons, Creative Commons) |
 

@@ -55,9 +55,21 @@ describe('API interna — checkout y mis reservas', () => {
     expect(preview.body.price.total).toBeGreaterThan(offer.price.total);
 
     const key = randomUUID();
-    const confirmBody = { orderPreviewId: preview.body.orderPreviewId, driver: { firstName: 'Ana', lastName: 'Pérez', email: 'ana@correo.ec' } };
+    const driver = { firstName: 'Ana', lastName: 'Pérez', email: 'ana@correo.ec' };
+
+    // Pago rechazado (tarjeta de prueba 0002): 402 y NO se crea la reserva; el hold sigue vigente
+    const declined = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', randomUUID())
+      .send({ orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_visa_0002_declined1' }).expect(402);
+    expect(declined.body).toMatchObject({ status: 402, code: 'PAYMENT_NOT_AUTHORIZED' });
+    expect((await http().get('/api/me/reservations').set(as(0)).expect(200)).body).toHaveLength(0);
+
+    const confirmBody = { orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_mastercard_4444_approved1' };
     const confirmed = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', key).send(confirmBody).expect(201);
-    expect(confirmed.body).toMatchObject({ status: 'CONFIRMED', channel: 'WEB', totalPrice: preview.body.price.total, canCancel: true });
+    expect(confirmed.body).toMatchObject({
+      status: 'CONFIRMED', channel: 'WEB', totalPrice: preview.body.price.total, canCancel: true,
+      payment: { card: { brand: 'mastercard', last4: '4444' } },
+    });
+    expect(confirmed.body.payment.reference).toMatch(/^PAY-MASTERCARD-4444-[A-F0-9]{10}$/);
 
     // Doble clic / reintento: misma respuesta, sin segunda reserva
     const retry = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', key).send(confirmBody).expect(201);
@@ -76,6 +88,13 @@ describe('API interna — checkout y mis reservas', () => {
 
     const cancelled = await http().post(`/api/me/reservations/${confirmed.body.id}/cancel`).set(as(0)).expect(200);
     expect(cancelled.body).toMatchObject({ status: 'CANCELLED', canCancel: false, cancellationFee: 0 });
+  });
+
+  it('el backend nunca acepta el número de tarjeta: solo el token de la pasarela', async () => {
+    const res = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', randomUUID())
+      .send({ orderPreviewId: randomUUID(), driver: { firstName: 'Ana', lastName: 'Pérez', email: 'ana@correo.ec' }, paymentToken: '4242424242424242' });
+    expect(res.status).toBe(400);
+    expect(res.body.invalidParams).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'paymentToken' })]));
   });
 
   it('los datos del conductor son obligatorios', async () => {

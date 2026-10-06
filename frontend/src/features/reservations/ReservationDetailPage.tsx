@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime, formatMoney, TRANSMISSION_LABEL } from '../../lib/format'
+import { describeCard } from '../../lib/payment-card'
 import type { Reservation, RouteEndpoint } from '../../lib/types'
 import { useExtras, useLocations } from '../catalog/queries'
 import { ExtrasSelector } from '../checkout/ExtrasSelector'
@@ -74,6 +75,12 @@ export function ReservationDetailPage() {
           <Card className="p-6">
             <h2 className="mb-4 font-semibold text-slate-800">Precio</h2>
             <PriceSummary price={r.price} />
+            {r.payment && (
+              <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                {r.payment.card ? <>Pagado con <strong className="text-slate-700">{describeCard(r.payment.card)}</strong></> : 'Pago registrado'}
+                <span className="block font-mono">Ref. {r.payment.reference}</span>
+              </p>
+            )}
           </Card>
           {r.status === 'CANCELLED' ? (
             <Alert tone="info">

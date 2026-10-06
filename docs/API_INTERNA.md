@@ -34,11 +34,27 @@ API propia que usa **nuestro frontend** (marketplace y panel de administración)
 |---|---|
 | `POST /api/checkout/hold` | Bloquea el vehículo 15 min al precio cotizado |
 | `POST /api/checkout/preview` | Precio con extras; lo congela 15 min |
-| `POST /api/checkout/confirm` | Confirma la reserva (pago simulado). Exige `Idempotency-Key`: un doble clic no crea dos reservas |
+| `POST /api/checkout/confirm` | Paga y confirma: `{ orderPreviewId, driver, paymentToken }`. Autoriza el token de la **pasarela simulada** y crea la reserva en la misma transacción. Tarjeta rechazada → **402 `PAYMENT_NOT_AUTHORIZED`** y no se crea nada. Exige `Idempotency-Key` (una por intento de pago) |
 | `GET /api/me/reservations` | Mis reservas |
 | `GET /api/me/reservations/:id` | Detalle (404 si es de otro usuario) |
 | `POST /api/me/reservations/:id/modify` | Cambiar extras, fechas o agencias (recalcula el precio) |
 | `POST /api/me/reservations/:id/cancel` | Cancelar; gratis hasta 24 h antes, después 1 día de tarifa |
+
+### Pasarela de pagos simulada (RutaPay)
+
+El cobro real pertenece al Payment API del Hub; la web simula una pasarela con el mismo flujo que una real:
+
+1. El navegador valida la tarjeta (marca, longitud, **Luhn**, vencimiento, CVV) y la **tokeniza**: `tok_sim_<marca>_<últimos 4>_<nonce>`. El número completo y el CVV **nunca llegan al backend**; el DTO rechaza cualquier otra cosa.
+2. El backend ([`domain/payment-simulator.ts`](../backend/src/domain/payment-simulator.ts)) autoriza el token y genera la referencia `PAY-<MARCA>-<últimos 4>-<id>`, que cumple el formato `payment_reference` del contrato.
+3. Si la reserva falla (por ejemplo, el auto ya no está disponible), el *rollback* deshace también la autorización.
+
+| Tarjeta de prueba | Resultado |
+|---|---|
+| `4242 4242 4242 4242` (Visa), `5555 5555 5555 4444` (Mastercard), `3782 822463 10005` (Amex) | Aprobada |
+| `4000 0000 0000 0002` | Rechazada por el banco (402) |
+| `4000 0000 0000 9995` | Fondos insuficientes (402) |
+
+La reserva muestra "Pagado con Visa •••• 4242" a partir de la referencia, sin guardar datos de la tarjeta.
 
 ## 4. Administración (`/api/admin`, solo rol `ADMIN`)
 

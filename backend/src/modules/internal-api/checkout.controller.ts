@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { randomBytes } from 'crypto';
 import { Response } from 'express';
 import { IdempotencyKeyGuard } from '../../common/guards/idempotency-key.guard';
 import { OrderChannel } from '../../domain/enums';
+import { authorizeSimulatedPayment } from '../../domain/payment-simulator';
 import { AuthUser, webOwnerSub } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators';
 import { UserJwtGuard } from '../auth/guards/user-jwt.guard';
@@ -16,13 +16,6 @@ import { toReservationView } from './mappers/reservation.mapper';
 
 const DRIVER_FIELDS = { firstName: 'driver.firstName', lastName: 'driver.lastName', email: 'driver.email', phone: 'driver.phone' };
 
-/**
- * Pasarela de pago SIMULADA. El contrato dice que el pago pertenece a otro dominio: la web genera una
- * referencia como lo haría la Payment API y el backend solo la almacena (RN18).
- */
-function simulatedPaymentReference(): string {
-  return `SIM-${randomBytes(8).toString('hex').toUpperCase()}`;
-}
 
 /**
  * API interna — checkout y "Mis reservas". Usa EXACTAMENTE los mismos servicios que la API de
@@ -61,7 +54,10 @@ export class CheckoutController {
   }
 
   @Post('checkout/confirm')
-  @ApiOperation({ summary: 'Confirmar la reserva (pago simulado)' })
+  @ApiOperation({
+    summary: 'Pagar (pasarela simulada) y confirmar la reserva',
+    description: 'Autoriza el token de la pasarela simulada y crea la reserva en la misma transacción. Pago rechazado → 402 PAYMENT_NOT_AUTHORIZED y no se crea nada.',
+  })
   @ApiHeader({ name: 'Idempotency-Key', required: true, description: 'UUID por intento de compra' })
   @UseGuards(IdempotencyKeyGuard)
   async confirm(
@@ -73,7 +69,9 @@ export class CheckoutController {
       { ownerSub, key, operation: 'web.checkout.confirm', fingerprint: dto, successStatus: HttpStatus.CREATED },
       (manager) => this.reservations.create({
         orderPreviewId: dto.orderPreviewId,
-        paymentReference: simulatedPaymentReference(),
+        // RN18: el cobro real es de otro dominio; la web usa una pasarela simulada (domain/payment-simulator.ts).
+        // Un rechazo (402) también queda registrado por la idempotencia: cada intento de pago usa su propia clave.
+        paymentReference: authorizeSimulatedPayment(dto.paymentToken).reference,
         driver: dto.driver,
         driverFields: DRIVER_FIELDS,
         ownerSub,

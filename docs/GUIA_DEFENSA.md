@@ -29,7 +29,7 @@ Para preparar la presentación: qué revisar antes, en qué orden mostrar la dem
 |---|---|---|---|
 | 1 | **C1** | Las dos URLs públicas y `/health` | "Frontend estático y API en Docker en Render, PostgreSQL en Supabase. Cada push a `main` pasa por CI y se despliega solo." |
 | 2 | **C3** consulta | Portada → buscar en "Guayaquil — todas las agencias" → filtros y orden → detalle con dirección, horario y mapa | "Cada oferta dice exactamente en qué agencia se retira. El precio ya incluye IVA, días con tolerancia de 59 min y recargos." |
-| 3 | **C3** venta | Reservar → registro → checkout con cuenta regresiva del hold → agregar GPS (el precio cambia en vivo) → confirmar → localizador | "El hold aparta el auto 15 min para que nadie lo tome mientras paga. Confirmar lleva `Idempotency-Key`: un doble clic no crea dos reservas." |
+| 3 | **C3** venta | Reservar → registro → checkout con cuenta regresiva del hold → agregar GPS (el precio cambia en vivo) → **Continuar al pago** → pasarela RutaPay: tarjeta `4000 0000 0000 0002` (rechazada) → `4242 4242 4242 4242` (aprobada) → localizador | "El hold aparta el auto 15 min mientras paga. La tarjeta se valida y se tokeniza en el navegador: el número nunca llega al servidor. Si el banco la rechaza no se crea nada; el pago y la reserva van en una sola transacción con `Idempotency-Key`." |
 | 4 | **C3** posventa | Mis reservas → modificar extras → cancelar | "Cancelar es gratis hasta 24 h antes; después se cobra un día." |
 | 5 | **C2** + publicación | Admin → Modelos → ocultar un modelo → buscar en la web: ya no aparece → publicarlo de nuevo | "El admin publica la oferta y el marketplace la muestra: la publicación de la rúbrica." |
 | 6 | **C2** operación | Admin → Reservas → abrir la reserva → **Registrar entrega** (eligiendo la placa) → **Registrar devolución** → historial | "No es solo CRUD: el cliente reserva un *modelo* y la placa se asigna al entregar el auto, comprobando que esté libre en todo el periodo." |
@@ -133,7 +133,7 @@ Seguir un request de punta a punta es la mejor forma de mostrar dominio del cód
 | Documentación de API | **OpenAPI 3** (contrato), **Swagger UI**, **Redoc**, **@nestjs/swagger** (API interna), **AsyncAPI 2.6** (eventos) | C4 y C8 |
 | Logs | **pino** (`nestjs-pino`), JSON con `request_id` | Trazabilidad |
 | Frontend | **React 19**, **Vite 8**, **React Router 7**, **TanStack Query 5**, **Tailwind CSS 4**, **lucide-react** | SPA rápida y responsive |
-| Pruebas | **Jest + supertest**, **jest-openapi** (contrato), **Vitest**, **Playwright** (E2E) | 210 + 9 + 7 pruebas |
+| Pruebas | **Jest + supertest**, **jest-openapi** (contrato), **Vitest**, **Playwright** (E2E) | 219 + 15 + 7 pruebas |
 | CI/CD | **GitHub Actions** (typecheck, build, migraciones, tests, E2E) → despliegue automático | Nada llega a producción con pruebas rojas |
 | Infraestructura | **Render** (API en **Docker** + sitio estático), **Supabase** (PostgreSQL gestionado) | Accesible públicamente (C1) |
 
@@ -182,10 +182,18 @@ La entrega queda `FAILED` y se reintenta tras 1 min, 5 min, 30 min, 2 h y 12 h. 
 Días = bloques de 24 h con 59 min de tolerancia; tarifa vigente de la categoría y el proveedor; extras por día con tope; +10 USD/día a menores de 25; +40 USD si se devuelve en otra agencia; IVA 15 %. Todo en centavos enteros para no perder precisión, en `src/domain/pricing.ts` con pruebas unitarias.
 
 **¿Qué pruebas tienen?**
-- 210 pruebas del backend: dominio, integración con PostgreSQL real, API, contrato y checksum.
-- 9 pruebas de frontend (Vitest).
-- 7 pruebas E2E con Playwright: flujo de compra, móvil, validaciones y panel.
+- 219 pruebas del backend: dominio, integración con PostgreSQL real, API, contrato y checksum.
+- 15 pruebas de frontend (Vitest).
+- 7 pruebas E2E con Playwright: flujo de compra (con pago rechazado y aprobado), móvil, validaciones y panel.
 - Todas corren en GitHub Actions en cada push.
+
+**¿Cómo funciona el pago?**
+El cobro real pertenece al Payment API del Hub, así que la web usa una **pasarela simulada (RutaPay)** con el mismo flujo que una real:
+1. El navegador valida la tarjeta (marca, algoritmo de Luhn, vencimiento, CVV) y la **tokeniza**: al backend solo llega el token, nunca el número ni el CVV.
+2. El backend autoriza el token y crea la reserva **en la misma transacción**.
+3. Si el banco la rechaza responde 402 `PAYMENT_NOT_AUTHORIZED` (código del contrato) y no se crea nada; si la reserva falla, el rollback anula la autorización.
+
+Hay tarjetas de prueba aprobadas y rechazadas, como en Stripe.
 
 **¿Qué es SOA y qué es EDA en su proyecto?**
 - **SOA:** somos un servicio con contrato estándar dentro del ecosistema del Hub (vuelos, alojamiento, pagos…), con bajo acoplamiento y reutilización de servicios.
@@ -202,7 +210,7 @@ La rúbrica pide un diseño preliminar de eventos, y el contrato define webhooks
 - Protección anti-SSRF en las URLs de webhook.
 
 **¿Qué mejorarían?**
-- Pago real con el Payment API del Hub (hoy es simulado).
+- Pago real con el Payment API del Hub (hoy es una pasarela simulada).
 - Correos de confirmación.
 - IdP central (RDA2).
 - Emitir la modificación de órdenes como evento cuando el contrato lo incluya.

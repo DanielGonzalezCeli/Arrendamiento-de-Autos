@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime, formatMoney } from '../../lib/format'
+import { describeCard } from '../../lib/payment-card'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, useAdminMutation, useAdminQuery, type AdminReservation } from './admin-api'
 import { Modal, Pill } from './components'
@@ -81,6 +82,7 @@ export function ReservationAdminPage() {
         </Info>
         <Info title="Pago">
           <p className="font-semibold">{formatMoney(r.totalPrice, r.currency)}</p>
+          {cardOf(r.paymentReference) && <p className="text-slate-500">Pagado con {cardOf(r.paymentReference)}</p>}
           <p className="text-slate-500">Referencia: <span className="font-mono">{r.paymentReference}</span></p>
           {r.cancellationFee !== null && <p className="text-slate-500">Penalidad de cancelación: {formatMoney(r.cancellationFee, r.currency)}</p>}
         </Info>
@@ -112,6 +114,12 @@ export function ReservationAdminPage() {
       {dialog === 'cancel' && <CancelDialog reservation={r} onClose={close} />}
     </div>
   )
+}
+
+/** Las referencias de la pasarela simulada llevan la marca y los últimos 4 dígitos: PAY-VISA-4242-… */
+function cardOf(reference: string): string | null {
+  const match = /^PAY-([A-Z]+)-(\d{4})-/.exec(reference)
+  return match ? describeCard({ brand: match[1].toLowerCase(), last4: match[2] }) : null
 }
 
 function Info({ title, children }: { title: string; children: React.ReactNode }) {

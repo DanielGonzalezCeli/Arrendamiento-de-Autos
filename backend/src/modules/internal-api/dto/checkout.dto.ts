@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, ValidateNested } from 'class-validator';
 import { IsInternationalPhone, IsPersonName, IsStrictEmail } from '../../../common/validation/contact.decorators';
+import { PAYMENT_TOKEN } from '../../../domain/payment-simulator';
 import { RFC3339 } from '../../integration-api/dto/catalog-requests.dto';
 
 export class CheckoutHoldDto {
@@ -31,6 +32,11 @@ export class CheckoutConfirmDto {
   @ValidateNested()
   @Type(() => CheckoutDriverDto)
   driver: CheckoutDriverDto;
+
+  /** Token de la pasarela simulada: el número y el CVV de la tarjeta nunca llegan al backend. */
+  @ApiProperty({ example: 'tok_sim_visa_4242_k3j9x2m1q8' })
+  @Matches(PAYMENT_TOKEN, { message: 'token de pago inválido' })
+  paymentToken: string;
 }
 
 export class ModifyMyReservationDto {

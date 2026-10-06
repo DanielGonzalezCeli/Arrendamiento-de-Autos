@@ -113,7 +113,7 @@ Dentro de cada módulo de dominio: `*.controller.ts` (HTTP) → `*.service.ts` (
 |---|---|
 | Auth | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` |
 | Público | `GET /locations?q=` (agencias, ciudades y aeropuertos), `GET /search?pickupDepotId&dropoffDepotId&pickupAt&dropoffAt&driverAge&...` (crea `search_session` y devuelve un token + resultados enriquecidos), `GET /vehicles/:id?searchToken=`, `GET /extras`, `GET /constants` |
-| Checkout (CUSTOMER) | `POST /checkout/hold`, `POST /checkout/preview`, `POST /checkout/confirm` (con `Idempotency-Key`; genera `payment_reference` simulado) |
+| Checkout (CUSTOMER) | `POST /checkout/hold`, `POST /checkout/preview`, `POST /checkout/confirm` (con `Idempotency-Key`; autoriza el token de la pasarela simulada RutaPay y usa su `payment_reference`) |
 | Mis reservas (CUSTOMER) | `GET /me/reservations`, `GET /me/reservations/:id`, `POST /me/reservations/:id/modify`, `POST /me/reservations/:id/cancel`, `POST /me/reservations/:id/review` |
 | Admin | `GET /admin/dashboard`; CRUD `/admin/{vehicles,categories,suppliers,depots,rates,extras}`; `/admin/vehicles/:id/blocks`; `/admin/reservations` (+`/:id/pickup`, `/:id/return`, `/:id/cancel`); `/admin/users`; `/admin/integration/{clients,webhooks,deliveries}` |
 
