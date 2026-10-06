@@ -33,7 +33,7 @@ La rúbrica (C8) pide **"diseño preliminar de eventos o servicios para futura i
 | `ReservationConfirmed` | `orders/create`, checkout web | `CAR_ORDER_CONFIRMED` | Hub, (futuro) Billing, notificaciones |
 | `ReservationCancelled` | `orders/{id}/cancel`, cancelación web o admin | `CAR_ORDER_CANCELLED` | Hub, (futuro) Payment para el reembolso |
 | `ReservationModified` | `orders/{id}/modify` | — (no está en el enum) | Solo interno; **propuesto** al equipo de integración |
-| `DepotUpdated` | CRUD de agencias u horarios (panel admin, Fase 5) | `DEPOT_UPDATE` | Hub (refresca su caché de `/depots`) |
+| `DepotUpdated` | CRUD de agencias u horarios (panel admin) | `DEPOT_UPDATE` | Hub (refresca su caché de `/depots`) |
 | `HoldExpired` | `MaintenanceService` (cada 10 min) | — | Interno (estado explícito; la disponibilidad ya ignora holds vencidos) |
 | `VehicleAvailabilityChanged` | Bloqueo o cambio de estado | — | Interno / futuro |
 
@@ -93,6 +93,6 @@ WebhookDispatcherService (cada WEBHOOK_DISPATCH_INTERVAL_MS, por defecto 10 s)
 ## 4. Demostración en la defensa
 
 1. Registrar un webhook con `POST /autos/v1/webhooks` apuntando a `https://webhook.site/<id>`.
-2. Crear una reserva desde el marketplace o desde Swagger.
+2. Crear una orden **desde Swagger con el token del mismo cliente** (los eventos de orden solo se envían al dueño de la orden; una reserva web no llega a la suscripción del Hub). Alternativa: editar una agencia en el panel, porque `DEPOT_UPDATE` se envía a todos los suscriptores.
 3. Mostrar el evento `CAR_ORDER_CONFIRMED` recibido, con su firma.
 4. Mostrar la tabla de entregas en el panel admin y un reintento (URL caída).

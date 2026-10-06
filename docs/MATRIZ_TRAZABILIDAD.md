@@ -35,16 +35,22 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 
 | Rúbrica | Requisito | Componente | Prueba | Evidencia | Estado |
 |---|---|---|---|---|---|
-| C6 | Contrato inalterado | `contracts/autos-openapi.yaml` + `UPSTREAM.md` | test de checksum | CI verde | Copiado ✔ |
-| C4 | Docs públicas desde el contrato | `DocsModule` (Swagger UI + Redoc desde el YAML) | API: `/autos/v1/docs` 200 | URL pública | Pendiente |
-| C6 C4 | Errores estándar | `ProblemDetailsFilter` | e2e-api/auth (400/401/409, solo campos permitidos) | Swagger | Hecho (filtro global) ✔ |
-| C6 | Seguridad entre sistemas | `IntegrationAuthGuard` (RS256 + scopes), `AffiliateGuard`, emisor local `/oauth2/token` | e2e-api/integration-auth (401/403, token falsificado) | Token → llamada | Hecho ✔ |
-| C2 | CRUD de administración | `internal-api/admin/*` + frontend `/admin` | API + E2E | Demo | Pendiente |
-| C2 | Gestión operativa | `RentalOperationsService`, `vehicle_blocks` | unit + E2E | Demo | Pendiente |
-| C3 | Publicación → marketplace | `vehicle_models.published` + búsqueda | E2E | Demo | Búsqueda filtra publicados ✔; publicar desde admin en Fase 5 |
-| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza servicios) | E2E Playwright | Demo | Hecho ✔ (e2e-api/web-checkout + e2e/purchase-flow en CI) |
-| C5 | Integridad | migración `InitialSchema`, EXCLUDE (placa y tarifas), FK, CHECK, seed | integration/schema-alignment, integration/availability | ER + 409 | Hecho ✔ |
-| C1 | Despliegue | Render (API + web) + Supabase | smoke `/health` | URLs en README | Esqueleto desplegado ✔ |
-| C8 | Catálogo de eventos | `autos-events.asyncapi.yaml` | lint AsyncAPI | Documento | Hecho ✔ (`contracts/autos-events.asyncapi.yaml`) |
-| C9 | Documentación | `docs/*` | — | Carpeta docs | Análisis ✔ |
-| C10 | Defensa | `GUIA_DEFENSA.md` | ensayo | — | Pendiente |
+| C1 | Despliegue público | Render (API Docker + sitio estático) + Supabase; despliegue automático desde `main` | smoke `/health`; E2E también ejecutado contra producción | URLs en el README | Hecho ✔ |
+| C2 | CRUD de administración | `modules/admin/*` (`/api/admin`) + `frontend/src/features/admin/*` | e2e-api/admin (17 casos) + e2e/admin.spec | Panel `/admin` | Hecho ✔ |
+| C2 | Gestión operativa | `RentalOperationsService` (entrega con asignación de placa, devolución), cancelación asistida, `vehicle_blocks`, dashboard | e2e-api/admin + e2e/admin.spec | Demo: entrega → devolución con historial | Hecho ✔ |
+| C2 | Protección por rol | `UserJwtGuard` + `RolesGuard` en todo `/api/admin` | e2e-api/admin (401 sin sesión, 403 cliente), unit/auth/roles.guard | 403 en vivo | Hecho ✔ |
+| C3 | Consulta | Buscador por ciudad o agencia, filtros, detalle con agencia, horario y mapa | e2e/purchase-flow, e2e/mobile, Vitest | Demo | Hecho ✔ |
+| C3 | Publicación → marketplace | `vehicle_models.published` (publicar u ocultar desde el admin) + búsqueda | contract/catalog, e2e-api/admin | Ocultar → desaparece de la búsqueda | Hecho ✔ |
+| C3 | Flujo de venta web | `internal-api/checkout` (reutiliza los servicios del Hub) | e2e-api/web-checkout + e2e/purchase-flow | Demo | Hecho ✔ |
+| C4 | Docs públicas desde el contrato | `DocsModule`: Swagger UI + Redoc desde el YAML; `/api/docs` generado para la API interna | app-smoke (`/autos/v1/docs`), e2e-api/auth (`/api/docs`) | URLs públicas | Hecho ✔ |
+| C5 | Integridad | Migraciones versionadas, EXCLUDE (placa y tarifas), FK, CHECK, seed idempotente | integration/schema-alignment, integration/availability | 409 en vivo | Hecho ✔ |
+| C6 | Contrato inalterado | `contracts/autos-openapi.yaml` + `UPSTREAM.md` | contract-checksum | CI verde | Hecho ✔ |
+| C6 C4 | Errores estándar | `ProblemDetailsFilter` (RFC 7807, `code` del contrato) | e2e-api/auth, contract/* | Swagger | Hecho ✔ |
+| C6 | Seguridad entre sistemas | `IntegrationAuthGuard` (RS256 + scopes), `AffiliateGuard`, emisor local `/oauth2/token` | e2e-api/integration-auth | Token → llamada | Hecho ✔ |
+| C7 | Guía de interoperabilidad | [`CONTRATO_INTEGRACION.md`](CONTRATO_INTEGRACION.md) (flujo, token, idempotencia, errores, webhooks y firma) | Ejemplos tomados de las pruebas de contrato | Swagger "Try it out" | Hecho ✔ |
+| C8 | Eventos y webhooks | Outbox + `WebhookDispatcher` (HMAC, reintentos) + monitor en el panel | integration/webhooks | webhook.site en vivo | Hecho ✔ |
+| C8 | Catálogo de eventos | `contracts/autos-events.asyncapi.yaml` + [`SOA_EDA.md`](SOA_EDA.md) | — | Documento | Hecho ✔ |
+| C9 | Documentación técnica | `ARQUITECTURA.md`, `BASE_DATOS.md`, `API_INTERNA.md`, `CONTRATO_INTEGRACION.md`, `SOA_EDA.md`, `DEPLOYMENT.md`, README | — | Carpeta `docs/` | Hecho ✔ |
+| C10 | Defensa | [`GUIA_DEFENSA.md`](GUIA_DEFENSA.md): checklist, guion por criterio, recorrido del código, preguntas | Ensayo | — | Hecho ✔ (falta ensayar) |
+
+**Totales de pruebas (CI):** 210 backend (unit, integración, API, contrato, checksum) · 9 frontend (Vitest) · 7 E2E (Playwright).

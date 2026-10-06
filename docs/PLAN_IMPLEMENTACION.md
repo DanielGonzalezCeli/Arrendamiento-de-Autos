@@ -1,5 +1,7 @@
 # Plan de implementación
 
+> **Estado (2026-10-06):** fases 0–16 completadas. Las desviaciones del plan están en el historial de commits; el estado por criterio de la rúbrica está en [`MATRIZ_TRAZABILIDAD.md`](MATRIZ_TRAZABILIDAD.md).
+
 Regla de trabajo: **una fase a la vez → compilar → ejecutar → probar → corregir → documentar → revisión contigo → siguiente fase.** No se avanza con errores conocidos.
 
 El despliegue se adelanta como **"despliegue esqueleto" en la Fase 1** porque C1 es obligatorio. La Fase 15 consolida el despliegue final.

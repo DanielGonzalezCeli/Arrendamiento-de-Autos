@@ -11,6 +11,16 @@
 | **E2E** | Playwright | Búsqueda → detalle → checkout → confirmación → mis reservas → cancelar; admin crea y publica un vehículo → visible | `e2e/` |
 | **Fuzz de contrato (opcional)** | Schemathesis contra staging | Robustez frente a inputs generados desde el YAML | Manual o CI nocturno |
 
+## Estado actual
+
+| Suite | Casos | Dónde |
+|---|---|---|
+| Backend: unit, integración, API, contrato, checksum | 210 (20 suites) | `backend/test` |
+| Frontend (Vitest) | 9 | `frontend/src/**/*.test.ts` |
+| E2E (Playwright) | 7: flujo de compra, rutas privadas, móvil, validaciones de registro, fotos, panel admin (entrega → devolución), acceso de cliente al panel | `e2e/tests` |
+
+Las tres suites corren en GitHub Actions en cada push. El E2E también se ejecutó contra producción (`E2E_BASE_URL`). La fila "Fuzz de contrato" de la tabla anterior quedó fuera del alcance.
+
 ## Casos prioritarios (flujo crítico)
 
 1. `search` devuelve solo vehículos disponibles, publicados y aptos por edad, con `search_token`.
