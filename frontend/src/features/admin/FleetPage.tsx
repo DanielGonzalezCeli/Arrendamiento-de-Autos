@@ -31,7 +31,20 @@ export function FleetPage() {
   const fields: FieldSpec[] = [
     { name: 'plate', label: 'Placa', required: true, placeholder: 'PBA-1234', validate: rules.pattern(PLATE, 'Formato ABC-1234') },
     { name: 'vehicleModelId', label: 'Modelo', type: 'select', required: true, options: models.data?.map((m) => ({ value: m.id, label: `${m.make} ${m.model}` })) },
-    { name: 'depotId', label: 'Agencia actual', type: 'select', numeric: true, required: true, options: depots.data?.map((d) => ({ value: d.id, label: d.name })) },
+    {
+      name: 'depotId', label: 'Agencia actual', type: 'select', numeric: true, required: true,
+      hint: 'Solo agencias del proveedor del modelo: la búsqueda ofrece cada modelo en las agencias de su proveedor.',
+      // Una unidad solo puede estar en una agencia del proveedor de su modelo (el backend también lo exige)
+      optionsFor: (values) => {
+        const model = models.data?.find((m) => m.id === values.vehicleModelId)
+        return depots.data?.filter((d) => !model || d.supplierId === model.supplierId).map((d) => ({ value: d.id, label: d.name }))
+      },
+      validate: (value, values) => {
+        const model = models.data?.find((m) => m.id === values.vehicleModelId)
+        const depot = depots.data?.find((d) => d.id === Number(value))
+        return model && depot && depot.supplierId !== model.supplierId ? `Elige una agencia de ${model.supplier.name}` : undefined
+      },
+    },
     { name: 'status', label: 'Estado', type: 'select', required: true, options: ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_SERVICE'].map((s) => ({ value: s, label: UNIT_STATUS_LABEL[s] })) },
     { name: 'year', label: 'Año', type: 'number', required: true, validate: rules.integer(1990, new Date().getFullYear() + 1) },
     { name: 'mileage', label: 'Kilometraje', type: 'number', required: true, validate: rules.integer(0, 2_000_000) },

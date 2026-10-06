@@ -59,6 +59,7 @@ currency_rates
 | `extras` | `id`, `code UNIQUE` (`GPS`, `CHILD_SEAT`, `ADDITIONAL_DRIVER`, `CDW`...), `name`, `type`, `price_per_day`, `max_price NULL`, `active` | — |
 | `currency_rates` | `currency char(3) PK`, `rate_from_usd numeric(12,6)`, `updated_at` | USD = 1 |
 | ~~`system_settings`~~ | — | **No se creó** (decisión Fase 2): los parámetros de negocio viven como constantes con nombre en `src/domain/business-rules.ts`; son fijos para el MVP y así quedan versionados y probados |
+| `media_images` | `id uuid PK`, `content_type` (solo `image/jpeg`, `image/png`, `image/webp`), `data bytea`, `size_bytes` (≤ 2 MB), `original_name`, `uploaded_by FK users`, `created_at` | Fotos subidas desde el panel; se guardan en la BD porque el disco de Render se borra en cada despliegue. Se sirven en `GET /api/images/{id}` |
 
 ### Usuarios e integración
 | Tabla | Columnas clave | Restricciones |

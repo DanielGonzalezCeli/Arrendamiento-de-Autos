@@ -1,10 +1,12 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { BUSINESS_RULES } from '../../domain/business-rules';
 import { LocationQuery } from '../../domain/depot-locator';
 import { DomainError } from '../../domain/domain-error';
 import { OrderChannel } from '../../domain/enums';
 import { CatalogService } from '../catalog/catalog.service';
+import { MediaService } from '../media/media.service';
 import { SearchService } from '../search/search.service';
 import { InternalSearchDto } from './dto/internal-search.dto';
 import { toExtra, toLocations, toSearchResult, toVehicleSummary } from './mappers/public-catalog.mapper';
@@ -19,6 +21,7 @@ export class PublicCatalogController {
   constructor(
     private readonly catalog: CatalogService,
     private readonly search: SearchService,
+    private readonly media: MediaService,
   ) {}
 
   @Get('locations')
@@ -46,6 +49,19 @@ export class PublicCatalogController {
     const model = await this.catalog.findPublishedModel(id);
     if (!model) throw new NotFoundException('Vehículo no encontrado');
     return toVehicleSummary(model);
+  }
+
+  @Get('images/:id')
+  @ApiOperation({ summary: 'Foto subida desde el panel (inmutable: cada subida tiene su propio id)' })
+  async image(@Param('id') id: string, @Res() res: Response) {
+    const image = await this.media.find(id);
+    res.set({
+      'Content-Type': image.contentType,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      // La web vive en otro dominio: helmet bloquea por defecto los recursos de origen cruzado
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
+    res.send(image.data);
   }
 
   @Post('search')

@@ -29,6 +29,8 @@ export interface VehicleModel {
   category: Category
   supplier: Supplier
   units: number
+  /** Por qué no aparece en la búsqueda; vacío = sí aparece. */
+  searchIssues: string[]
 }
 
 export interface Depot {

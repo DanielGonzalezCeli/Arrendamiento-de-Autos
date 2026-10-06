@@ -12,6 +12,8 @@ describe('API interna — administración', () => {
   const suffix = Date.now();
   const customerEmail = `test+admincust${suffix}@rutalibre.test`;
   const plate = `ZZT-${String(suffix).slice(-4)}`;
+  const diagModel = `Modelo ${suffix}`;
+  const uploadedImages: string[] = [];
   const startDay = 30 + Math.floor(Math.random() * 200);
 
   const http = () => request(app.getHttpServer());
@@ -41,6 +43,9 @@ describe('API interna — administración', () => {
     }
     await db.query(`DELETE FROM vehicle_blocks WHERE fleet_unit_id IN (SELECT id FROM fleet_units WHERE plate = $1)`, [plate]);
     await db.query(`DELETE FROM fleet_units WHERE plate = $1`, [plate]);
+    await db.query(`DELETE FROM fleet_units WHERE vehicle_model_id IN (SELECT id FROM vehicle_models WHERE make = 'Diagnóstico' AND model = $1)`, [diagModel]);
+    await db.query(`DELETE FROM vehicle_models WHERE make = 'Diagnóstico' AND model = $1`, [diagModel]);
+    if (uploadedImages.length) await db.query(`DELETE FROM media_images WHERE id = ANY($1)`, [uploadedImages]);
     await app?.close();
   });
 
@@ -117,6 +122,51 @@ describe('API interna — administración', () => {
       .send({ startsAt: futureDate(startDay + 40), endsAt: futureDate(startDay + 42), reason: 'Mantenimiento preventivo' }).expect(201);
     expect((await http().get(`/api/admin/fleet/${unit.id}/blocks`).set(admin()).expect(200)).body).toHaveLength(1);
     await http().delete(`/api/admin/blocks/${block.body.id}`).set(admin()).expect(204);
+  });
+
+  it('una unidad solo puede estar en una agencia del proveedor de su modelo', async () => {
+    const models = (await http().get('/api/admin/models').set(admin()).expect(200)).body;
+    const depots = (await http().get('/api/admin/depots').set(admin()).expect(200)).body;
+    const model = models[0];
+    const otherDepot = depots.find((d: { supplierId: number }) => d.supplierId !== model.supplierId);
+    const res = await http().post('/api/admin/fleet').set(admin())
+      .send({ vehicleModelId: model.id, depotId: otherDepot.id, plate: 'ZZX-9999', year: 2024, mileage: 0, status: 'AVAILABLE' })
+      .expect(400);
+    expect(res.body.invalidParams).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'depotId' })]));
+  });
+
+  it('el listado de modelos explica por qué un modelo no aparece en la búsqueda', async () => {
+    const models = (await http().get('/api/admin/models').set(admin()).expect(200)).body;
+    const seeded = models.find((m: { make: string; model: string }) => m.make === 'Kia' && m.model === 'Picanto');
+    expect(seeded.searchIssues).toEqual([]);
+
+    const template = models[0];
+    const created = (await http().post('/api/admin/models').set(admin()).send({
+      supplierId: template.supplierId, categoryId: template.categoryId, make: 'Diagnóstico', model: diagModel,
+      transmission: 'MANUAL', fuelType: 'GASOLINE', fuelPolicy: 'FULL_TO_FULL', seats: 5, doors: 4, bagCapacity: 2,
+      airConditioning: true, published: false,
+    }).expect(201)).body;
+    const listed = (await http().get('/api/admin/models').set(admin()).expect(200)).body.find((m: { id: string }) => m.id === created.id);
+    expect(listed.searchIssues).toEqual(expect.arrayContaining(['No está publicado', 'No tiene unidades en la flota']));
+  });
+
+  it('fotos: el admin sube una imagen y la web la lee; solo JPG/PNG/WebP reales', async () => {
+    // PNG de 1×1 píxel
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    const uploaded = await http().post('/api/admin/images').set(admin()).attach('file', png, 'foto.png').expect(201);
+    expect(uploaded.body).toMatchObject({ contentType: 'image/png', url: `/api/images/${uploaded.body.id}` });
+    uploadedImages.push(uploaded.body.id);
+
+    const image = await http().get(uploaded.body.url).expect(200);
+    expect(image.headers['content-type']).toBe('image/png');
+    expect(image.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(Buffer.compare(image.body, png)).toBe(0);
+
+    // Un SVG (puede llevar scripts) con nombre .png no se acepta: se mira el contenido, no la extensión
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+    await http().post('/api/admin/images').set(admin()).attach('file', svg, { filename: 'falsa.png', contentType: 'image/png' }).expect(400);
+    await http().post('/api/admin/images').set(customer()).attach('file', png, 'foto.png').expect(403);
+    await http().get('/api/images/no-existe').expect(404);
   });
 
   it('el administrador no puede quitarse su propio rol', async () => {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AvailabilityModule } from '../availability/availability.module';
 import { EventsModule } from '../events/events.module';
+import { MediaModule } from '../media/media.module';
 import { OrdersModule } from '../orders/orders.module';
 import { AdminOperationsService } from './admin-operations.service';
 import { AdminController } from './admin.controller';
@@ -11,7 +12,7 @@ import { IntegrationAdminService } from './integration-admin.service';
 
 /** Panel de administración (/api/admin). Reutiliza los servicios de dominio (reservas, disponibilidad, eventos). */
 @Module({
-  imports: [OrdersModule, AvailabilityModule, EventsModule],
+  imports: [OrdersModule, AvailabilityModule, EventsModule, MediaModule],
   controllers: [AdminController],
   providers: [AdminOperationsService, CatalogAdminService, FleetAdminService, DepotAdminService, IntegrationAdminService],
 })

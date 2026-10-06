@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { ErrorAlert } from '../../components/ui/Alert'
+import { assetUrl } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { FUEL_LABEL, FUEL_POLICY_LABEL, TRANSMISSION_LABEL } from '../../lib/format'
@@ -37,7 +38,7 @@ export function ModelsPage() {
     { name: 'seats', label: 'Asientos', type: 'number', required: true, validate: rules.integer(1, 15) },
     { name: 'doors', label: 'Puertas', type: 'number', required: true, validate: rules.integer(2, 6) },
     { name: 'bagCapacity', label: 'Maletas', type: 'number', required: true, validate: rules.integer(0, 10) },
-    { name: 'imageUrl', label: 'Foto', placeholder: '/cars/toyota-yaris.jpg o https://…', validate: rules.pattern(/^(https:\/\/\S+|\/[\w./-]+)$/, 'URL https o ruta /cars/archivo.jpg') },
+    { name: 'imageUrl', label: 'Foto', type: 'image', validate: rules.pattern(/^(https:\/\/\S+|\/[\w./-]+)$/, 'Usa un enlace https directo a la imagen') },
     { name: 'description', label: 'Descripción', type: 'textarea', validate: rules.length(0, 500) },
     { name: 'airConditioning', label: 'Aire acondicionado', type: 'checkbox' },
     { name: 'published', label: 'Publicado en el marketplace y el Booking Hub', type: 'checkbox' },
@@ -60,22 +61,36 @@ export function ModelsPage() {
         subtitle="Cada modelo es la oferta comercial (vehicle_id del contrato). Solo los publicados y activos aparecen en búsquedas."
         action={<Button onClick={() => setEditing('new')}><Plus className="h-4 w-4" /> Nuevo modelo</Button>}
       />
-      <Table head={['', 'Modelo', 'Categoría', 'Proveedor', 'Especificaciones', 'Unidades', 'Estado', '']} empty={!models.data?.length}>
+      <Table head={['', 'Modelo', 'Categoría', 'Proveedor', 'Unidades', 'Estado', '¿Aparece en la búsqueda?', '']} empty={!models.data?.length}>
         {models.data?.map((m) => (
           <tr key={m.id} className={m.active ? '' : 'opacity-60'}>
             <td className={TD}>
-              {m.imageUrl ? <img src={m.imageUrl} alt="" className="h-10 w-16 rounded-md object-cover" /> : <div className="h-10 w-16 rounded-md bg-slate-100" />}
+              {m.imageUrl ? <img src={assetUrl(m.imageUrl)} alt="" className="h-10 w-16 rounded-md object-cover" /> : <div className="h-10 w-16 rounded-md bg-slate-100" />}
             </td>
-            <td className={TD}><p className="font-semibold">{m.make} {m.model}</p><p className="font-mono text-xs text-slate-500">{m.acrissCode}</p></td>
+            <td className={TD}>
+              <p className="font-semibold">{m.make} {m.model}</p>
+              <p className="text-xs text-slate-500">{TRANSMISSION_LABEL[m.transmission]} · {FUEL_LABEL[m.fuelType]} · {m.seats} asientos{m.acrissCode && <span className="font-mono"> · {m.acrissCode}</span>}</p>
+            </td>
             <td className={TD}>{m.category.name}</td>
             <td className={TD}>{m.supplier.name}</td>
-            <td className={`${TD} text-xs text-slate-500`}>{TRANSMISSION_LABEL[m.transmission]} · {FUEL_LABEL[m.fuelType]} · {m.seats} asientos · {m.bagCapacity} maletas</td>
             <td className={TD}>{m.units}</td>
             <td className={TD}>
               <div className="flex flex-col items-start gap-1">
                 <Pill tone={m.published ? 'blue' : 'slate'}>{m.published ? 'Publicado' : 'Oculto'}</Pill>
                 {!m.active && <ActiveBadge active={false} />}
               </div>
+            </td>
+            <td className={`${TD} max-w-[16rem]`}>
+              {m.searchIssues.length === 0 ? (
+                <Pill tone="green">Sí, visible</Pill>
+              ) : (
+                <div className="flex flex-col items-start gap-1">
+                  <Pill tone="amber">No aparece</Pill>
+                  <ul className="list-disc pl-4 text-xs text-amber-800">
+                    {m.searchIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                  </ul>
+                </div>
+              )}
             </td>
             <td className={`${TD} whitespace-nowrap text-right`}>
               <button

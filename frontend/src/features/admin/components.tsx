@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
+import { ImageDropzone } from '../../components/ui/ImageDropzone'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { ApiError } from '../../lib/api'
 
@@ -12,8 +13,10 @@ export { Modal } from '../../components/ui/Modal'
 export type FieldSpec = {
   name: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'phone'
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'phone' | 'image'
   options?: { value: string | number; label: string }[]
+  /** Opciones que dependen de lo elegido en otros campos (tiene prioridad sobre `options`). */
+  optionsFor?: (values: Record<string, unknown>) => { value: string | number; label: string }[] | undefined
   required?: boolean
   hint?: string
   placeholder?: string
@@ -109,15 +112,17 @@ export function EntityForm({
             )
           }
           return (
-            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'phone' ? 'sm:col-span-2' : ''}>
+            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'phone' || f.type === 'image' ? 'sm:col-span-2' : ''}>
               <Field label={f.label + (f.required ? ' *' : '')} htmlFor={id} error={err} hint={f.hint}>
                 {f.type === 'select' ? (
                   <select {...common} value={String(value ?? '')} onChange={(e) => set(f.name, e.target.value)}>
                     <option value="">Selecciona…</option>
-                    {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {(f.optionsFor?.(values) ?? f.options)?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 ) : f.type === 'textarea' ? (
                   <textarea {...common} rows={3} value={String(value ?? '')} onChange={(e) => set(f.name, e.target.value)} />
+                ) : f.type === 'image' ? (
+                  <ImageDropzone id={id} value={String(value ?? '')} onChange={(v) => set(f.name, v)} error={err} />
                 ) : f.type === 'phone' ? (
                   <PhoneInput id={id} value={String(value ?? '')} onChange={(v) => set(f.name, v)} error={err} />
                 ) : (

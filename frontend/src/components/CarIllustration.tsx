@@ -1,3 +1,4 @@
+import { assetUrl } from '../lib/api'
 /**
  * Ilustración SVG por categoría (el catálogo de demo no tiene fotos). Si el modelo tiene imageUrl,
  * se muestra la foto; si no, una silueta coloreada según la categoría.
@@ -13,7 +14,7 @@ const PALETTE: Record<string, { from: string; to: string; body: string }> = {
 const DEFAULT = { from: '#f1f5f9', to: '#e2e8f0', body: '#475569' }
 
 export function CarIllustration({ category, imageUrl, alt, className = '' }: { category: string; imageUrl?: string | null; alt: string; className?: string }) {
-  if (imageUrl) return <img src={imageUrl} alt={alt} className={`h-full w-full object-cover ${className}`} loading="lazy" />
+  if (imageUrl) return <img src={assetUrl(imageUrl)} alt={alt} className={`h-full w-full object-cover ${className}`} loading="lazy" />
 
   const colors = PALETTE[category] ?? DEFAULT
   const tall = category === 'SUV' || category === 'PICKUP' || category === 'VAN'

@@ -26,6 +26,7 @@ API propia que usa **nuestro frontend** (marketplace y panel de administración)
 | `GET /api/categories` | Categorías con edad mínima |
 | `GET /api/extras` | Extras activos (precio por día y tope) |
 | `GET /api/vehicles/:id` | Ficha de un modelo publicado |
+| `GET /api/images/:id` | Foto subida desde el panel (caché de 1 año; cada subida tiene su propio id) |
 | `POST /api/search` | Búsqueda por agencia, ciudad o aeropuerto, con fechas, edad, moneda y filtros. Devuelve las ofertas con su agencia exacta de retiro y devolución, más un `searchToken` |
 
 ## 3. Compra y "Mis reservas" (usuario autenticado)
@@ -65,8 +66,9 @@ Todo el controlador está protegido con `UserJwtGuard` + `RolesGuard` + `@Roles(
 | Resumen | `GET dashboard` | Entregas y devoluciones del día, alquileres en curso, devoluciones atrasadas, ingresos del mes, reservas por canal, flota por estado, estado de los webhooks |
 | Reservas | `GET reservations?status&rentalStatus&depotId&from&to&q`, `GET reservations/:id` | El detalle incluye historial, unidades libres y acciones permitidas |
 | Operación | `POST reservations/:id/pickup` `{ fleetUnitId? }`, `POST reservations/:id/return` `{ mileage? }`, `POST reservations/:id/cancel` | La entrega asigna una placa libre para todo el periodo. En la devolución el kilometraje no puede bajar y la unidad queda en la agencia de devolución. La cancelación emite `CAR_ORDER_CANCELLED` |
-| Modelos | `GET/POST models`, `PATCH models/:id` | `published` controla la visibilidad en la web y en `/search`. No se puede desactivar un modelo con reservas futuras |
-| Flota | `GET fleet?vehicleModelId&depotId`, `POST fleet`, `PATCH fleet/:id` | Placa `ABC-1234` única. No se da de baja una unidad si alguna reserva futura quedaría sin auto |
+| Modelos | `GET/POST models`, `PATCH models/:id` | `published` controla la visibilidad en la web y en `/search`. No se puede desactivar un modelo con reservas futuras. El listado incluye `searchIssues`: por qué el modelo **no** aparecería en la búsqueda (no publicado, sin tarifa vigente, sin unidades en agencias de su proveedor) |
+| Fotos | `POST images` (multipart, campo `file`) | JPG, PNG o WebP de hasta 2 MB, verificados por su contenido real (no por la extensión; SVG no admitido). Devuelve `{ url: "/api/images/{id}" }` para el campo `imageUrl` del modelo. El panel redimensiona la foto a 1280 px antes de subirla |
+| Flota | `GET fleet?vehicleModelId&depotId`, `POST fleet`, `PATCH fleet/:id` | Placa `ABC-1234` única. La unidad debe estar en una agencia **del mismo proveedor que su modelo** (si no, nunca aparecería en la búsqueda → 400). No se da de baja una unidad si alguna reserva futura quedaría sin auto |
 | Mantenimiento | `GET/POST fleet/:id/blocks`, `DELETE blocks/:id` | No se bloquea una unidad asignada en ese periodo ni se deja una reserva sin auto |
 | Agencias | `GET/POST depots`, `PATCH depots/:id`, `GET/POST cities` | Horario semanal (apertura < cierre). Cada cambio emite **`DEPOT_UPDATE`** en la misma transacción. No se desactiva una agencia con reservas activas |
 | Catálogo comercial | `categories`, `suppliers`, `extras`: `GET/POST/PATCH` | Códigos en mayúsculas y únicos |

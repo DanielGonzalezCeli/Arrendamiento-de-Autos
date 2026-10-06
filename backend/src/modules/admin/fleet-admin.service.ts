@@ -34,7 +34,10 @@ export class FleetAdminService {
   }
 
   createUnit(dto: FleetUnitDto) {
-    return this.dataSource.getRepository(FleetUnit).save({ ...dto, active: true });
+    return this.dataSource.transaction(async (m) => {
+      await assertSameSupplier(m, dto.vehicleModelId, dto.depotId);
+      return m.save(FleetUnit, m.create(FleetUnit, { ...dto, active: true }));
+    });
   }
 
   async updateUnit(id: string, dto: UpdateFleetUnitDto) {
@@ -46,6 +49,9 @@ export class FleetAdminService {
         (dto.depotId !== undefined && dto.depotId !== unit.depotId) ||
         (dto.vehicleModelId !== undefined && dto.vehicleModelId !== unit.vehicleModelId);
 
+      if (dto.vehicleModelId !== undefined || dto.depotId !== undefined) {
+        await assertSameSupplier(m, dto.vehicleModelId ?? unit.vehicleModelId, dto.depotId ?? unit.depotId);
+      }
       if (leavesInventory) {
         await this.assertNotInUse(m, unit);
         await this.assertReservationsStillCovered(m, unit);
@@ -135,4 +141,26 @@ export class FleetAdminService {
 
 function conflict(detail: string): DomainError {
   return new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', detail);
+}
+
+/**
+ * La búsqueda ofrece un modelo solo en agencias de SU proveedor (supplier_id del contrato). Una unidad en
+ * una agencia de otro proveedor nunca se podría alquilar, así que se rechaza al guardarla.
+ */
+async function assertSameSupplier(m: EntityManager, vehicleModelId: string, depotId: number) {
+  const [row] = await m.query(
+    `SELECT vm.supplier_id AS "modelSupplier", ms.name AS "modelSupplierName", d.supplier_id AS "depotSupplier", d.name AS "depotName"
+       FROM vehicle_models vm JOIN suppliers ms ON ms.id = vm.supplier_id, depots d
+      WHERE vm.id = $1 AND d.id = $2`,
+    [vehicleModelId, depotId],
+  );
+  if (!row) {
+    throw DomainError.validation('El modelo o la agencia no existen', [{ name: 'vehicleModelId', reason: 'inexistente' }]);
+  }
+  if (row.modelSupplier !== row.depotSupplier) {
+    throw DomainError.validation(
+      `La agencia "${row.depotName}" no es de ${row.modelSupplierName}: las unidades de este modelo solo pueden estar en agencias de su proveedor`,
+      [{ name: 'depotId', reason: `debe ser una agencia de ${row.modelSupplierName}` }],
+    );
+  }
 }

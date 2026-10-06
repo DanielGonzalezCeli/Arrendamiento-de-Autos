@@ -1,11 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../domain/enums';
 import { AuthUser } from '../auth/auth-user';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserJwtGuard } from '../auth/guards/user-jwt.guard';
 import { toReservationView } from '../internal-api/mappers/reservation.mapper';
+import { MAX_IMAGE_BYTES, MediaService, UploadedImage } from '../media/media.service';
 import { RentalOperationsService } from '../orders/rental-operations.service';
 import { ReservationService } from '../orders/reservation.service';
 import { AdminOperationsService } from './admin-operations.service';
@@ -37,6 +39,7 @@ export class AdminController {
     private readonly integration: IntegrationAdminService,
     private readonly reservations: ReservationService,
     private readonly rentals: RentalOperationsService,
+    private readonly media: MediaService,
   ) {}
 
   @Get('dashboard')
@@ -77,6 +80,16 @@ export class AdminController {
   @ApiOperation({ summary: 'Cancelar una reserva de cualquier cliente (emite CAR_ORDER_CANCELLED)' })
   async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return toReservationView(await this.reservations.cancelAsAdmin(id, `admin:${user.id}`));
+  }
+
+  // ── Imágenes (fotos de los modelos) ───────────────────────────────────────
+  @Post('images')
+  @ApiOperation({ summary: 'Subir una foto (JPG, PNG o WebP, máx. 2 MB); devuelve la URL para el modelo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } }))
+  uploadImage(@UploadedFile() file: UploadedImage | undefined, @CurrentUser() user: AuthUser) {
+    return this.media.upload(file, user.id);
   }
 
   // ── Modelos y flota ───────────────────────────────────────────────────────

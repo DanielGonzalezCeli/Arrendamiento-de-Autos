@@ -27,11 +27,22 @@ export class CatalogAdminService {
     const models = await this.dataSource.getRepository(VehicleModel).find({
       relations: { category: true, supplier: true }, order: { supplierId: 'ASC', make: 'ASC', model: 'ASC' },
     });
-    const counts: { vehicle_model_id: string; units: string }[] = await this.dataSource.query(
-      `SELECT vehicle_model_id, count(*) FILTER (WHERE active) AS units FROM fleet_units GROUP BY vehicle_model_id`,
-    );
-    const unitsByModel = new Map(counts.map((c) => [c.vehicle_model_id, Number(c.units)]));
-    return models.map((m) => ({ ...m, units: unitsByModel.get(m.id) ?? 0 }));
+    const stats: ModelSearchStats[] = await this.dataSource.query(`
+      SELECT vm.id,
+             count(fu.id) FILTER (WHERE fu.active)::int AS units,
+             count(fu.id) FILTER (WHERE fu.active AND fu.status = 'AVAILABLE' AND d.active AND d.supplier_id = vm.supplier_id)::int AS bookable,
+             count(fu.id) FILTER (WHERE fu.active AND d.supplier_id <> vm.supplier_id)::int AS "otherSupplier",
+             EXISTS (SELECT 1 FROM rates r WHERE r.supplier_id = vm.supplier_id AND r.category_id = vm.category_id
+                       AND r.valid_to >= (now() AT TIME ZONE 'America/Guayaquil')::date) AS "hasRate"
+        FROM vehicle_models vm
+        LEFT JOIN fleet_units fu ON fu.vehicle_model_id = vm.id
+        LEFT JOIN depots d ON d.id = fu.depot_id
+       GROUP BY vm.id`);
+    const byModel = new Map(stats.map((s) => [s.id, s]));
+    return models.map((m) => {
+      const s = byModel.get(m.id) ?? { id: m.id, units: 0, bookable: 0, otherSupplier: 0, hasRate: false };
+      return { ...m, units: s.units, searchIssues: searchIssues(m, s) };
+    });
   }
 
   createModel(dto: VehicleModelDto) {
@@ -149,4 +160,31 @@ function assertValidity(from: string, to: string) {
   if (from > to) {
     throw DomainError.validation('La vigencia termina antes de empezar', [{ name: 'validTo', reason: 'debe ser igual o posterior a validFrom' }]);
   }
+}
+
+interface ModelSearchStats {
+  id: string;
+  units: number;
+  bookable: number;
+  otherSupplier: number;
+  hasRate: boolean;
+}
+
+/**
+ * Por qué un modelo NO aparecería en la búsqueda (vacío = sí aparece). Mismas condiciones que
+ * SearchService: activo y publicado, tarifa vigente de su proveedor y categoría, y unidades disponibles
+ * en agencias activas de su proveedor.
+ */
+function searchIssues(model: VehicleModel, s: ModelSearchStats): string[] {
+  const issues: string[] = [];
+  if (!model.active) issues.push('Modelo inactivo');
+  else if (!model.published) issues.push('No está publicado');
+  if (!s.hasRate) issues.push(`Sin tarifa vigente para ${model.category.name} de ${model.supplier.name}`);
+  if (s.bookable === 0) {
+    issues.push(s.units === 0
+      ? 'No tiene unidades en la flota'
+      : `Ninguna unidad disponible en agencias de ${model.supplier.name}`);
+  }
+  if (s.otherSupplier > 0) issues.push(`${s.otherSupplier} unidad(es) en agencias de otro proveedor`);
+  return issues;
 }

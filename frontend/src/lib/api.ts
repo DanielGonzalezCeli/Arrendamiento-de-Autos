@@ -65,6 +65,27 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return body as T
 }
 
+/** Subida de archivos (multipart). El navegador pone el Content-Type con el boundary. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    body: form,
+  })
+  const text = await response.text()
+  const body = text ? JSON.parse(text) : null
+  if (!response.ok) {
+    if (response.status === 401 && accessToken) onUnauthorized?.()
+    throw new ApiError(response.status, body?.detail ?? body?.title ?? `Error ${response.status}`, body?.code, body?.invalidParams ?? [])
+  }
+  return body as T
+}
+
+/** Las fotos subidas se sirven desde la API (/api/images/…); las de demo, desde la web (/cars/…). */
+export function assetUrl(url: string): string {
+  return url.startsWith('/api/') ? `${API_BASE_URL}${url}` : url
+}
+
 /** Mensaje amigable para mostrar al usuario a partir de cualquier error. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message
