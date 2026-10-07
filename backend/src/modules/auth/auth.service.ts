@@ -26,10 +26,15 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResult> {
-    if (await this.users.findByEmail(dto.email)) {
-      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', 'Ya existe una cuenta con ese correo', [
-        { name: 'email', reason: 'ya registrado' },
-      ]);
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) {
+      // En Gmail "dan.iel@gmail.com" y "daniel+x@gmail.com" son el mismo buzón que "daniel@gmail.com"
+      const sameMailbox = existing.email.toLowerCase() !== dto.email.trim().toLowerCase();
+      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto',
+        sameMailbox
+          ? 'Ya existe una cuenta con ese correo: en Gmail los puntos y lo que va después de "+" no cuentan'
+          : 'Ya existe una cuenta con ese correo',
+        [{ name: 'email', reason: 'ya registrado' }]);
     }
     const user = await this.users.createCustomer({
       email: dto.email,

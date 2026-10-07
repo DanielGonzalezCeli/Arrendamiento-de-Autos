@@ -53,4 +53,4 @@ Documento **vivo**: se actualiza al cerrar cada fase (la columna Estado).
 | C9 | Documentación técnica | `ARQUITECTURA.md`, `BASE_DATOS.md`, `API_INTERNA.md`, `CONTRATO_INTEGRACION.md`, `SOA_EDA.md`, `DEPLOYMENT.md`, README | — | Carpeta `docs/` | Hecho ✔ |
 | C10 | Defensa | [`GUIA_DEFENSA.md`](GUIA_DEFENSA.md): checklist, guion por criterio, recorrido del código, preguntas | Ensayo | — | Hecho ✔ (falta ensayar) |
 
-**Totales de pruebas (CI):** 233 backend (unit, integración, API, contrato, checksum) · 15 frontend (Vitest) · 7 E2E (Playwright).
+**Totales de pruebas (CI):** 251 backend (unit, integración, API, contrato, checksum) · 15 frontend (Vitest) · 7 E2E (Playwright).

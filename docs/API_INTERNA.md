@@ -17,6 +17,7 @@ API propia que usa **nuestro frontend** (marketplace y panel de administración)
 - El token es un JWT **HS256** (`USER_JWT_SECRET`), distinto del token RS256 de la integración: son dos dominios de seguridad separados.
 - Las contraseñas se guardan con **bcrypt**; `passwordHash` nunca sale en las respuestas.
 - Validaciones: nombres solo con letras (2–60), correo con dominio, teléfono internacional validado según el país (libphonenumber) y guardado en E.164.
+- **Correos de Gmail:** se aplican las reglas de Google (solo letras, números y puntos; 6–30 caracteres sin contar puntos; con 8 o más, al menos una letra; sin punto al inicio, al final ni dos seguidos). Además, se guarda un **correo canónico** (sin puntos ni `+etiqueta`, `googlemail.com` = `gmail.com`) con índice único: `dan.iel@gmail.com` y `daniel+x@gmail.com` son la misma cuenta que `daniel@gmail.com` (registro → 409; login con cualquiera de las variantes). El login no aplica las reglas de Gmail, para no bloquear cuentas anteriores.
 
 ## 2. Catálogo público (sin sesión)
 

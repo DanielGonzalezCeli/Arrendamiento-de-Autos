@@ -1,5 +1,5 @@
 import { ValidateBy, ValidationOptions } from 'class-validator';
-import { isValidEmail, isValidInternationalPhone, isValidPersonName } from '../../domain/contact-rules';
+import { gmailProblem, isValidEmail, isValidInternationalPhone, isValidPersonName } from '../../domain/contact-rules';
 
 /** Decoradores de class-validator que aplican las reglas de dominio de contact-rules.ts en los DTOs. */
 
@@ -12,7 +12,13 @@ export function IsPersonName(options?: ValidationOptions): PropertyDecorator {
 
 export function IsStrictEmail(options?: ValidationOptions): PropertyDecorator {
   return ValidateBy(
-    { name: 'isStrictEmail', validator: { validate: isValidEmail, defaultMessage: () => 'correo inválido (ej. nombre@dominio.com)' } },
+    {
+      name: 'isStrictEmail',
+      validator: {
+        validate: isValidEmail,
+        defaultMessage: (args) => (typeof args?.value === 'string' && gmailProblem(args.value)) || 'correo inválido (ej. nombre@dominio.com)',
+      },
+    },
     options,
   );
 }

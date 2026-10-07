@@ -1,4 +1,4 @@
-import { isValidEmail, isValidInternationalPhone, isValidPersonName } from './contact-rules';
+import { gmailProblem, isValidEmail, isValidInternationalPhone, isValidPersonName } from './contact-rules';
 import { DomainError, InvalidParam, ProblemCode } from './domain-error';
 
 /** RN18: el pago lo procesa otro dominio; aquí solo se valida el formato de la referencia. */
@@ -31,7 +31,10 @@ export function assertDriverDetails(
   const problems: InvalidParam[] = [];
   if (!isValidPersonName(driver.firstName)) problems.push({ name: names.firstName, reason: 'requerido; solo letras (2–60)' });
   if (!isValidPersonName(driver.lastName)) problems.push({ name: names.lastName, reason: 'requerido; solo letras (2–60)' });
-  if (!isValidEmail(driver.email)) problems.push({ name: names.email, reason: 'correo requerido y válido (ej. nombre@dominio.com)' });
+  if (!isValidEmail(driver.email)) {
+    const gmail = typeof driver.email === 'string' ? gmailProblem(driver.email) : null;
+    problems.push({ name: names.email, reason: gmail ?? 'correo requerido y válido (ej. nombre@dominio.com)' });
+  }
   if (driver.phone?.trim() && !isValidInternationalPhone(driver.phone)) {
     problems.push({ name: names.phone, reason: 'teléfono inválido; formato internacional (ej. +593991234567)' });
   }

@@ -31,7 +31,39 @@ export function isValidPersonName(value: unknown): value is string {
 export function isValidEmail(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const email = value.trim();
-  return email.length <= EMAIL_MAX_LENGTH && !email.includes('..') && EMAIL.test(email);
+  return email.length <= EMAIL_MAX_LENGTH && !email.includes('..') && EMAIL.test(email) && !gmailProblem(email);
+}
+
+const GMAIL_DOMAINS = new Set(['gmail.com', 'googlemail.com']);
+
+/**
+ * Reglas de Google para el nombre de usuario de Gmail (la parte antes de "@" y de un "+etiqueta" opcional):
+ * solo letras, números y puntos; 6–30 caracteres sin contar los puntos; si tiene 8 o más, al menos una
+ * letra (Google no permite usuarios solo numéricos largos); sin punto al inicio, al final ni dos seguidos.
+ * Devuelve el motivo si no se cumple, o null.
+ */
+export function gmailProblem(value: string): string | null {
+  const [local, domain] = value.trim().toLowerCase().split('@');
+  if (!domain || !GMAIL_DOMAINS.has(domain)) return null;
+  const [user, tag] = local.split(/\+(.*)/s);
+  if (!/^[a-z0-9.]+$/.test(user)) return 'un correo de Gmail solo admite letras, números y puntos';
+  if (user.startsWith('.') || user.endsWith('.') || user.includes('..')) return 'un correo de Gmail no puede empezar ni terminar con punto ni tener dos puntos seguidos';
+  const length = user.replace(/\./g, '').length;
+  if (length < 6 || length > 30) return 'un correo de Gmail tiene entre 6 y 30 caracteres antes de la @';
+  if (length >= 8 && !/[a-z]/.test(user)) return 'un correo de Gmail de 8 o más caracteres debe incluir al menos una letra';
+  if (tag !== undefined && !/^[a-z0-9._-]+$/.test(tag)) return 'la etiqueta después de "+" solo admite letras, números, punto, guion y guion bajo';
+  return null;
+}
+
+/**
+ * Forma canónica para detectar cuentas duplicadas: en Gmail los puntos no cuentan, lo que va después de
+ * "+" es una etiqueta y googlemail.com es gmail.com. "Dan.Iel+test@googlemail.com" → "daniel@gmail.com".
+ */
+export function canonicalEmail(value: string): string {
+  const email = value.trim().toLowerCase();
+  const [local, domain] = email.split('@');
+  if (!domain || !GMAIL_DOMAINS.has(domain)) return email;
+  return `${local.split('+')[0].replace(/\./g, '')}@gmail.com`;
 }
 
 /**

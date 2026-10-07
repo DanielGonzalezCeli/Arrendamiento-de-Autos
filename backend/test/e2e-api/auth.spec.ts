@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import * as bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 
@@ -19,8 +20,12 @@ describe('API interna — autenticación', () => {
     await app.init();
   });
 
+  // Usuario de Gmail único por corrida: solo letras (las reglas de Google exigen al menos una letra)
+  const gmailUser = `rutalibretest${Date.now().toString(36).replace(/\d/g, '')}`;
+
   afterAll(async () => {
     await app.get(DataSource).query(`DELETE FROM users WHERE email LIKE 'test+%@rutalibre.test'`);
+    await app.get(DataSource).query(`DELETE FROM users WHERE email_canonical = $1`, [`${gmailUser}@gmail.com`]);
     await app?.close();
   });
 
@@ -59,6 +64,33 @@ describe('API interna — autenticación', () => {
     const res = await http().post('/api/auth/register')
       .send({ email: 'ana@correo', password, firstName: 'Ana2', lastName: 'P3rez', phone: '+59399123' }).expect(400);
     expect(res.body.invalidParams.map((p: { name: string }) => p.name).sort()).toEqual(['email', 'firstName', 'lastName', 'phone']);
+  });
+
+  it('aplica las reglas de Gmail y no permite dos cuentas para el mismo buzón', async () => {
+    const res = await http().post('/api/auth/register')
+      .send({ email: '167236125362167@gmail.com', password, firstName: 'Ana', lastName: 'Pérez' }).expect(400);
+    expect(res.body.invalidParams).toEqual([expect.objectContaining({ name: 'email', reason: expect.stringMatching(/al menos una letra/) })]);
+
+    await http().post('/api/auth/register').send({ email: `${gmailUser}@gmail.com`, password, firstName: 'Ana', lastName: 'Pérez' }).expect(201);
+    // Con puntos o "+etiqueta" es el mismo buzón de Gmail → 409
+    const dotted = `${gmailUser.slice(0, 3)}.${gmailUser.slice(3)}@gmail.com`;
+    const dup = await http().post('/api/auth/register').send({ email: dotted, password, firstName: 'Ana', lastName: 'Pérez' }).expect(409);
+    expect(dup.body.detail).toMatch(/los puntos/);
+    await http().post('/api/auth/register').send({ email: `${gmailUser}+viajes@googlemail.com`, password, firstName: 'Ana', lastName: 'Pérez' }).expect(409);
+    // Y se puede iniciar sesión con cualquiera de las variantes
+    await http().post('/api/auth/login').send({ email: dotted, password }).expect(200);
+  });
+
+  it('una cuenta creada antes de la regla de Gmail (solo números) puede seguir iniciando sesión', async () => {
+    const legacy = `9${Date.now()}@gmail.com`;
+    const hash = await bcrypt.hash(password, 4);
+    await app.get(DataSource).query(
+      `INSERT INTO users (email, email_canonical, password_hash, first_name, last_name) VALUES ($1, $2, $3, 'Ana', 'Pérez')`, [legacy, legacy, hash]);
+    try {
+      await http().post('/api/auth/login').send({ email: legacy, password }).expect(200);
+    } finally {
+      await app.get(DataSource).query(`DELETE FROM users WHERE email = $1`, [legacy]);
+    }
   });
 
   it('acepta un turista con teléfono de otro país y lo guarda en formato internacional', async () => {

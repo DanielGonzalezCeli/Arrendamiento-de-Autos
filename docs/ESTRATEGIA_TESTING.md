@@ -15,7 +15,7 @@
 
 | Suite | Casos | Dónde |
 |---|---|---|
-| Backend: unit, integración, API, contrato, checksum | 233 (21 suites) | `backend/test` |
+| Backend: unit, integración, API, contrato, checksum | 251 (21 suites) | `backend/test` |
 | Frontend (Vitest) | 15 | `frontend/src/**/*.test.ts` |
 | E2E (Playwright) | 7: flujo de compra (pago rechazado y aprobado en la pasarela simulada), rutas privadas, móvil, validaciones de registro, fotos, panel admin (entrega → devolución), acceso de cliente al panel | `e2e/tests` |
 

@@ -24,7 +24,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const localErrors = collectErrors<'email' | 'password'>({
-    email: validateEmail(email),
+    email: validateEmail(email, false),
     password: password ? null : 'Ingresa tu contraseña.',
   })
   const { errorFor, touch, canSubmit } = useFormValidation(localErrors, null)

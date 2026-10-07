@@ -64,7 +64,7 @@ currency_rates
 ### Usuarios e integración
 | Tabla | Columnas clave | Restricciones |
 |---|---|---|
-| `users` | `id uuid`, `email UNIQUE (citext)`, `password_hash`, `first_name`, `last_name`, `phone`, `role`, `active`, timestamps | — |
+| `users` | `id uuid`, `email UNIQUE (citext)`, `password_hash`, `first_name`, `last_name`, `phone`, `role`, `active`, timestamps | — Correo canónico `email_canonical` UNIQUE (en Gmail sin puntos ni `+etiqueta`). |
 | `affiliates` | `id int PK` (= `X-Affiliate-Id`), `name`, `commission_rate numeric(5,4)`, `rate_limit_per_min int`, `active` | El modo `strict` valida contra esta tabla; `lenient` (RDA1) acepta cualquier entero |
 | `api_clients` | `client_id varchar PK`, `client_secret_hash`, `name`, `scopes text[]`, `affiliate_id int NULL`, `active` | Emisor OAuth2 local (RDA1) |
 

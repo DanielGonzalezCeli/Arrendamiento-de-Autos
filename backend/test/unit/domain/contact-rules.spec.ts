@@ -1,6 +1,6 @@
 import { assertDriverDetails } from '../../../src/domain/order-rules';
 import {
-  isValidEmail, isValidInternationalPhone, isValidPersonName, normalizeName, normalizePhone,
+  canonicalEmail, gmailProblem, isValidEmail, isValidInternationalPhone, isValidPersonName, normalizeName, normalizePhone,
 } from '../../../src/domain/contact-rules';
 
 describe('Nombres y apellidos', () => {
@@ -27,6 +27,41 @@ describe('Correo', () => {
       expect(isValidEmail(email)).toBe(false);
     },
   );
+});
+
+describe('Correos de Gmail (reglas de Google)', () => {
+  it.each(['daniel.gonzalez@gmail.com', 'dan.iel@gmail.com', 'daniel2026@gmail.com', 'abc123@googlemail.com', 'daniel+viajes@gmail.com', '1234567@gmail.com'])(
+    'acepta %s', (email) => {
+      expect(gmailProblem(email)).toBeNull();
+      expect(isValidEmail(email)).toBe(true);
+    },
+  );
+
+  it.each([
+    ['167236125362167@gmail.com', /al menos una letra/],
+    ['12345678@gmail.com', /al menos una letra/],
+    ['ana@gmail.com', /entre 6 y 30/],
+    ['a'.repeat(31) + '@gmail.com', /entre 6 y 30/],
+    ['.daniel@gmail.com', /punto/],
+    ['daniel.@gmail.com', /punto/],
+    ['dan_iel@gmail.com', /letras, números y puntos/],
+    ['dan-iel@gmail.com', /letras, números y puntos/],
+  ])('rechaza %s', (email, reason) => {
+    expect(gmailProblem(email)).toMatch(reason);
+    expect(isValidEmail(email)).toBe(false);
+  });
+
+  it('las reglas de Gmail no se aplican a otros dominios', () => {
+    expect(isValidEmail('167236125362167@outlook.com')).toBe(true);
+    expect(isValidEmail('dan_iel@puce.edu.ec')).toBe(true);
+  });
+
+  it('forma canónica: sin puntos ni "+etiqueta" en Gmail; otros dominios solo en minúsculas', () => {
+    expect(canonicalEmail('Dan.Iel@gmail.com')).toBe('daniel@gmail.com');
+    expect(canonicalEmail('daniel+reservas@gmail.com')).toBe('daniel@gmail.com');
+    expect(canonicalEmail('d.a.n.i.e.l@googlemail.com')).toBe('daniel@gmail.com');
+    expect(canonicalEmail('Dan.Iel+x@Puce.edu.ec')).toBe('dan.iel+x@puce.edu.ec');
+  });
 });
 
 describe('Teléfono internacional (E.164, dígitos según el país)', () => {

@@ -1,3 +1,4 @@
+import { canonicalEmail } from '../../domain/contact-rules';
 import 'reflect-metadata';
 import * as bcrypt from 'bcryptjs';
 import { DataSource, EntityManager } from 'typeorm';
@@ -129,7 +130,7 @@ const DEMO_USERS = [
 
 async function seedUsers(manager: EntityManager, isProduction: boolean) {
   for (const { passwordEnv, devPassword, ...user } of DEMO_USERS) {
-    if (await manager.exists(User, { where: { email: user.email } })) continue;
+    if (await manager.exists(User, { where: { emailCanonical: canonicalEmail(user.email) } })) continue;
 
     // En producción la contraseña es obligatoria (nunca se usa la de desarrollo).
     const password = process.env[passwordEnv] || (isProduction ? undefined : devPassword);
@@ -137,7 +138,7 @@ async function seedUsers(manager: EntityManager, isProduction: boolean) {
       console.warn(`[seed] ${passwordEnv} no definida: no se crea ${user.email}.`);
       continue;
     }
-    await manager.save(User, { ...user, passwordHash: await bcrypt.hash(password, BCRYPT_COST) });
+    await manager.save(User, { ...user, emailCanonical: canonicalEmail(user.email), passwordHash: await bcrypt.hash(password, BCRYPT_COST) });
     console.log(`[seed] Usuario ${user.email} creado.`);
   }
 }

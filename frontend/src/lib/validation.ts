@@ -19,11 +19,31 @@ export function validateName(value: string, label: string): string | null {
   return null
 }
 
-export function validateEmail(value: string): string | null {
+/**
+ * @param providerRules aplica las reglas de Gmail (registro y checkout). En el login se desactivan para no
+ * bloquear cuentas creadas antes de que existiera la regla.
+ */
+export function validateEmail(value: string, providerRules = true): string | null {
   const email = value.trim()
   if (!email) return 'Ingresa tu correo.'
   if (!email.includes('@')) return 'Falta la "@" (ej. nombre@dominio.com).'
   if (email.length > 120 || email.includes('..') || !EMAIL.test(email)) return 'Correo inválido: usa el formato nombre@dominio.com.'
+  return providerRules ? gmailProblem(email) : null
+}
+
+const GMAIL_DOMAINS = new Set(['gmail.com', 'googlemail.com'])
+
+/** Reglas de Google para usuarios de Gmail (mismas que backend/src/domain/contact-rules.ts). */
+export function gmailProblem(value: string): string | null {
+  const [local, domain] = value.trim().toLowerCase().split('@')
+  if (!domain || !GMAIL_DOMAINS.has(domain)) return null
+  const [user, tag] = local.split(/\+(.*)/s)
+  if (!/^[a-z0-9.]+$/.test(user)) return 'Un correo de Gmail solo admite letras, números y puntos.'
+  if (user.startsWith('.') || user.endsWith('.') || user.includes('..')) return 'Un correo de Gmail no puede empezar ni terminar con punto ni tener dos puntos seguidos.'
+  const length = user.replace(/\./g, '').length
+  if (length < 6 || length > 30) return 'Un correo de Gmail tiene entre 6 y 30 caracteres antes de la @.'
+  if (length >= 8 && !/[a-z]/.test(user)) return 'Un correo de Gmail de 8 o más caracteres debe incluir al menos una letra.'
+  if (tag !== undefined && !/^[a-z0-9._-]+$/.test(tag)) return 'La etiqueta después de "+" solo admite letras, números, punto, guion y guion bajo.'
   return null
 }
 
