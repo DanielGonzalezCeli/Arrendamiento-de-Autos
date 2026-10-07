@@ -36,6 +36,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     if (exception instanceof DomainError && exception.retryAfterSeconds) {
       response.setHeader('Retry-After', String(exception.retryAfterSeconds));
     }
+    // Los endpoints de catálogo declaran "Cache-Control: public, max-age=…" (contrato), pero un error
+    // nunca debe quedar en caché: al corregir la petición el cliente vería el mismo error.
+    response.setHeader('Cache-Control', 'no-store');
 
     response.status(problem.status).type('application/problem+json').json(problem);
   }

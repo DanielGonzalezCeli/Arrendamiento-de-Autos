@@ -90,6 +90,19 @@ describe('Contrato autos-openapi.yaml — catálogo', () => {
       expect(res.status).toBe(400);
       expect(res).toSatisfyApiSpec();
       expect(res.headers['content-type']).toContain('application/problem+json');
+      // Un error nunca se guarda en caché, aunque el endpoint tenga max-age
+      expect(res.headers['cache-control']).toBe('no-store');
+    });
+
+    it.each(['abc', '0', '-5', '1.5', '2147483648', '9999999999'])('400 si X-Affiliate-Id no es un entero positivo válido: %s', async (affiliate) => {
+      const res = await post('/search', searchBody(), affiliate);
+      expect(res.status).toBe(400);
+      expect(res).toSatisfyApiSpec();
+    });
+
+    it.each(['1', '7', '2147483647'])('cualquier entero positivo sirve en RDA1 (lenient): %s', async (affiliate) => {
+      const res = await post('/search', searchBody(), affiliate);
+      expect(res.status).toBe(200);
     });
 
     it('400 con invalidParams por campos inválidos del contrato', async () => {

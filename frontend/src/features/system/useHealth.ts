@@ -14,7 +14,8 @@ const CHECK_EVERY_MS = 60_000
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
-    queryFn: () => apiFetch<HealthResponse>('/health'),
+    // /api/status y no /health: algunos bloqueadores de anuncios bloquean las URLs que terminan en /health
+    queryFn: () => apiFetch<HealthResponse>('/api/status'),
     retry: WAKE_UP_RETRIES,
     retryDelay: (attempt) => Math.min(5_000 * (attempt + 1), 20_000),
     // Se vuelve a comprobar solo: un fallo pasajero no deja el indicador congelado en "sin conexión"

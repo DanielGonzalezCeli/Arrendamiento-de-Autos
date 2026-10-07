@@ -8,6 +8,8 @@ import { Affiliate } from './entities/affiliate.entity';
 export type AffiliateValidationMode = 'lenient' | 'strict';
 
 const POSITIVE_INTEGER = /^[1-9]\d{0,9}$/;
+/** El contrato dice "integer"; en la BD es int4, así que el máximo es 2^31 − 1. */
+const MAX_AFFILIATE_ID = 2_147_483_647;
 
 /**
  * Header X-Affiliate-Id (integer, requerido en los endpoints de catálogo del contrato).
@@ -26,7 +28,7 @@ export class AffiliateGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const raw = request.headers['x-affiliate-id'];
 
-    if (typeof raw !== 'string' || !POSITIVE_INTEGER.test(raw.trim())) {
+    if (typeof raw !== 'string' || !POSITIVE_INTEGER.test(raw.trim()) || Number(raw.trim()) > MAX_AFFILIATE_ID) {
       throw DomainError.validation('El header X-Affiliate-Id es obligatorio y debe ser un entero positivo', [
         { name: 'X-Affiliate-Id', reason: raw === undefined ? 'requerido' : 'debe ser integer' },
       ]);

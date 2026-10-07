@@ -133,7 +133,7 @@ Seguir un request de punta a punta es la mejor forma de mostrar dominio del cód
 | Documentación de API | **OpenAPI 3** (contrato), **Swagger UI**, **Redoc**, **@nestjs/swagger** (API interna), **AsyncAPI 2.6** (eventos) | C4 y C8 |
 | Logs | **pino** (`nestjs-pino`), JSON con `request_id` | Trazabilidad |
 | Frontend | **React 19**, **Vite 8**, **React Router 7**, **TanStack Query 5**, **Tailwind CSS 4**, **lucide-react** | SPA rápida y responsive |
-| Pruebas | **Jest + supertest**, **jest-openapi** (contrato), **Vitest**, **Playwright** (E2E) | 222 + 15 + 7 pruebas |
+| Pruebas | **Jest + supertest**, **jest-openapi** (contrato), **Vitest**, **Playwright** (E2E) | 233 + 15 + 7 pruebas |
 | CI/CD | **GitHub Actions** (typecheck, build, migraciones, tests, E2E) → despliegue automático | Nada llega a producción con pruebas rojas |
 | Infraestructura | **Render** (API en **Docker** + sitio estático), **Supabase** (PostgreSQL gestionado) | Accesible públicamente (C1) |
 
@@ -182,7 +182,7 @@ La entrega queda `FAILED` y se reintenta tras 1 min, 5 min, 30 min, 2 h y 12 h. 
 Días = bloques de 24 h con 59 min de tolerancia; tarifa vigente de la categoría y el proveedor; extras por día con tope; +10 USD/día a menores de 25; +40 USD si se devuelve en otra agencia; IVA 15 %. Todo en centavos enteros para no perder precisión, en `src/domain/pricing.ts` con pruebas unitarias.
 
 **¿Qué pruebas tienen?**
-- 222 pruebas del backend: dominio, integración con PostgreSQL real, API, contrato y checksum.
+- 233 pruebas del backend: dominio, integración con PostgreSQL real, API, contrato y checksum.
 - 15 pruebas de frontend (Vitest).
 - 7 pruebas E2E con Playwright: flujo de compra (con pago rechazado y aprobado), móvil, validaciones y panel.
 - Todas corren en GitHub Actions en cada push.

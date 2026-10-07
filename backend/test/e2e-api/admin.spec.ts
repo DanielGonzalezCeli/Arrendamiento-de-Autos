@@ -100,6 +100,18 @@ describe('API interna — administración', () => {
     expect(returned.body.history.length).toBeGreaterThanOrEqual(3);
   });
 
+  it('una placa devuelta queda libre para otro alquiler en las mismas fechas (devolución anticipada)', async () => {
+    const first = await book(startDay + 60);
+    const picked = await http().post(`/api/admin/reservations/${first.id}/pickup`).set(admin()).send({}).expect(200);
+    await http().post(`/api/admin/reservations/${first.id}/return`).set(admin()).send({}).expect(200);
+
+    // Otra reserva del mismo modelo en el mismo periodo: la placa devuelta aparece libre y se puede entregar
+    const second = await book(startDay + 60);
+    const detail = await http().get(`/api/admin/reservations/${second.id}`).set(admin()).expect(200);
+    expect(detail.body.freeUnits.map((u: { id: string }) => u.id)).toContain(picked.body.fleetUnitId);
+    await http().post(`/api/admin/reservations/${second.id}/pickup`).set(admin()).send({ fleetUnitId: picked.body.fleetUnitId }).expect(200);
+  });
+
   it('el administrador cancela la reserva de un cliente', async () => {
     const booking = await book(startDay + 10);
     const cancelled = await http().post(`/api/admin/reservations/${booking.id}/cancel`).set(admin()).expect(200);

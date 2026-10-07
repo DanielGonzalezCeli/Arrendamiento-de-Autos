@@ -27,6 +27,12 @@ describe('Smoke de la aplicación', () => {
     expect(res.headers['x-request-id']).toBeDefined();
   });
 
+  it('GET /api/status es el mismo chequeo para la web (los bloqueadores de anuncios bloquean /health)', async () => {
+    const res = await request(app.getHttpServer()).get('/api/status').expect(200);
+    expect(res.body).toMatchObject({ status: 'ok', database: 'up' });
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
   it('GET /autos/v1/openapi.yaml sirve el contrato oficial', async () => {
     const res = await request(app.getHttpServer()).get('/autos/v1/openapi.yaml').expect(200);
     expect(parse(res.text).info.title).toBe('GDS Autos Core API');
