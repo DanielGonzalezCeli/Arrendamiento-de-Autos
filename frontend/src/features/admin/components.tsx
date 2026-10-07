@@ -13,7 +13,7 @@ export { Modal } from '../../components/ui/Modal'
 export type FieldSpec = {
   name: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'phone' | 'image'
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'phone' | 'image' | 'password'
   options?: { value: string | number; label: string }[]
   /** Opciones que dependen de lo elegido en otros campos (tiene prioridad sobre `options`). */
   optionsFor?: (values: Record<string, unknown>) => { value: string | number; label: string }[] | undefined
@@ -157,7 +157,8 @@ function normalize(fields: FieldSpec[], values: Values): Values {
     const v = values[f.name]
     if (f.type === 'number' || f.numeric) {
       out[f.name] = v === '' || v === null || v === undefined ? null : Number(v)
-    } else if (typeof v === 'string') {
+    } else if (typeof v === 'string' && f.type !== 'password') {
+      // Las contraseñas se envían tal cual: recortar espacios cambiaría la clave sin que el usuario lo sepa
       out[f.name] = v.trim() === '' && !f.required ? null : v.trim()
     }
     if (out[f.name] === null && f.required) delete out[f.name]

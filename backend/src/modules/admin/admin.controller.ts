@@ -14,7 +14,7 @@ import { AdminOperationsService } from './admin-operations.service';
 import { CatalogAdminService } from './catalog-admin.service';
 import { DepotAdminService } from './depot-admin.service';
 import {
-  CategoryDto, CityDto, DepotDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
+  CategoryDto, CityDto, CreateUserDto, DepotDto, ResetPasswordDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
   UpdateCategoryDto, UpdateDepotDto, UpdateExtraDto, UpdateFleetUnitDto, UpdateRateDto, UpdateSupplierDto, UpdateUserDto,
   UpdateVehicleModelDto, VehicleBlockDto, VehicleModelDto,
 } from './dto/admin.dto';
@@ -139,6 +139,15 @@ export class AdminController {
 
   // ── Usuarios ──────────────────────────────────────────────────────────────
   @Get('users') listUsers() { return this.operations.listUsers(); }
+  @Post('users')
+  @ApiOperation({ summary: 'Crear un usuario (cliente o administrador) con una contraseña inicial' })
+  createUser(@Body() dto: CreateUserDto) { return this.operations.createUser(dto); }
+  @Post('users/:id/password') @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restablecer la contraseña de un usuario' })
+  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) { return this.operations.resetPassword(id, dto); }
+  @Delete('users/:id') @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un usuario sin historial (si tiene reservas, se desactiva en su lugar)' })
+  async deleteUser(@Param('id') id: string, @CurrentUser() user: AuthUser) { await this.operations.deleteUser(id, user.id); }
   @Patch('users/:id')
   updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: AuthUser) {
     return this.operations.updateUser(id, dto, user.id);

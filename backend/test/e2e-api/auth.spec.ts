@@ -10,7 +10,9 @@ import { configureApp } from '../../src/app.setup';
 /** API interna /api/auth/*: registro, login, token y errores ProblemDetails. Requiere BD. */
 describe('API interna — autenticación', () => {
   let app: INestApplication;
-  const email = `test+${Date.now()}@rutalibre.test`;
+  // Prefijo propio de esta corrida: la limpieza no debe tocar usuarios de otras suites que corren en paralelo
+  const runPrefix = `test+auth${Date.now()}`;
+  const email = `${runPrefix}@rutalibre.test`;
   const password = 'Prueba2026';
 
   beforeAll(async () => {
@@ -24,7 +26,7 @@ describe('API interna — autenticación', () => {
   const gmailUser = `rutalibretest${Date.now().toString(36).replace(/\d/g, '')}`;
 
   afterAll(async () => {
-    await app.get(DataSource).query(`DELETE FROM users WHERE email LIKE 'test+%@rutalibre.test'`);
+    await app.get(DataSource).query(`DELETE FROM users WHERE email LIKE $1`, [`${runPrefix}%@rutalibre.test`]);
     await app.get(DataSource).query(`DELETE FROM users WHERE email_canonical = $1`, [`${gmailUser}@gmail.com`]);
     await app?.close();
   });
@@ -95,7 +97,7 @@ describe('API interna — autenticación', () => {
 
   it('acepta un turista con teléfono de otro país y lo guarda en formato internacional', async () => {
     const res = await http().post('/api/auth/register').send({
-      email: `test+tourist${Date.now()}@rutalibre.test`, password, firstName: 'John', lastName: "O'Brien", phone: '+1 202 555 0143',
+      email: `${runPrefix}tourist@rutalibre.test`, password, firstName: 'John', lastName: "O'Brien", phone: '+1 202 555 0143',
     }).expect(201);
     expect(res.body.user.phone).toBe('+12025550143');
   });

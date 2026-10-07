@@ -8,7 +8,10 @@ import { Reservation } from '../orders/entities/reservation.entity';
 import { RentalOperationsService } from '../orders/rental-operations.service';
 import { isUuid } from '../orders/uuid';
 import { User } from '../users/user.entity';
-import { ReservationFiltersDto, UpdateUserDto } from './dto/admin.dto';
+import { canonicalEmail, normalizeName, normalizePhone } from '../../domain/contact-rules';
+import { UserRole } from '../../domain/enums';
+import { hashPassword } from '../users/password';
+import { CreateUserDto, ReservationFiltersDto, ResetPasswordDto, UpdateUserDto } from './dto/admin.dto';
 
 const TZ = 'America/Guayaquil';
 const LIST_LIMIT = 200;
@@ -109,16 +112,107 @@ export class AdminOperationsService {
     return rows;
   }
 
+  /** El administrador crea cuentas de clientes o de otros administradores, con una contraseña inicial. */
+  async createUser(dto: CreateUserDto) {
+    const repo = this.dataSource.getRepository(User);
+    await this.assertEmailAvailable(dto.email);
+    const user = await repo.save(repo.create({
+      email: dto.email.trim().toLowerCase(),
+      emailCanonical: canonicalEmail(dto.email),
+      passwordHash: await hashPassword(dto.password),
+      firstName: normalizeName(dto.firstName),
+      lastName: normalizeName(dto.lastName),
+      phone: dto.phone ? normalizePhone(dto.phone) : null,
+      role: dto.role,
+      active: true,
+    }));
+    return this.publicUser(user.id);
+  }
+
   async updateUser(id: string, dto: UpdateUserDto, actingUserId: string) {
     const repo = this.dataSource.getRepository(User);
-    const user = isUuid(id) ? await repo.findOneBy({ id }) : null;
-    if (!user) throw DomainError.notFound('El usuario no existe');
+    const user = await this.findUser(id);
     if (id === actingUserId && (dto.active === false || (dto.role && dto.role !== user.role))) {
       throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', 'No puedes quitarte el rol de administrador ni desactivar tu propia cuenta');
     }
-    await repo.update(id, dto);
-    const { passwordHash: _hidden, ...safe } = await repo.findOneByOrFail({ id });
+    const changes: Partial<User> = {};
+    if (dto.email !== undefined && canonicalEmail(dto.email) !== user.emailCanonical) {
+      await this.assertEmailAvailable(dto.email, id);
+      changes.email = dto.email.trim().toLowerCase();
+      changes.emailCanonical = canonicalEmail(dto.email);
+    } else if (dto.email !== undefined) {
+      changes.email = dto.email.trim().toLowerCase();
+    }
+    if (dto.firstName !== undefined) changes.firstName = normalizeName(dto.firstName);
+    if (dto.lastName !== undefined) changes.lastName = normalizeName(dto.lastName);
+    if (dto.phone !== undefined) changes.phone = dto.phone ? normalizePhone(dto.phone) : null;
+    if (dto.role !== undefined) changes.role = dto.role;
+    if (dto.active !== undefined) changes.active = dto.active;
+    if (Object.keys(changes).length) await repo.update(id, changes);
+    return this.publicUser(id);
+  }
+
+  /** Nueva contraseña definida por el administrador (p. ej. si el usuario la olvidó). */
+  async resetPassword(id: string, dto: ResetPasswordDto) {
+    await this.findUser(id);
+    await this.dataSource.getRepository(User).update(id, { passwordHash: await hashPassword(dto.password) });
+    return this.publicUser(id);
+  }
+
+  /**
+   * Solo se eliminan cuentas sin historial (reservas, reseñas o bloqueos de flota registrados). Las demás
+   * se desactivan: así se conserva la trazabilidad de lo que hicieron.
+   */
+  async deleteUser(id: string, actingUserId: string) {
+    const user = await this.findUser(id);
+    if (id === actingUserId) {
+      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', 'No puedes eliminar tu propia cuenta');
+    }
+    const [usage] = await this.dataSource.query(
+      `SELECT (SELECT count(*) FROM reservations WHERE user_id = $1)::int AS reservations,
+              (SELECT count(*) FROM depot_reviews WHERE user_id = $1)::int AS reviews,
+              (SELECT count(*) FROM vehicle_blocks WHERE created_by = $1)::int AS blocks`,
+      [id],
+    );
+    const history = [
+      usage.reservations && `${usage.reservations} reserva(s)`,
+      usage.reviews && `${usage.reviews} reseña(s)`,
+      usage.blocks && `${usage.blocks} bloqueo(s) de flota`,
+    ].filter(Boolean);
+    if (history.length) {
+      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto',
+        `${user.email} tiene ${history.join(', ')}: desactiva la cuenta en lugar de eliminarla para conservar el historial`);
+    }
+    if (user.role === UserRole.Admin) await this.assertAnotherActiveAdmin(id);
+    await this.dataSource.getRepository(User).delete(id);
+  }
+
+  private async findUser(id: string): Promise<User> {
+    const user = isUuid(id) ? await this.dataSource.getRepository(User).findOneBy({ id }) : null;
+    if (!user) throw DomainError.notFound('El usuario no existe');
+    return user;
+  }
+
+  private async publicUser(id: string) {
+    const { passwordHash: _hidden, emailCanonical: _canonical, ...safe } = await this.dataSource.getRepository(User).findOneByOrFail({ id });
     return safe;
+  }
+
+  /** Mismas reglas que el registro: en Gmail, puntos y "+etiqueta" no cuentan (correo canónico). */
+  private async assertEmailAvailable(email: string, exceptUserId?: string) {
+    const existing = await this.dataSource.getRepository(User).findOneBy({ emailCanonical: canonicalEmail(email) });
+    if (existing && existing.id !== exceptUserId) {
+      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', `Ya existe una cuenta con ese correo (${existing.email})`,
+        [{ name: 'email', reason: 'ya registrado' }]);
+    }
+  }
+
+  private async assertAnotherActiveAdmin(exceptUserId: string) {
+    const [{ count }] = await this.dataSource.query(
+      `SELECT count(*)::int AS count FROM users WHERE role = 'ADMIN' AND active AND id <> $1`, [exceptUserId]);
+    if (count === 0) {
+      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Conflicto', 'Debe quedar al menos un administrador activo');
+    }
   }
 
   private summary(r: Reservation) {

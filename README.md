@@ -52,7 +52,7 @@ Hosting: Render (API en Docker + sitio estático) · Base de datos: Supabase (Po
 | Flota | Unidades por placa y **bloqueos de mantenimiento** |
 | Agencias | Datos, servicios y horario semanal (emite `DEPOT_UPDATE`) |
 | Catálogo y tarifas | Categorías, proveedores, extras, tarifas por vigencia y ciudades |
-| Usuarios | Rol y activación de cuentas |
+| Usuarios | Crear cuentas (clientes o administradores), editar datos, restablecer contraseñas, activar, desactivar y eliminar |
 | Integración | Clientes OAuth2, suscripciones y entregas de webhooks (reintentar, procesar ahora) |
 
 Las credenciales de demo (`admin@rutalibre.ec`, `cliente@rutalibre.ec`) las crea el seed con las contraseñas de las variables `SEED_ADMIN_PASSWORD` y `SEED_CUSTOMER_PASSWORD`. En local, sin esas variables, usa las de desarrollo definidas en `backend/src/database/seeds/seed.ts`.

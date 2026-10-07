@@ -3,12 +3,12 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { normalizeName, normalizePhone } from '../../domain/contact-rules';
 import { DomainError, ProblemCode } from '../../domain/domain-error';
+import { BCRYPT_COST, hashPassword } from '../users/password';
 import { User } from '../users/user.entity';
 import { PublicUser, toPublicUser, UsersService } from '../users/users.service';
 import { UserJwtPayload } from './auth-user';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
-const BCRYPT_COST = 12;
 /** Se compara cuando el correo no existe, para que la respuesta tarde lo mismo y no revele qué correos están registrados. */
 const DUMMY_HASH = bcrypt.hashSync('dummy-password-never-used', BCRYPT_COST);
 
@@ -38,7 +38,7 @@ export class AuthService {
     }
     const user = await this.users.createCustomer({
       email: dto.email,
-      passwordHash: await bcrypt.hash(dto.password, BCRYPT_COST),
+      passwordHash: await hashPassword(dto.password),
       firstName: normalizeName(dto.firstName),
       lastName: normalizeName(dto.lastName),
       phone: dto.phone ? normalizePhone(dto.phone) : null,

@@ -4,7 +4,7 @@ import {
   ArrayUnique, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min,
   ValidateNested,
 } from 'class-validator';
-import { IsInternationalPhone } from '../../../common/validation/contact.decorators';
+import { IsInternationalPhone, IsPersonName, IsStrictEmail, IsUserPassword } from '../../../common/validation/contact.decorators';
 import { DEPOT_SERVICE_CODES } from '../../catalog/constants.service';
 import { ExtraType, FuelPolicy, FuelType, OrderStatus, RentalStatus, Transmission, UnitStatus, UserRole } from '../../../domain/enums';
 import { RFC3339 } from '../../integration-api/dto/catalog-requests.dto';
@@ -152,7 +152,25 @@ export class ReturnDto {
 }
 
 // ── Usuarios ─────────────────────────────────────────────────────────────────
+export class CreateUserDto {
+  @ApiProperty({ example: 'ana.perez@correo.ec' }) @Transform(trim) @IsStrictEmail() email: string;
+  @ApiProperty({ example: 'Ana' }) @Transform(trim) @IsPersonName() firstName: string;
+  @ApiProperty({ example: 'Pérez' }) @Transform(trim) @IsPersonName() lastName: string;
+  @ApiPropertyOptional({ example: '+593991234567' }) @IsOptional() @Transform(trim) @IsInternationalPhone() phone?: string | null;
+  @ApiProperty({ enum: UserRole }) @IsIn(Object.values(UserRole)) role: UserRole;
+  /** Contraseña inicial: el administrador se la comunica al usuario. */
+  @ApiProperty({ example: 'Temporal2026' }) @IsUserPassword() password: string;
+}
+
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'ana.perez@correo.ec' }) @IsOptional() @Transform(trim) @IsStrictEmail() email?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsPersonName() firstName?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsPersonName() lastName?: string;
+  @ApiPropertyOptional({ example: '+593991234567', nullable: true }) @IsOptional() @Transform(trim) @IsInternationalPhone() phone?: string | null;
   @ApiPropertyOptional({ enum: UserRole }) @IsOptional() @IsIn(Object.values(UserRole)) role?: UserRole;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'NuevaClave2026' }) @IsUserPassword() password: string;
 }

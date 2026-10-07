@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { IsInternationalPhone, IsPersonName, IsStrictEmail } from '../../../common/validation/contact.decorators';
+import { IsInternationalPhone, IsPersonName, IsStrictEmail, IsUserPassword } from '../../../common/validation/contact.decorators';
 import { UserRole } from '../../../domain/enums';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -14,10 +14,7 @@ export class RegisterDto {
 
   /** bcrypt solo usa los primeros 72 bytes: se limita la longitud. */
   @ApiProperty({ example: 'MiClave2026', minLength: 8 })
-  @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @MaxLength(72)
-  @Matches(/(?=.*[A-Za-z])(?=.*\d)/, { message: 'La contraseña debe tener letras y números' })
+  @IsUserPassword()
   password: string;
 
   @ApiProperty({ example: 'Ana' })

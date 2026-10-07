@@ -15,6 +15,7 @@ API propia que usa **nuestro frontend** (marketplace y panel de administración)
 | `GET /api/auth/me` | Usuario | Datos del usuario autenticado |
 
 - El token es un JWT **HS256** (`USER_JWT_SECRET`), distinto del token RS256 de la integración: son dos dominios de seguridad separados.
+- En cada petición se verifica en la BD que la cuenta siga **activa** y se usa su **rol actual**: desactivar una cuenta o quitarle el rol de administrador se aplica al instante, sin esperar a que el token expire.
 - Las contraseñas se guardan con **bcrypt**; `passwordHash` nunca sale en las respuestas.
 - Validaciones: nombres solo con letras (2–60), correo con dominio, teléfono internacional validado según el país (libphonenumber) y guardado en E.164.
 - **Correos de Gmail:** se aplican las reglas de Google (solo letras, números y puntos; 6–30 caracteres sin contar puntos; con 8 o más, al menos una letra; sin punto al inicio, al final ni dos seguidos). Además, se guarda un **correo canónico** (sin puntos ni `+etiqueta`, `googlemail.com` = `gmail.com`) con índice único: `dan.iel@gmail.com` y `daniel+x@gmail.com` son la misma cuenta que `daniel@gmail.com` (registro → 409; login con cualquiera de las variantes). El login no aplica las reglas de Gmail, para no bloquear cuentas anteriores.
@@ -74,7 +75,7 @@ Todo el controlador está protegido con `UserJwtGuard` + `RolesGuard` + `@Roles(
 | Agencias | `GET/POST depots`, `PATCH depots/:id`, `GET/POST cities` | Horario semanal (apertura < cierre). Cada cambio emite **`DEPOT_UPDATE`** en la misma transacción. No se desactiva una agencia con reservas activas |
 | Catálogo comercial | `categories`, `suppliers`, `extras`: `GET/POST/PATCH` | Códigos en mayúsculas y únicos |
 | Tarifas | `GET/POST rates`, `PATCH/DELETE rates/:id` | Las vigencias de un mismo proveedor y categoría no pueden superponerse (restricción `EXCLUDE` en la BD → 409) |
-| Usuarios | `GET users`, `PATCH users/:id` `{ role?, active? }` | Un administrador no puede quitarse su propio rol ni desactivarse (409) |
+| Usuarios | `GET users`, `POST users` (crear con rol y contraseña inicial), `PATCH users/:id` (nombre, correo, teléfono, rol, activo), `POST users/:id/password` (restablecer), `DELETE users/:id` | Mismas reglas que el registro (Gmail, correo canónico único, contraseña con letras y números). Un administrador no puede quitarse su rol, desactivarse ni eliminarse (409). Solo se eliminan cuentas sin historial (reservas, reseñas, bloqueos); las demás se desactivan. Debe quedar al menos un administrador activo |
 | Integración | `GET integration`, `POST integration/deliveries/:id/retry`, `POST integration/dispatch` | Clientes OAuth2 (sin secretos), suscripciones, últimas 50 entregas; reintento manual y "procesar ahora" |
 
 ## 5. Errores frecuentes
