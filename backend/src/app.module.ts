@@ -14,6 +14,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { INTEGRATION_BASE_PATH } from './modules/docs/contract-docs';
 import { INTERNAL_BASE_PATH } from './modules/docs/internal-docs';
 import { HealthModule } from './modules/health/health.module';
+import { IntegrationV3Module } from './modules/integration-v3/integration-v3.module';
 import { IntegrationApiModule } from './modules/integration-api/integration-api.module';
 import { IntegrationAuthModule } from './modules/integration-auth/integration-auth.module';
 import { InternalApiModule } from './modules/internal-api/internal-api.module';
@@ -22,6 +23,7 @@ import { InternalApiModule } from './modules/internal-api/internal-api.module';
 const REDACTED_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
+  'req.headers["x-api-key"]',
   'req.body.password',
   'req.body.client_secret',
   'req.body.secret',
@@ -69,6 +71,8 @@ const REDACTED_PATHS = [
     InternalApiModule,
     AdminModule,
     IntegrationApiModule,
+    // Reto 2: contrato v3 con Booking Prototipo (/api/v3) + envío de stock por gRPC
+    IntegrationV3Module,
     // /api/*       → API interna (frontend)       · /autos/v1/* → API de integración (Booking Hub)
     RouterModule.register([
       { path: INTERNAL_BASE_PATH, module: AuthModule },

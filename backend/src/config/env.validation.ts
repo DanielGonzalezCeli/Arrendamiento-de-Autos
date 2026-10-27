@@ -103,6 +103,50 @@ export class EnvironmentVariables {
   @IsString()
   DATA_ENCRYPTION_KEY?: string;
 
+  // ── Reto 2: integración con Booking Prototipo (contrato v3 + inventory.proto) ──
+  /** Clave que Booking envía en X-API-Key (TIENDA_AUTOS_API_KEY de su lado). Sin ella, esas rutas quedan abiertas. */
+  @IsOptional()
+  @IsString()
+  @MinLength(16)
+  BOOKING_API_KEY?: string;
+
+  /** ID del nodo registrado en el dashboard de Booking (service_id del gRPC). */
+  @Matches(/^NODE_AUT_[A-Z0-9_]+$/)
+  NODE_ID: string = 'NODE_AUT_RUTALIBRE';
+
+  @IsString()
+  PARTNER_NAME: string = 'RutaLibre Renta de Autos';
+
+  /** URL pública del frontend (para las fotos /cars/… del catálogo v3). Por defecto, el primer origen de CORS_ORIGINS. */
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  PUBLIC_WEB_URL?: string;
+
+  /** Envío de stock a Booking: off · grpc (Tailscale/local, puerto 50051) · http (respaldo en la nube). */
+  @IsIn(['off', 'grpc', 'http'])
+  STOCK_SYNC_MODE: 'off' | 'grpc' | 'http' = 'off';
+
+  /** host:puerto del servidor gRPC de Booking (IP de Tailscale en la prueba conjunta). */
+  @IsString()
+  BOOKING_GRPC_TARGET: string = 'localhost:50051';
+
+  @IsUrl({ require_tld: false })
+  BOOKING_STOCK_HTTP_URL: string = 'https://rda1-backend-integracion-sistemas.onrender.com/api/v3/inventory/stock';
+
+  /** Cada cuánto se reconcilia el stock con Booking (ms). 0 = solo al reservar/cancelar. */
+  @IsInt()
+  @Min(0)
+  STOCK_SYNC_INTERVAL_MS: number = 30_000;
+
+  /** Ruta a inventory.proto. Por defecto: ../contracts/inventory.proto respecto al backend. */
+  @IsOptional()
+  @IsString()
+  INVENTORY_PROTO_PATH?: string;
+
+  /** Log en archivo de la API v3 (JSON por línea, con correlation_id e idempotency_key). "off" = desactivado. */
+  @IsString()
+  INTEGRATION_LOG_FILE: string = 'logs/integration-v3.log';
+
   /** Valor del header X-API-Deprecation-Date (YYYY-MM-DD). Opcional. */
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)

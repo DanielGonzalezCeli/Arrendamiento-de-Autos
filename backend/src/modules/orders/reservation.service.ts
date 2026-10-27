@@ -6,8 +6,10 @@ import { evaluateCancellation } from '../../domain/cancellation-policy';
 import { normalizeName, normalizePhone } from '../../domain/contact-rules';
 import { isDepotOpenAt } from '../../domain/depot-schedule';
 import { LocationQuery, resolveDepots } from '../../domain/depot-locator';
-import { DomainError, ProblemCode } from '../../domain/domain-error';
-import { HoldStatus, OrderChannel, OrderStatus, RentalStatus } from '../../domain/enums';
+import { CleaningCooldownError, DomainError, ProblemCode } from '../../domain/domain-error';
+import { BUSINESS_RULES } from '../../domain/business-rules';
+import { HoldStatus, OrderChannel, OrderStatus, RentalStatus, UnitStatus } from '../../domain/enums';
+import { cleaningCooldownUntil } from '../../domain/fleet-state';
 import { generateLocator } from '../../domain/locator';
 import { assertDriverDetails, assertPaymentReference, DriverDetails } from '../../domain/order-rules';
 import { validateRentalWindow } from '../../domain/rental-period';
@@ -15,6 +17,7 @@ import { AvailabilityService } from '../availability/availability.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { Depot } from '../catalog/entities/depot.entity';
 import { Extra } from '../catalog/entities/extra.entity';
+import { FleetUnit } from '../catalog/entities/fleet-unit.entity';
 import { VehicleModel } from '../catalog/entities/vehicle-model.entity';
 import { DomainEventType } from '../events/domain-events';
 import { OutboxService } from '../events/outbox.service';
@@ -38,6 +41,27 @@ export interface CreateReservationInput {
   channel: OrderChannel;
   userId?: string | null;
   affiliateId?: number | null;
+}
+
+/** Reserva de un auto concreto (placa) pedida por Booking Prototipo — contrato v3. */
+export interface CreateUnitReservationInput {
+  fleetUnitId: string;
+  pickupAt: Date;
+  dropoffAt: Date;
+  driver: { firstName: string; lastName: string; email: string; phone: string | null; age: number };
+  extraCodes: string[];
+  ownerSub: string;
+  /** PNR que verá Booking (ej. CAR7K2Q9). */
+  locator: string;
+  paymentReference: string;
+  partnerData: Record<string, unknown>;
+}
+
+export interface CancellationOutcome {
+  reservation: Reservation;
+  /** Importe que se devuelve al cliente (total − penalización). */
+  refundAmount: number;
+  refundPercentage: number;
 }
 
 export interface ModifyReservationInput {
@@ -143,6 +167,91 @@ export class ReservationService {
     });
   }
 
+  /**
+   * Contrato v3: Booking reserva un auto concreto (vehicle_id = placa), no un modelo. La unidad queda asignada
+   * desde ya; la BD impide que se asigne a dos alquileres solapados (EXCLUDE reservations_unit_no_overlap).
+   * Además se respeta el inventario por modelo, para no vender de más frente a las reservas web (que reservan modelo).
+   */
+  async createForUnit(input: CreateUnitReservationInput, manager?: EntityManager, now = new Date()): Promise<Reservation> {
+    validateRentalWindow(input.pickupAt, input.dropoffAt, now, 'dates');
+
+    return inTransaction(this.dataSource, manager, async (m) => {
+      const unit = await m.findOne(FleetUnit, { where: { id: input.fleetUnitId }, lock: { mode: 'pessimistic_write' } });
+      if (!unit || !unit.active || unit.status !== UnitStatus.Available) {
+        throw DomainError.conflict(ProblemCode.CarNoLongerAvailable, 'Vehículo no disponible', 'El vehículo está fuera de servicio o en mantenimiento');
+      }
+      const { model, pickupDepot, dropoffDepot } = await this.loadCatalog(unit.vehicleModelId, unit.depotId, unit.depotId);
+      const base = { model, pickupDepot, dropoffDepot, pickupAt: input.pickupAt, dropoffAt: input.dropoffAt, driverAge: input.driver.age };
+      this.pricing.assertBookable(base);
+
+      await this.availability.lockVehicleModel(m, model.id);
+      await this.assertUnitFree(m, unit.id, input.pickupAt, input.dropoffAt, now);
+      const units = await this.availability.countAvailableUnits(m, {
+        vehicleModelId: model.id, depotId: pickupDepot.id, pickupAt: input.pickupAt, dropoffAt: input.dropoffAt,
+      });
+      if (units === 0) throw NOT_AVAILABLE();
+
+      const quote = await this.pricing.quote({ ...base, currency: BUSINESS_RULES.BASE_CURRENCY, extraCodes: input.extraCodes });
+      const reservation = await m.save(Reservation, m.create(Reservation, {
+        locator: input.locator,
+        status: OrderStatus.Confirmed,
+        rentalStatus: RentalStatus.NotStarted,
+        channel: OrderChannel.BookingHub,
+        ownerSub: input.ownerSub,
+        vehicleModelId: model.id,
+        fleetUnitId: unit.id,
+        pickupDepotId: pickupDepot.id,
+        dropoffDepotId: dropoffDepot.id,
+        pickupAt: input.pickupAt,
+        dropoffAt: input.dropoffAt,
+        driverFirstName: normalizeName(input.driver.firstName).slice(0, 60),
+        driverLastName: normalizeName(input.driver.lastName).slice(0, 60),
+        driverEmail: input.driver.email.trim().toLowerCase(),
+        driverPhone: input.driver.phone ? normalizePhone(input.driver.phone).slice(0, 30) : null,
+        driverAge: input.driver.age,
+        bookerCountry: 'EC',
+        vehicleSnapshot: buildVehicleSnapshot(model, quote.breakdown, unit.plate),
+        routeSnapshot: buildRouteSnapshot(pickupDepot, dropoffDepot, input.pickupAt, input.dropoffAt, quote.breakdown.rental_days),
+        priceBreakdown: quote.breakdown,
+        totalPrice: quote.breakdown.total,
+        currency: quote.breakdown.currency,
+        paymentReference: input.paymentReference,
+        partnerData: input.partnerData,
+      }));
+      await this.saveExtras(m, reservation.id, quote.extras, quote.breakdown);
+      await this.history(m, reservation, ReservationAction.Created, input.ownerSub, null);
+      await this.outbox.record(m, DomainEventType.CarOrderConfirmed, reservation.id, eventPayload(reservation));
+      return this.reload(m, reservation.id);
+    });
+  }
+
+  /** Reserva de un socio buscada por id (uuid) o por PNR. Solo las del dueño indicado. */
+  async findForPartner(idOrLocator: string, ownerSub: string, manager: EntityManager = this.dataSource.manager): Promise<Reservation> {
+    const value: string = idOrLocator.trim();
+    const where = isUuid(value) ? { id: value } : { locator: idOrLocator.trim().toUpperCase() };
+    const reservation = await manager.findOne(Reservation, { where, relations: { extras: true } });
+    if (!reservation || reservation.ownerSub !== ownerSub) throw DomainError.notFound('La orden no existe');
+    return reservation;
+  }
+
+  listForPartner(ownerSub: string, limit = 100): Promise<Reservation[]> {
+    return this.dataSource.getRepository(Reservation).find({
+      where: { ownerSub }, relations: { extras: true }, order: { createdAt: 'DESC' }, take: limit,
+    });
+  }
+
+  /**
+   * Cancelación pedida por Booking. waiveFee = compensación de la Saga (o decisión del administrador):
+   * reembolso del 100 % sin penalización. Si no, se aplica la política comercial normal (RN22).
+   */
+  async cancelForPartner(
+    idOrLocator: string, ownerSub: string, waiveFee: boolean, manager?: EntityManager, now = new Date(),
+  ): Promise<CancellationOutcome> {
+    const { id } = await this.findForPartner(idOrLocator, ownerSub, manager);
+    const reservation = await this.doCancel(id, ownerSub, ownerSub, manager, now, waiveFee);
+    return cancellationOutcome(reservation);
+  }
+
   /** GET /orders/{orderId} — RN23: solo el dueño; si es de otro, 404 (no revela que existe). */
   async getForOwner(id: string, ownerSub: string, manager: EntityManager = this.dataSource.manager): Promise<Reservation> {
     const reservation = isUuid(id) ? await manager.findOne(Reservation, { where: { id }, relations: { extras: true } }) : null;
@@ -221,15 +330,16 @@ export class ReservationService {
   }
 
   private async doCancel(
-    id: string, ownerSub: string | null, actorSub: string, manager: EntityManager | undefined, now: Date,
+    id: string, ownerSub: string | null, actorSub: string, manager: EntityManager | undefined, now: Date, waiveFee = false,
   ): Promise<Reservation> {
     return inTransaction(this.dataSource, manager, async (m) => {
       const reservation = await this.lockOwned(m, id, ownerSub);
       const baseLine = reservation.priceBreakdown.lines.find((line) => line.code === 'BASE');
-      const { fee } = evaluateCancellation({
+      const evaluation = evaluateCancellation({
         status: reservation.status, rentalStatus: reservation.rentalStatus, pickupAt: reservation.pickupAt, now,
         dailyAmount: baseLine?.unit_price ?? 0,
       });
+      const fee = waiveFee ? 0 : evaluation.fee;
 
       const before = snapshotForHistory(reservation);
       await m.update(Reservation, reservation.id, {
@@ -243,6 +353,32 @@ export class ReservationService {
   }
 
   // ── helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * La placa no tiene otro alquiler que se cruce (con el margen de limpieza), ni un bloqueo del taller,
+   * ni está en el cooldown de 2 h de su última devolución. Un alquiler entregado y vencido sigue ocupando la placa.
+   */
+  private async assertUnitFree(m: EntityManager, unitId: string, pickupAt: Date, dropoffAt: Date, now: Date): Promise<void> {
+    const [row] = await m.query(
+      `WITH req AS (
+         SELECT tstzrange($2::timestamptz - make_interval(mins => $4), $3::timestamptz + make_interval(mins => $4), '[)') AS period
+       )
+       SELECT
+         EXISTS (SELECT 1 FROM reservations r, req
+                  WHERE r.fleet_unit_id = $1 AND r.status IN ('PENDING', 'CONFIRMED') AND r.rental_status <> 'RETURNED'
+                    AND tstzrange(r.pickup_at, CASE WHEN r.rental_status = 'PICKED_UP' THEN greatest(r.dropoff_at, $5::timestamptz)
+                                                    ELSE r.dropoff_at END, '[)') && req.period) AS taken,
+         EXISTS (SELECT 1 FROM vehicle_blocks b, req WHERE b.fleet_unit_id = $1 AND b.period && req.period) AS blocked,
+         (SELECT max(h.created_at) FROM reservation_history h JOIN reservations r ON r.id = h.reservation_id
+           WHERE r.fleet_unit_id = $1 AND h.action = 'RETURNED') AS last_returned_at`,
+      [unitId, pickupAt, dropoffAt, BUSINESS_RULES.CLEANING_BUFFER_MINUTES, now],
+    );
+    const cooldownUntil = cleaningCooldownUntil(row.last_returned_at ? new Date(row.last_returned_at) : null);
+    if (cooldownUntil && pickupAt < cooldownUntil) throw new CleaningCooldownError(cooldownUntil);
+    if (row.taken || row.blocked) {
+      throw DomainError.conflict(ProblemCode.CarNoLongerAvailable, 'Vehículo no disponible', 'El vehículo ya está reservado o en el taller en esas fechas');
+    }
+  }
 
   private async loadCatalog(modelId: string, pickupDepotId: number, dropoffDepotId: number) {
     const [model, pickupDepot, dropoffDepot] = await Promise.all([
@@ -297,6 +433,13 @@ export class ReservationService {
   private reload(m: EntityManager, id: string): Promise<Reservation> {
     return m.findOneOrFail(Reservation, { where: { id }, relations: { extras: true } });
   }
+}
+
+/** Reembolso de una reserva ya cancelada (total − penalización registrada). */
+export function cancellationOutcome(reservation: Reservation): CancellationOutcome {
+  const refundAmount = Math.round((reservation.totalPrice - (reservation.cancellationFee ?? 0)) * 100) / 100;
+  const refundPercentage = reservation.totalPrice > 0 ? Math.round((refundAmount / reservation.totalPrice) * 100) : 100;
+  return { reservation, refundAmount, refundPercentage };
 }
 
 function snapshotForHistory(r: Reservation): Record<string, unknown> {

@@ -31,8 +31,8 @@ export function configureApp(app: INestApplication): void {
 
   app.enableCors({
     origin: config.get<string>('CORS_ORIGINS').split(',').map((o) => o.trim()),
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Affiliate-Id', 'X-Request-Id'],
-    exposedHeaders: ['X-Request-Id', 'Retry-After'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Affiliate-Id', 'X-Request-Id', 'X-API-Key', 'X-Correlation-Id', 'X-Node-Id'],
+    exposedHeaders: ['X-Request-Id', 'Retry-After', 'X-Correlation-Id', 'Idempotent-Replayed'],
   });
 
   // whitelist: descarta propiedades no declaradas. forbidNonWhitelisted=false (lector tolerante):

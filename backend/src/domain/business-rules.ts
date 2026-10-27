@@ -17,8 +17,12 @@ export const BUSINESS_RULES = {
   YOUNG_DRIVER_FEE_PER_DAY_USD: 10,
   /** RN11: recargo por devolver en otra agencia. */
   ONE_WAY_FEE_USD: 40,
-  /** RN08: margen de limpieza entre alquileres de la misma unidad. */
-  CLEANING_BUFFER_MINUTES: 60,
+  /** RN08 + Reto 2 (Cátedra RDA2 §5): limpieza obligatoria de 2 h tras cada devolución (cooldown). */
+  CLEANING_BUFFER_MINUTES: 120,
+  /** Reto 2: una reserva asignada pasa a LISTO_PARA_ENTREGAR cuando faltan menos de N minutos para el retiro. */
+  READY_FOR_PICKUP_WINDOW_MINUTES: 120,
+  /** Reto 2: cada cuántos km toca el mantenimiento preventivo (alerta de odómetro). */
+  MAINTENANCE_INTERVAL_KM: 10_000,
   /** RN14–RN16: tiempos de vida. */
   SEARCH_TTL_MINUTES: 30,
   HOLD_TTL_MINUTES: 15,

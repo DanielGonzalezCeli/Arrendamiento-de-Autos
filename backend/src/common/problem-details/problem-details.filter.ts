@@ -1,8 +1,9 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { DomainError, ProblemCode } from '../../domain/domain-error';
 import { buildProblem, ProblemDetails, ProblemException } from './problem-details';
+import { isV3Request, toProblemV3 } from './problem-details-v3';
 
 /** Códigos de error de PostgreSQL relevantes. */
 const PG_EXCLUSION_VIOLATION = '23P01';
@@ -30,7 +31,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    const problem = this.toProblem(exception);
+    const request = host.switchToHttp().getRequest<Request>();
+    // Contrato v3 (Booking Prototipo): otro formato de error y otra semántica de códigos.
+    const problem = isV3Request(request) ? toProblemV3(exception, request) : this.toProblem(exception);
 
     if (problem.status >= 500) this.logger.error(exception instanceof Error ? exception.stack : exception);
     if (exception instanceof DomainError && exception.retryAfterSeconds) {

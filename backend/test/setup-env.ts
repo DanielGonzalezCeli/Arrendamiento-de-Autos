@@ -5,6 +5,9 @@ process.env.LOG_LEVEL = 'silent';
 // Los ciclos periódicos se ejecutan a mano en los tests (runOnce) para que sean deterministas.
 process.env.WEBHOOK_DISPATCH_INTERVAL_MS = '0';
 process.env.MAINTENANCE_INTERVAL_MS = '0';
+// Reto 2: sin log en archivo ni envío de stock a Booking salvo que el test lo active.
+process.env.INTEGRATION_LOG_FILE ??= 'off';
+process.env.STOCK_SYNC_MODE ??= 'off';
 
 // En local, los tests que usan la BD leen backend/.env; en CI las variables vienen del workflow.
 // (process.loadEnvFile no está disponible dentro del sandbox de Jest, por eso se lee a mano.)

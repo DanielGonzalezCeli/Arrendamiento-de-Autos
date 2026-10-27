@@ -10,6 +10,7 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   configureApp(app);
   app.enableShutdownHooks();
-  await app.listen(app.get(ConfigService).get<number>('PORT'));
+  // 0.0.0.0: acepta conexiones de otras máquinas (prueba conjunta por Tailscale), no solo de localhost.
+  await app.listen(app.get(ConfigService).get<number>('PORT'), '0.0.0.0');
 }
 bootstrap();

@@ -123,6 +123,10 @@ export class Reservation {
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: new ColumnNumericTransformer() })
   cancellationFee: number | null;
 
+  /** Reservas de Booking (contrato v3): licencia, vuelo, cobertura y correlation_id. Null en el resto. */
+  @Column({ type: 'jsonb', nullable: true })
+  partnerData: Record<string, unknown> | null;
+
   @OneToMany(() => ReservationExtra, (extra) => extra.reservation, { cascade: ['insert'] })
   extras: ReservationExtra[];
 

@@ -27,6 +27,14 @@ export interface IdempotentResult<T> {
   replayed: boolean;
 }
 
+/** Misma Idempotency-Key con otro contenido. El contrato v1 lo responde 409; el v3, 400 IDEMPOTENCY_CONFLICT. */
+export class IdempotencyKeyReusedError extends DomainError {
+  constructor() {
+    super(ProblemCode.ValidationFailed, 409, 'Idempotency-Key reutilizada',
+      'La Idempotency-Key ya se usó con un contenido distinto; genera una clave nueva para otra operación');
+  }
+}
+
 /** Segundos que se sugiere esperar si la misma clave está en curso. */
 const IN_PROGRESS_RETRY_AFTER = 1;
 
@@ -103,8 +111,7 @@ export class IdempotencyService {
         'Hay una petición con esta Idempotency-Key en proceso; reintenta en unos segundos', IN_PROGRESS_RETRY_AFTER);
     }
     if (record.requestHash !== requestHash) {
-      throw new DomainError(ProblemCode.ValidationFailed, 409, 'Idempotency-Key reutilizada',
-        'La Idempotency-Key ya se usó con un contenido distinto; genera una clave nueva para otra operación');
+      throw new IdempotencyKeyReusedError();
     }
 
     this.logger.log(`Idempotency replay ${request.operation} key=${request.key}`);

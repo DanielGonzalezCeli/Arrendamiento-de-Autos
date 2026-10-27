@@ -46,3 +46,11 @@ export class DomainError extends Error {
     return new DomainError(ProblemCode.ValidationFailed, 404, 'Recurso no encontrado', detail);
   }
 }
+
+/** El auto pedido está en el cooldown de limpieza de 2 h tras una devolución (contrato v3: VEHICLE_IN_CLEANING_COOLDOWN). */
+export class CleaningCooldownError extends DomainError {
+  constructor(readonly cooldownUntil: Date) {
+    super(ProblemCode.CarNoLongerAvailable, 409, 'Vehículo en limpieza',
+      `El vehículo está en limpieza obligatoria de 2 horas tras su devolución; vuelve a estar disponible el ${cooldownUntil.toISOString()}`);
+  }
+}
