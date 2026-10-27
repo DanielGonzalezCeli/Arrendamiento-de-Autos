@@ -22,8 +22,8 @@ export function ApiStatusBadge() {
   }[state]
 
   return (
-    <span title={title} role="status" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">
-      <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
+    <span title={title} role="status" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-stone-200">
+      <span className={`h-2 w-2 rounded-full ${dot} ${state === 'online' ? 'shadow-[0_0_0_4px_rgb(16_185_129/0.2)]' : ''}`} aria-hidden="true" />
       {label}
     </span>
   )

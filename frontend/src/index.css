@@ -1,15 +1,151 @@
 @import 'tailwindcss';
 
+/*
+ * Identidad "Carretera andina": verde petróleo del páramo (marca), ámbar de atardecer (acento, el "Libre"
+ * del logo), asfalto para fondos oscuros y papel de mapa para el fondo general.
+ * Toda la app usa estas variables: cambiar la marca aquí cambia la web pública y el panel a la vez.
+ */
 @theme {
-  --color-brand-50: #eef6ff;
-  --color-brand-100: #d9ebff;
-  --color-brand-500: #1f6feb;
-  --color-brand-600: #1559c7;
-  --color-brand-700: #10459c;
-  --color-accent-500: #f59e0b;
+  --color-brand-50: #ecf7f5;
+  --color-brand-100: #d2ede8;
+  --color-brand-200: #a6dbd2;
+  --color-brand-300: #6fc1b4;
+  --color-brand-400: #3aa192;
+  --color-brand-500: #198577;
+  --color-brand-600: #0f6b61;
+  --color-brand-700: #0d564f;
+  --color-brand-800: #0d4540;
+  --color-brand-900: #0b3935;
+
+  --color-accent-300: #fbc874;
+  --color-accent-400: #f8b043;
+  --color-accent-500: #f0961c;
+  --color-accent-600: #d27a0c;
+
+  --color-asphalt-700: #1c2a2e;
+  --color-asphalt-800: #142024;
+  --color-asphalt-900: #0c1518;
+
+  --color-paper: #f7f5f0;
+
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 0.6s var(--ease-out-soft) both;
+  --animate-fade: fade 0.4s ease-out both;
+  --animate-pop: pop 0.35s var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-road: road 1.2s linear infinite;
+  --animate-draw: draw 2.4s var(--ease-out-soft) 0.3s both;
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  /* Línea discontinua de carretera que avanza. */
+  @keyframes road {
+    to { stroke-dashoffset: -24; }
+  }
+  /* Trazado de una ruta (stroke-dasharray = longitud del camino, normalizada con pathLength=1). */
+  @keyframes draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+  }
 }
 
-body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-paper text-slate-800 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    @apply bg-accent-300 text-asphalt-900;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Entrada escalonada: style={{ '--i': index }} retrasa cada elemento 60 ms. */
+  .stagger {
+    animation: var(--animate-rise);
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
+  /* Bloque de carga con brillo (skeleton). */
+  .skeleton {
+    background: linear-gradient(90deg, #e9e6df 0%, #f4f2ed 50%, #e9e6df 100%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+    border-radius: 0.75rem;
+  }
+
+  /* Curvas de nivel (mapa topográfico) para fondos de marca. */
+  .topo {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.07' stroke-width='1.2'%3E%3Cpath d='M-50 120c90-40 170-60 260-20s170 70 260 30 120-40 180-30'/%3E%3Cpath d='M-50 160c90-40 170-50 255-12s175 62 265 24 115-34 180-26'/%3E%3Cpath d='M-50 200c95-36 175-40 250-4s180 54 270 18 110-28 180-22'/%3E%3Cpath d='M-50 330c80 30 160 60 250 30s150-90 250-80 140 40 200 30'/%3E%3Cpath d='M-50 370c80 30 165 52 250 24s155-82 250-72 135 36 200 28'/%3E%3Cpath d='M-50 410c80 28 170 44 250 18s160-74 250-64 130 32 200 26'/%3E%3Cpath d='M-50 520c100-20 190-50 290-30s190 60 280 40 90-20 130-18'/%3E%3Cpath d='M-50 560c100-18 195-42 290-24s185 52 280 34 90-16 130-14'/%3E%3Cellipse cx='430' cy='110' rx='70' ry='34'/%3E%3Cellipse cx='430' cy='110' rx='40' ry='18'/%3E%3Cellipse cx='140' cy='460' rx='90' ry='40'/%3E%3Cellipse cx='140' cy='460' rx='55' ry='22'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 600px 600px;
+  }
+
+  /* Línea central discontinua (separador con aire de carretera). */
+  .road-line {
+    height: 3px;
+    background-image: linear-gradient(90deg, var(--color-accent-400) 0 60%, transparent 60% 100%);
+    background-size: 22px 3px;
+    border-radius: 9999px;
+  }
+}
+
+/* Transiciones entre vistas (React Router + View Transitions API, si el navegador la soporta). */
+::view-transition-old(root) {
+  animation: 180ms ease-out both fade-out;
+}
+::view-transition-new(root) {
+  animation: 260ms var(--ease-out-soft) both fade-in-up;
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* Accesibilidad: sin movimiento para quien lo pidió al sistema operativo. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+  }
 }

@@ -20,7 +20,7 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
 
   // 1. Portada y búsqueda
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /Alquila el auto ideal/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Del páramo al Pacífico/ })).toBeVisible()
   // Sin opciones duplicadas: cada mostrador del aeropuerto aparece una sola vez, como agencia
   await expect(page.locator('#pickup option', { hasText: 'Aeropuerto Mariscal Sucre (UIO) · Andes' })).toHaveCount(1)
   await expect(page.locator('#pickup option[value^="airport:"]')).toHaveCount(0)

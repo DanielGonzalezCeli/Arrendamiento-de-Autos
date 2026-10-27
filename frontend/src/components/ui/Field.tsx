@@ -1,7 +1,9 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 
 export const INPUT_CLASS =
-  'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 aria-[invalid=true]:border-rose-400'
+  'w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition duration-200 ' +
+  'hover:border-stone-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 disabled:bg-stone-100 ' +
+  'aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-100'
 
 interface FieldProps {
   label: string
@@ -20,7 +22,7 @@ export function Field({ label, htmlFor, error, hint, children }: FieldProps) {
       </label>
       {children}
       {error ? (
-        <p id={`${htmlFor}-error`} className="text-xs text-rose-600">
+        <p id={`${htmlFor}-error`} className="animate-fade text-xs font-medium text-rose-600">
           {error}
         </p>
       ) : hint ? (

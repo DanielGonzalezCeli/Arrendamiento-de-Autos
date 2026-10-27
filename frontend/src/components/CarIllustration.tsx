@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { assetUrl } from '../lib/api'
 /**
  * Ilustración SVG por categoría (el catálogo de demo no tiene fotos). Si el modelo tiene imageUrl,
@@ -14,7 +15,16 @@ const PALETTE: Record<string, { from: string; to: string; body: string }> = {
 const DEFAULT = { from: '#f1f5f9', to: '#e2e8f0', body: '#475569' }
 
 export function CarIllustration({ category, imageUrl, alt, className = '' }: { category: string; imageUrl?: string | null; alt: string; className?: string }) {
-  if (imageUrl) return <img src={assetUrl(imageUrl)} alt={alt} className={`h-full w-full object-cover ${className}`} loading="lazy" />
+  // Si la foto no carga (enlace roto, sin red), se muestra la ilustración en su lugar.
+  const [failed, setFailed] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  if (imageUrl && !failed) {
+    return (
+      <img src={assetUrl(imageUrl)} alt={alt} loading="lazy" decoding="async"
+        onError={() => setFailed(true)} onLoad={() => setLoaded(true)}
+        className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'} ${className}`} />
+    )
+  }
 
   const colors = PALETTE[category] ?? DEFAULT
   const tall = category === 'SUV' || category === 'PICKUP' || category === 'VAN'

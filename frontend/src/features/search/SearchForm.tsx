@@ -27,7 +27,7 @@ export function SearchForm({ initial, compact = false }: { initial?: SearchCrite
     const next = { ...criteria, dropoff: differentDropoff ? criteria.dropoff : '' }
     const problem = validateCriteria(next)
     setError(problem)
-    if (!problem) navigate(`/buscar?${criteriaToParams(next)}`)
+    if (!problem) navigate(`/buscar?${criteriaToParams(next)}`, { viewTransition: true })
   }
 
   return (
@@ -63,9 +63,9 @@ export function SearchForm({ initial, compact = false }: { initial?: SearchCrite
             {SUPPORTED_CURRENCIES.map((c) => <option key={c}>{c}</option>)}
           </Select>
         </Field>
-        <div className={compact ? '' : 'flex items-start pt-6 md:col-span-2 lg:col-span-1 lg:col-start-4'}>
-          <Button type="submit" className="w-full">
-            <Search className="h-4 w-4" /> Buscar vehículos
+        <div className={compact ? '' : 'flex items-end md:col-span-2 lg:col-span-1 lg:col-start-4'}>
+          <Button type="submit" variant="accent" className="group w-full py-3 text-base">
+            <Search className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" /> Buscar vehículos
           </Button>
         </div>
       </div>
@@ -101,7 +101,7 @@ function DateTimeField({ label, id, date, time, onDate, onTime }: {
     <Field label={label} htmlFor={`${id}-date`}>
       <div className="flex gap-2">
         <Input id={`${id}-date`} type="date" min={ecuadorDate(0)} value={date} onChange={(e) => onDate(e.target.value)} />
-        <select className="shrink-0 rounded-xl border border-slate-300 bg-white px-2 text-sm" aria-label={`Hora de ${label.toLowerCase()}`} value={time} onChange={(e) => onTime(e.target.value)}>
+        <select className="shrink-0 rounded-xl border border-stone-300 bg-white px-2 text-sm transition hover:border-stone-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 focus:outline-none" aria-label={`Hora de ${label.toLowerCase()}`} value={time} onChange={(e) => onTime(e.target.value)}>
           {TIMES.map((t) => <option key={t}>{t}</option>)}
         </select>
       </div>
