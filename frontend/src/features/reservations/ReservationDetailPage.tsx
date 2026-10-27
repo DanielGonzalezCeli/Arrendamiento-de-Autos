@@ -46,7 +46,7 @@ export function ReservationDetailPage() {
         <div className="flex flex-col gap-6">
           <Card className="overflow-hidden">
             <div className="flex flex-col sm:flex-row">
-              <div className="h-40 sm:h-auto sm:w-64"><CarIllustration category={r.vehicle.category.code} alt={r.vehicle.display_name} /></div>
+              <div className="h-40 sm:h-auto sm:w-64"><CarIllustration category={r.vehicle.category.code} imageUrl={r.vehicle.image_url} alt={r.vehicle.display_name} /></div>
               <div className="flex-1 p-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-lg font-bold text-slate-900">{r.locator}</span>

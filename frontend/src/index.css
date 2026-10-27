@@ -149,3 +149,7 @@
     animation: none;
   }
 }
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+}

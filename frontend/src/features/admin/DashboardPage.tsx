@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CalendarClock, CarFront, DollarSign, Globe, Network } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ErrorAlert } from '../../components/ui/Alert'
-import { LoadingBlock } from '../../components/ui/Spinner'
+import { Skeleton } from '../../components/ui/Spinner'
 import { formatMoney, formatShortDateTime } from '../../lib/format'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, UNIT_STATUS_LABEL, useAdminQuery, type Dashboard } from './admin-api'
@@ -9,7 +9,15 @@ import { SectionHeader, StatCard, TD, Table } from './components'
 
 export function DashboardPage() {
   const { data, isLoading, error } = useAdminQuery<Dashboard>('dashboard', { refetchInterval: 30_000 })
-  if (isLoading) return <LoadingBlock />
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6" role="status" aria-label="Cargando el resumen">
+        <Skeleton className="h-9 w-72" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-20" />)}</div>
+        <Skeleton className="h-64" />
+      </div>
+    )
+  }
   if (error || !data) return <ErrorAlert error={error} />
 
   const revenue = data.revenueThisMonth.map((r) => formatMoney(r.amount, r.currency)).join(' · ') || formatMoney(0, 'USD')
@@ -37,7 +45,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-semibold text-slate-900">Flota ({totalUnits} unidades)</h2>
           <ul className="flex flex-col gap-2">
             {data.fleet.map((f) => (
@@ -46,19 +54,19 @@ export function DashboardPage() {
                   <span>{UNIT_STATUS_LABEL[f.status] ?? f.status}</span>
                   <span className="font-semibold">{f.units}</span>
                 </div>
-                <div className="h-2 rounded-full bg-slate-100">
-                  <div className="h-2 rounded-full bg-brand-500" style={{ width: `${(f.units / Math.max(totalUnits, 1)) * 100}%` }} />
+                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+                  <div className="h-2 origin-left animate-[grow_0.8s_var(--ease-out-soft)_both] rounded-full bg-brand-500" style={{ width: `${(f.units / Math.max(totalUnits, 1)) * 100}%` }} />
                 </div>
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-semibold text-slate-900">Integración con el Booking Hub</h2>
           <dl className="grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Eventos por publicar</dt><dd className="text-xl font-bold">{data.webhooks.pending_events}</dd></div>
-            <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Webhooks reintentando</dt><dd className="text-xl font-bold">{data.webhooks.failed}</dd></div>
-            <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">Webhooks agotados</dt><dd className="text-xl font-bold">{data.webhooks.dead}</dd></div>
+            <div className="rounded-xl bg-stone-100 p-3"><dt className="text-xs text-slate-500">Eventos por publicar</dt><dd className="text-xl font-bold">{data.webhooks.pending_events}</dd></div>
+            <div className="rounded-xl bg-stone-100 p-3"><dt className="text-xs text-slate-500">Webhooks reintentando</dt><dd className="text-xl font-bold">{data.webhooks.failed}</dd></div>
+            <div className="rounded-xl bg-stone-100 p-3"><dt className="text-xs text-slate-500">Webhooks agotados</dt><dd className="text-xl font-bold">{data.webhooks.dead}</dd></div>
           </dl>
           <p className="mt-3 text-sm text-slate-500">
             {webhookProblems ? 'Hay entregas con problemas. ' : 'Todas las notificaciones se entregaron. '}

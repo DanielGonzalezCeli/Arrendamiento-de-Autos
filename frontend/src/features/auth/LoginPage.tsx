@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ErrorAlert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { LogoMark } from '../../components/Logo'
 import { Field, Input } from '../../components/ui/Field'
 import { useFormValidation } from '../../lib/use-form-validation'
 import { collectErrors, validateEmail } from '../../lib/validation'
@@ -57,7 +57,7 @@ export function LoginPage() {
           <Input id="password" type="password" autoComplete="current-password" value={password}
             onChange={(e) => setPassword(e.target.value)} onBlur={touch('password')} error={errorFor('password')} />
         </Field>
-        <Button type="submit" loading={loading}>
+        <Button type="submit" loading={loading} className="py-3">
           <LogIn className="h-4 w-4" /> Ingresar
         </Button>
         <p className="text-center text-sm text-slate-500">
@@ -73,12 +73,25 @@ export function LoginPage() {
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col px-4 py-12">
-      <Card className="p-8">
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-        <p className="mt-1 mb-6 text-sm text-slate-500">{subtitle}</p>
+    <div className="mx-auto grid w-full max-w-5xl animate-fade px-4 py-10 md:py-14 lg:grid-cols-2">
+      {/* Panel de marca (solo escritorio) */}
+      <div className="topo relative hidden overflow-hidden rounded-l-3xl bg-asphalt-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="pointer-events-none absolute -right-20 -bottom-24 h-72 w-72 rounded-full bg-brand-500/30 blur-3xl" aria-hidden="true" />
+        <LogoMark className="h-12 w-12" />
+        <div className="relative">
+          <p className="font-display text-3xl leading-tight font-extrabold">Tu próxima ruta <span className="text-accent-400">te espera</span>.</p>
+          <ul className="mt-6 space-y-2 text-sm text-stone-300">
+            <li>· Precio final con IVA antes de confirmar</li>
+            <li>· Cancelación gratuita hasta 24 h antes</li>
+            <li>· Tus reservas y vouchers en un solo lugar</li>
+          </ul>
+        </div>
+      </div>
+      <div className="rounded-3xl border border-stone-200 bg-white p-8 shadow-xl shadow-asphalt-900/5 sm:p-10 lg:rounded-l-none">
+        <h1 className="text-3xl font-extrabold text-asphalt-900">{title}</h1>
+        <p className="mt-1 mb-7 text-sm text-slate-500">{subtitle}</p>
         {children}
-      </Card>
+      </div>
     </div>
   )
 }

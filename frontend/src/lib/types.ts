@@ -148,6 +148,7 @@ export interface VehicleSnapshot {
   bag_capacity: number
   supplier: { supplier_id: number; name: string; code: string }
   plate?: string
+  image_url?: string | null
 }
 
 export interface RouteEndpoint {

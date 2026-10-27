@@ -148,7 +148,8 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
   }
 
   return (
-    <PageContainer title="Completa tu reserva" subtitle={`${offer.vehicle.displayName} · ${offer.vehicle.supplier.name}`}>
+    <PageContainer eyebrow="Reserva" title="Completa tu reserva" subtitle={`${offer.vehicle.displayName} · ${offer.vehicle.supplier.name}`}>
+      <Stepper current={paying ? 2 : 1} />
       <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_380px]" noValidate>
         <div className="flex flex-col gap-6">
           {holdExpired ? (
@@ -161,13 +162,13 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
           )}
 
           <Card className="p-6">
-            <h2 className="mb-1 font-semibold text-slate-800">1. Extras y coberturas</h2>
+            <StepTitle n={1}>Extras y coberturas</StepTitle>
             <p className="mb-4 text-sm text-slate-500">Opcionales. El total se actualiza al instante.</p>
             {extras.data ? <ExtrasSelector extras={extras.data} selected={selected} onToggle={toggleExtra} disabled={holdExpired} /> : <LoadingBlock />}
           </Card>
 
           <Card className="p-6">
-            <h2 className="mb-4 font-semibold text-slate-800">2. Datos del conductor principal</h2>
+            <StepTitle n={2} className="mb-4">Datos del conductor principal</StepTitle>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nombre" htmlFor="firstName" error={errorFor('firstName')}>
                 <Input id="firstName" autoComplete="given-name" value={driver.firstName} onChange={setName('firstName')} onBlur={touch('firstName')} error={errorFor('firstName')} />
@@ -188,10 +189,10 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
         </div>
 
         <div>
-          <Card className="overflow-hidden lg:sticky lg:top-6">
-            <div className="h-36"><CarIllustration category={offer.vehicle.category.code} imageUrl={offer.vehicle.imageUrl} alt={offer.vehicle.displayName} /></div>
+          <Card className="overflow-hidden lg:sticky lg:top-24">
+            <div className="h-40 bg-stone-100"><CarIllustration category={offer.vehicle.category.code} imageUrl={offer.vehicle.imageUrl} alt={offer.vehicle.displayName} /></div>
             <div className="p-6">
-              <h2 className="font-semibold text-slate-800">Resumen</h2>
+              <h2 className="text-lg font-bold text-asphalt-900">Resumen</h2>
               <div className="mt-3 mb-4 flex flex-col gap-3">
                 <DepotCard title="Recogida" depot={offer.pickupDepot} when={pickupAt} />
                 <DepotCard title="Devolución" depot={offer.dropoffDepot} when={dropoffAt} />
@@ -200,7 +201,7 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
               {preview.data ? <PriceSummary price={preview.data.price} updating={preview.isFetching} /> : <PriceSummary price={offer.price} updating />}
               {/* Un rechazo de la tarjeta (402) se muestra dentro de la pasarela, no aquí */}
               {confirm.isError && !(confirm.error instanceof ApiError && confirm.error.status === 402) && <div className="mt-4"><ErrorAlert error={confirm.error} /></div>}
-              <Button type="submit" className="mt-5 w-full" disabled={!preview.data || preview.isFetching || holdExpired}>
+              <Button type="submit" variant="accent" className="mt-5 w-full py-3 text-base" disabled={!preview.data || preview.isFetching || holdExpired}>
                 <CreditCard className="h-4 w-4" /> Continuar al pago
               </Button>
               <p className="mt-2 flex items-center justify-center gap-1 text-center text-xs text-slate-400">
@@ -222,5 +223,37 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
         />
       )}
     </PageContainer>
+  )
+}
+
+const STEPS = ['Vehículo', 'Extras y conductor', 'Pago', 'Confirmación']
+
+/** Progreso del embudo de reserva (el vehículo ya está elegido al llegar aquí). */
+function Stepper({ current }: { current: number }) {
+  return (
+    <ol className="mb-6 flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold sm:text-sm" aria-label="Pasos de la reserva">
+      {STEPS.map((label, i) => {
+        const state = i < current ? 'done' : i === current ? 'current' : 'next'
+        return (
+          <li key={label} className="flex shrink-0 items-center gap-2" aria-current={state === 'current' ? 'step' : undefined}>
+            <span className={`grid h-7 w-7 place-items-center rounded-full transition-colors duration-300 ${
+              state === 'done' ? 'bg-brand-700 text-white' : state === 'current' ? 'bg-accent-500 text-asphalt-900' : 'bg-stone-200 text-slate-500'}`}>
+              {state === 'done' ? '✓' : i + 1}
+            </span>
+            <span className={state === 'next' ? 'text-slate-400' : 'text-asphalt-900'}>{label}</span>
+            {i < STEPS.length - 1 && <span className={`h-0.5 w-6 rounded-full sm:w-10 ${i < current ? 'bg-brand-700' : 'bg-stone-300'}`} aria-hidden="true" />}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function StepTitle({ n, children, className = 'mb-1' }: { n: number; children: React.ReactNode; className?: string }) {
+  return (
+    <h2 className={`flex items-center gap-2.5 text-lg font-bold text-asphalt-900 ${className}`}>
+      <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-50 font-sans text-sm text-brand-700">{n}</span>
+      {children}
+    </h2>
   )
 }

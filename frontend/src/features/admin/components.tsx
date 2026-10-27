@@ -172,9 +172,9 @@ type Head = ReactNode | { label: ReactNode; className: string }
 
 export function Table({ head, children, empty }: { head: Head[]; children: ReactNode; empty?: boolean }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
       <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="sticky top-0 border-b border-stone-200 bg-stone-50 text-xs tracking-wide text-slate-500 uppercase">
           <tr>
             {head.map((h, i) => {
               const col = h && typeof h === 'object' && 'label' in h ? h : { label: h as ReactNode, className: '' }
@@ -182,9 +182,9 @@ export function Table({ head, children, empty }: { head: Head[]; children: React
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-stone-100 [&>tr]:transition-colors [&>tr:hover]:bg-brand-50/40">
           {empty ? (
-            <tr><td colSpan={head.length} className="px-4 py-10 text-center text-slate-400">Sin registros</td></tr>
+            <tr><td colSpan={head.length} className="px-4 py-12 text-center text-slate-400">No hay registros que mostrar.</td></tr>
           ) : children}
         </tbody>
       </table>
@@ -196,11 +196,11 @@ export const TD = 'px-3 py-3 align-middle text-slate-700 first:pl-4 last:pr-4'
 
 type PillTone = 'green' | 'amber' | 'red' | 'slate' | 'blue'
 const PILL: Record<PillTone, string> = {
-  green: 'bg-emerald-50 text-emerald-700',
-  amber: 'bg-amber-50 text-amber-700',
-  red: 'bg-rose-50 text-rose-700',
-  slate: 'bg-slate-100 text-slate-600',
-  blue: 'bg-brand-50 text-brand-700',
+  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60',
+  amber: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/60',
+  red: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60',
+  slate: 'bg-stone-100 text-slate-600 ring-1 ring-stone-200',
+  blue: 'bg-brand-50 text-brand-700 ring-1 ring-brand-200/60',
 }
 
 export function Pill({ tone = 'slate', children }: { tone?: PillTone; children: ReactNode }) {
@@ -215,7 +215,7 @@ export function SectionHeader({ title, subtitle, action }: { title: string; subt
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-bold text-asphalt-900 md:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {action}
@@ -225,10 +225,10 @@ export function SectionHeader({ title, subtitle, action }: { title: string; subt
 
 export function StatCard({ label, value, icon, tone = 'text-brand-600' }: { label: string; value: ReactNode; icon: ReactNode; tone?: string }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className={`rounded-xl bg-slate-50 p-3 ${tone}`}>{icon}</div>
+    <div className="group flex animate-rise items-center gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`rounded-xl bg-stone-100 p-3 transition group-hover:bg-brand-50 ${tone}`}>{icon}</div>
       <div>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
+        <p className="font-display text-2xl font-bold text-asphalt-900">{value}</p>
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       </div>
     </div>
