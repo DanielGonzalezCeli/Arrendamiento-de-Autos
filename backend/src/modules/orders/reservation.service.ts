@@ -30,6 +30,7 @@ import { SearchSession } from './entities/search-session.entity';
 import { OrderPricingService, Quote } from './order-pricing.service';
 import { buildRouteSnapshot, buildVehicleSnapshot } from './reservation-snapshots';
 import { isUuid } from './uuid';
+import { occupiedPeriodSql } from '../availability/availability.service';
 
 export interface CreateReservationInput {
   orderPreviewId: string;
@@ -185,7 +186,7 @@ export class ReservationService {
       this.pricing.assertBookable(base);
 
       await this.availability.lockVehicleModel(m, model.id);
-      await this.assertUnitFree(m, unit.id, input.pickupAt, input.dropoffAt, now);
+      await this.assertUnitFree(m, unit.id, input.pickupAt, input.dropoffAt);
       const units = await this.availability.countAvailableUnits(m, {
         vehicleModelId: model.id, depotId: pickupDepot.id, pickupAt: input.pickupAt, dropoffAt: input.dropoffAt,
       });
@@ -356,9 +357,9 @@ export class ReservationService {
 
   /**
    * La placa no tiene otro alquiler que se cruce (con el margen de limpieza), ni un bloqueo del taller,
-   * ni está en el cooldown de 2 h de su última devolución. Un alquiler entregado y vencido sigue ocupando la placa.
+   * ni está en el cooldown de 2 h de su última devolución. Un alquiler entregado ocupa la placa hasta su devolución (RN26).
    */
-  private async assertUnitFree(m: EntityManager, unitId: string, pickupAt: Date, dropoffAt: Date, now: Date): Promise<void> {
+  private async assertUnitFree(m: EntityManager, unitId: string, pickupAt: Date, dropoffAt: Date): Promise<void> {
     const [row] = await m.query(
       `WITH req AS (
          SELECT tstzrange($2::timestamptz - make_interval(mins => $4), $3::timestamptz + make_interval(mins => $4), '[)') AS period
@@ -366,12 +367,11 @@ export class ReservationService {
        SELECT
          EXISTS (SELECT 1 FROM reservations r, req
                   WHERE r.fleet_unit_id = $1 AND r.status IN ('PENDING', 'CONFIRMED') AND r.rental_status <> 'RETURNED'
-                    AND tstzrange(r.pickup_at, CASE WHEN r.rental_status = 'PICKED_UP' THEN greatest(r.dropoff_at, $5::timestamptz)
-                                                    ELSE r.dropoff_at END, '[)') && req.period) AS taken,
+                    AND ${occupiedPeriodSql('r')} && req.period) AS taken,
          EXISTS (SELECT 1 FROM vehicle_blocks b, req WHERE b.fleet_unit_id = $1 AND b.period && req.period) AS blocked,
          (SELECT max(h.created_at) FROM reservation_history h JOIN reservations r ON r.id = h.reservation_id
            WHERE r.fleet_unit_id = $1 AND h.action = 'RETURNED') AS last_returned_at`,
-      [unitId, pickupAt, dropoffAt, BUSINESS_RULES.CLEANING_BUFFER_MINUTES, now],
+      [unitId, pickupAt, dropoffAt, BUSINESS_RULES.CLEANING_BUFFER_MINUTES],
     );
     const cooldownUntil = cleaningCooldownUntil(row.last_returned_at ? new Date(row.last_returned_at) : null);
     if (cooldownUntil && pickupAt < cooldownUntil) throw new CleaningCooldownError(cooldownUntil);

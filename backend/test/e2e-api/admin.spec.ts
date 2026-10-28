@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { AvailabilityService } from '../../src/modules/availability/availability.service';
 import { createApp, futureDate } from '../contract/contract-app';
 
 /** Panel de administración: protección por rol, consultas y operación de entrega/devolución/cancelación. */
@@ -112,6 +113,33 @@ describe('API interna — administración', () => {
     const detail = await http().get(`/api/admin/reservations/${second.id}`).set(admin()).expect(200);
     expect(detail.body.freeUnits.map((u: { id: string }) => u.id)).toContain(picked.body.fleetUnitId);
     await http().post(`/api/admin/reservations/${second.id}/pickup`).set(admin()).send({ fleetUnitId: picked.body.fleetUnitId }).expect(200);
+  });
+
+  it('RN26: un auto entregado y vencido no vuelve a ofrecerse hasta que se registra la devolución', async () => {
+    const db = app.get(DataSource);
+    const availability = app.get(AvailabilityService);
+    const first = await book(startDay + 90);
+    const picked = await http().post(`/api/admin/reservations/${first.id}/pickup`).set(admin()).send({}).expect(200);
+    const unitId = picked.body.fleetUnitId as string;
+
+    // Simula que el cliente debía devolverlo ayer y no lo ha hecho.
+    await db.query(
+      `UPDATE reservations SET pickup_at = now() - interval '3 days', dropoff_at = now() - interval '1 day' WHERE id = $1`, [first.id]);
+    const [{ vehicle_model_id: vehicleModelId, pickup_depot_id: depotId }] = await db.query(
+      `SELECT vehicle_model_id, pickup_depot_id FROM reservations WHERE id = $1`, [first.id]);
+    const later = { vehicleModelId, depotId, pickupAt: new Date(futureDate(startDay + 120)), dropoffAt: new Date(futureDate(startDay + 122)) };
+
+    const whileOut = await availability.countAvailableUnits(db.manager, later);
+    // Otra reserva del mismo modelo para después de la fecha vencida: esa placa no se le puede asignar.
+    const second = await book(startDay + 120);
+    const detail = await http().get(`/api/admin/reservations/${second.id}`).set(admin()).expect(200);
+    expect(detail.body.freeUnits.map((u: { id: string }) => u.id)).not.toContain(unitId);
+    await http().post(`/api/admin/reservations/${second.id}/pickup`).set(admin()).send({ fleetUnitId: unitId }).expect(400);
+    await http().post(`/api/admin/reservations/${second.id}/cancel`).set(admin()).expect(200);
+
+    // Al registrar la devolución, el auto vuelve a contar como disponible.
+    await http().post(`/api/admin/reservations/${first.id}/return`).set(admin()).send({}).expect(200);
+    expect(await availability.countAvailableUnits(db.manager, later)).toBe(whileOut + 1);
   });
 
   it('el administrador cancela la reserva de un cliente', async () => {

@@ -2,6 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { BUSINESS_RULES } from '../../domain/business-rules';
 
+/**
+ * RN26 — periodo que una reserva ocupa de verdad. Mientras el auto está entregado (PICKED_UP) el
+ * periodo no tiene fin: aunque la fecha de devolución ya pasó, el auto sigue fuera y no puede
+ * ofrecerse ni asignarse hasta que el agente registre la devolución. `alias` es el alias SQL de reservations.
+ */
+export function occupiedPeriodSql(alias: string): string {
+  return `(CASE WHEN ${alias}.rental_status = 'PICKED_UP' THEN tstzrange(${alias}.pickup_at, NULL, '[)') ELSE ${alias}.rental_period END)`;
+}
+
+/** Condición SQL "la reserva sigue comprometiendo inventario a futuro" (para bajas de agencias, modelos, etc.). */
+export function stillCommittedSql(alias = ''): string {
+  const p = alias ? `${alias}.` : '';
+  return `(${p}dropoff_at > now() OR ${p}rental_status = 'PICKED_UP')`;
+}
+
 export interface AvailabilityQuery {
   vehicleModelId: string;
   depotId: number;
@@ -16,7 +31,7 @@ export interface AvailabilityQuery {
 /**
  * RN08 — disponibilidad por inventario (vehicle_id = modelo comercial):
  *   unidades AVAILABLE del modelo en la agencia sin bloqueo en el periodo
- *   − reservas activas que se solapan − holds vigentes que se solapan.
+ *   − reservas activas que se solapan (las entregadas, hasta su devolución: RN26) − holds vigentes que se solapan.
  * El periodo se amplía con el margen de limpieza entre alquileres.
  *
  * Recibe el EntityManager para participar en la transacción del llamador (hold/create/modify).
@@ -35,7 +50,7 @@ export class AvailabilityService {
        - (SELECT count(*) FROM reservations r, req
            WHERE r.vehicle_model_id = $1 AND r.pickup_depot_id = $2
              AND r.status IN ('PENDING', 'CONFIRMED') AND r.rental_status <> 'RETURNED'
-             AND r.rental_period && req.period
+             AND ${occupiedPeriodSql('r')} && req.period
              AND ($6::uuid IS NULL OR r.id <> $6::uuid))
        - (SELECT count(*) FROM holds h, req
            WHERE h.vehicle_model_id = $1 AND h.pickup_depot_id = $2

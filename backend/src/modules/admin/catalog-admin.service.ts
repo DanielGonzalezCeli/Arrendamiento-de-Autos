@@ -9,6 +9,7 @@ import { Supplier } from '../catalog/entities/supplier.entity';
 import { VehicleCategory } from '../catalog/entities/vehicle-category.entity';
 import { VehicleModel } from '../catalog/entities/vehicle-model.entity';
 import { isUuid } from '../orders/uuid';
+import { stillCommittedSql } from '../availability/availability.service';
 import {
   CategoryDto, CityDto, ExtraDto, RateDto, SupplierDto, UpdateCategoryDto, UpdateExtraDto, UpdateRateDto, UpdateSupplierDto,
   UpdateVehicleModelDto, VehicleModelDto,
@@ -146,7 +147,7 @@ export class CatalogAdminService {
   private async assertNoFutureReservations(column: 'vehicle_model_id' | 'pickup_depot_id', value: string | number, action: string) {
     const [{ count }] = await this.dataSource.query(
       `SELECT count(*)::int AS count FROM reservations
-        WHERE ${column} = $1 AND status IN ('PENDING', 'CONFIRMED') AND rental_status <> 'RETURNED' AND dropoff_at > now()`,
+        WHERE ${column} = $1 AND status IN ('PENDING', 'CONFIRMED') AND rental_status <> 'RETURNED' AND ${stillCommittedSql()}`,
       [value],
     );
     if (count > 0) {

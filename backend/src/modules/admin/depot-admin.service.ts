@@ -7,6 +7,7 @@ import { Depot } from '../catalog/entities/depot.entity';
 import { DomainEventType } from '../events/domain-events';
 import { OutboxService } from '../events/outbox.service';
 import { DepotDto, OpeningHoursDto, UpdateDepotDto } from './dto/admin.dto';
+import { stillCommittedSql } from '../availability/availability.service';
 
 /**
  * Agencias (depots) con su horario semanal. Cada alta o cambio emite DEPOT_UPDATE (evento del contrato)
@@ -78,7 +79,7 @@ async function assertNoFutureReservations(m: EntityManager, depotId: number) {
   const [{ count }] = await m.query(
     `SELECT count(*)::int AS count FROM reservations
       WHERE (pickup_depot_id = $1 OR dropoff_depot_id = $1) AND status IN ('PENDING','CONFIRMED')
-        AND rental_status <> 'RETURNED' AND dropoff_at > now()`,
+        AND rental_status <> 'RETURNED' AND ${stillCommittedSql()}`,
     [depotId],
   );
   if (count > 0) {

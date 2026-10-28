@@ -8,6 +8,7 @@ import { FleetUnit } from '../catalog/entities/fleet-unit.entity';
 import { isUuid } from './uuid';
 import { ReservationAction, ReservationHistory } from './entities/reservation-history.entity';
 import { Reservation } from './entities/reservation.entity';
+import { occupiedPeriodSql } from '../availability/availability.service';
 
 const PG_EXCLUSION_VIOLATION = '23P01';
 
@@ -95,7 +96,7 @@ export class RentalOperationsService {
           AND NOT EXISTS (SELECT 1 FROM reservations r
                            WHERE r.fleet_unit_id = fu.id AND r.id <> $7::uuid AND r.status IN ('PENDING', 'CONFIRMED')
                              AND r.rental_status <> 'RETURNED'
-                             AND r.rental_period && tstzrange($3::timestamptz, $4::timestamptz, '[)'))
+                             AND ${occupiedPeriodSql('r')} && tstzrange($3::timestamptz, $4::timestamptz, '[)'))
         ORDER BY fu.mileage, fu.plate`,
       [reservation.vehicleModelId, reservation.pickupDepotId, reservation.pickupAt, reservation.dropoffAt,
         UnitStatus.Available, BUSINESS_RULES.CLEANING_BUFFER_MINUTES, reservation.id],

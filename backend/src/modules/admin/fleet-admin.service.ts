@@ -9,6 +9,7 @@ import { VehicleBlock } from '../catalog/entities/vehicle-block.entity';
 import { Reservation } from '../orders/entities/reservation.entity';
 import { isUuid } from '../orders/uuid';
 import { FleetUnitDto, UpdateFleetUnitDto, VehicleBlockDto } from './dto/admin.dto';
+import { occupiedPeriodSql } from '../availability/availability.service';
 
 /**
  * Flota física (placas) y bloqueos de disponibilidad. Regla central: el inventario de un modelo en una
@@ -79,7 +80,7 @@ export class FleetAdminService {
 
       const [assigned] = await m.query(
         `SELECT locator FROM reservations WHERE fleet_unit_id = $1 AND status IN ('PENDING','CONFIRMED') AND rental_status <> 'RETURNED'
-            AND rental_period && tstzrange($2::timestamptz, $3::timestamptz, '[)') LIMIT 1`,
+            AND ${occupiedPeriodSql('reservations')} && tstzrange($2::timestamptz, $3::timestamptz, '[)') LIMIT 1`,
         [unit.id, startsAt, endsAt],
       );
       if (assigned) throw conflict(`La unidad está entregada en la reserva ${assigned.locator} durante ese periodo`);
