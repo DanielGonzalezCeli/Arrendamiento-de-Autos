@@ -62,3 +62,21 @@ Frontend: `VITE_API_BASE_URL`.
 | Supabase free **pausa el proyecto tras 7 días sin actividad** | Uso diario durante el desarrollo; revisar el panel el día antes de la defensa y reactivar si hiciera falta |
 | Contraseña de BD con caracteres especiales rompe la URL | Codificarlos (URL-encode) o generar una contraseña alfanumérica |
 | Migración fallida en deploy | Las migraciones corren antes de levantar; si fallan, el deploy falla y la versión anterior sigue viva |
+
+## 7. Reto 2: backend en Azure App Service (desde 2026-10-28)
+
+Booking Prototipo exige que `/health` responda en < 4 s; Render free se duerme a los 15 min (cold start ~50 s), así que la API que se registra en Booking corre en Azure (suscripción Azure for Students). Render sigue disponible para el frontend estático.
+
+| Recurso | Valor |
+|---|---|
+| Grupo / plan | `rg-rutalibre` / `plan-rutalibre` (Linux **B1**, Canada Central, *Always On*) |
+| Web App | `rutalibre-autos-api` → https://rutalibre-autos-api.azurewebsites.net (Node 22 LTS, solo HTTPS, health check `/health`) |
+| Base URL para Booking | `https://rutalibre-autos-api.azurewebsites.net/api/v3` |
+| Base de datos | la misma de Supabase (session pooler) |
+| Comando de inicio | `cd /home/site/wwwroot/backend && node ./node_modules/typeorm/cli.js migration:run -d dist/config/data-source.js && node dist/database/seeds/seed.js && node dist/main` |
+
+**Variables:** públicas (configuradas por CLI) `NODE_ENV`, `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `PUBLIC_WEB_URL`, `USER_JWT_EXPIRES_IN`, `STOCK_SYNC_MODE`, `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `WEBSITES_CONTAINER_START_TIME_LIMIT=600`; secretas (cargadas a mano en el portal, nunca en el repo) `DATABASE_URL`, `USER_JWT_SECRET` (la misma de Render: deriva la clave de los secretos de webhooks), `LOCAL_OAUTH_PRIVATE_KEY`, `BOOKING_API_KEY` (distinta de la local; se comparte solo con el líder técnico de Booking).
+
+**Despliegue continuo:** el job `deploy-azure` de `.github/workflows/ci.yml` corre en cada push a `main` después de backend, frontend y E2E: compila, poda dependencias de desarrollo, empaqueta `backend/{dist,node_modules,package.json}` + `contracts/` y lo publica con `azure/webapps-deploy` usando el secreto de GitHub `AZURE_WEBAPP_PUBLISH_PROFILE` (perfil de publicación descargado del portal).
+
+**Costo:** B1 ≈ 13 USD/mes contra los 100 USD de crédito; el mismo plan puede alojar el gateway y los microservicios de la fase C sin costo adicional.

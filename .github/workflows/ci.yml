@@ -115,3 +115,42 @@ jobs:
       - name: Logs si falla
         if: failure()
         run: tail -n 50 api.log web.log
+
+  # Despliegue del backend a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main.
+  # El paquete va ya compilado (dist + dependencias de producción + contracts/); el comando de inicio
+  # configurado en Azure corre migraciones → seed → API. Los secretos viven en la configuración de Azure.
+  deploy-azure:
+    name: Deploy backend (Azure App Service)
+    needs: [backend, frontend, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: deploy-azure
+    environment:
+      name: azure
+      url: https://rutalibre-autos-api.azurewebsites.net/api/v3/health
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Build y dependencias de producción
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+          npm prune --omit=dev
+      - name: Armar el paquete
+        run: |
+          mkdir -p pkg/backend
+          cp -r backend/dist backend/node_modules backend/package.json pkg/backend/
+          cp -r contracts pkg/
+          (cd pkg && zip -qr ../api.zip .)
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: rutalibre-autos-api
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: api.zip
+      - name: Verificar /api/v3/health
+        run: npx --yes wait-on@8 -t 300000 https://rutalibre-autos-api.azurewebsites.net/api/v3/health
