@@ -1,9 +1,9 @@
-import { Fuel, Plus, Trash2 } from 'lucide-react'
+import { BatteryCharging, Fuel, Plus, Trash2 } from 'lucide-react'
 import { INPUT_CLASS } from '../../components/ui/Field'
 import { formatDateTime, formatMoney } from '../../lib/format'
 
 /** RN28 — tipos y piezas de la inspección de entrega/devolución en el panel. */
-export type FuelGrade = 'EXTRA' | 'SUPER' | 'DIESEL'
+export type FuelGrade = 'EXTRA' | 'SUPER' | 'DIESEL' | 'ELECTRIC'
 export type Cleanliness = 'CLEAN' | 'DIRTY' | 'VERY_DIRTY'
 export type Severity = 'MINOR' | 'MODERATE' | 'SEVERE'
 
@@ -28,33 +28,35 @@ export interface Inspection {
 
 export interface ReturnPreview {
   charges: { lines: ChargeLine[]; subtotal: number; notes: string[]; missingEighths: number; lateDays: number; hasSevereDamage: boolean }
-  fuel: { grade: FuelGrade; tankLiters: number; policy: string; pricePerGallon: number; pickupEighths: number | null }
+  fuel: { grade: FuelGrade; tankLiters: number; batteryKwh: number | null; policy: string; pricePerGallon: number; pickupEighths: number | null }
   hasFullCoverage: boolean
   maintenanceDue: boolean
   nextMaintenanceKm: number
 }
 
-export const FUEL_LABEL: Record<FuelGrade, string> = { EXTRA: 'Extra', SUPER: 'Súper', DIESEL: 'Diésel' }
+export const FUEL_LABEL: Record<FuelGrade, string> = { EXTRA: 'Extra', SUPER: 'Súper', DIESEL: 'Diésel', ELECTRIC: 'Eléctrico' }
 export const CLEAN_LABEL: Record<Cleanliness, string> = { CLEAN: 'Limpio', DIRTY: 'Sucio', VERY_DIRTY: 'Muy sucio' }
 export const SEVERITY_LABEL: Record<Severity, string> = { MINOR: 'Leve', MODERATE: 'Moderado', SEVERE: 'Grave' }
 const FRACTION = ['Vacío', '1/8', '1/4', '3/8', '1/2', '5/8', '3/4', '7/8', 'Lleno']
+/** Eléctricos: el mismo medidor en octavos, expresado como % de batería. */
+const level = (eighths: number, electric: boolean) => (electric ? `${(eighths * 12.5).toLocaleString('es-EC')} %` : FRACTION[eighths])
 
 /** Medidor de combustible en octavos: se toca el segmento correspondiente. */
-export function FuelGauge({ value, onChange, reference }: { value: number; onChange: (v: number) => void; reference?: number | null }) {
+export function FuelGauge({ value, onChange, reference, electric = false }: { value: number; onChange: (v: number) => void; reference?: number | null; electric?: boolean }) {
   return (
     <div>
-      <div className="flex items-center gap-1" role="radiogroup" aria-label="Nivel de combustible">
-        <Fuel className="mr-1 h-4 w-4 shrink-0 text-slate-400" />
+      <div className="flex items-center gap-1" role="radiogroup" aria-label={electric ? 'Nivel de batería' : 'Nivel de combustible'}>
+        {electric ? <BatteryCharging className="mr-1 h-4 w-4 shrink-0 text-slate-400" /> : <Fuel className="mr-1 h-4 w-4 shrink-0 text-slate-400" />}
         {Array.from({ length: 9 }, (_, i) => (
-          <button key={i} type="button" role="radio" aria-checked={value === i} aria-label={FRACTION[i]} onClick={() => onChange(i)}
+          <button key={i} type="button" role="radio" aria-checked={value === i} aria-label={level(i, electric)} onClick={() => onChange(i)}
             className={`h-7 flex-1 rounded-md border transition ${i === 0 ? 'max-w-7' : ''} ${i <= value && value > 0 && i > 0
               ? value <= 2 ? 'border-rose-400 bg-rose-400' : value <= 4 ? 'border-accent-400 bg-accent-400' : 'border-brand-500 bg-brand-500'
               : 'border-stone-200 bg-stone-100 hover:bg-stone-200'} ${value === i ? 'ring-2 ring-asphalt-900/20' : ''}`} />
         ))}
       </div>
       <p className="mt-1 text-xs text-slate-500">
-        Nivel: <b className="text-asphalt-900">{FRACTION[value]}</b>
-        {reference !== undefined && reference !== null && <> · en la entrega: {FRACTION[reference]}</>}
+        {electric ? 'Batería' : 'Nivel'}: <b className="text-asphalt-900">{level(value, electric)}</b>
+        {reference !== undefined && reference !== null && <> · en la entrega: {level(reference, electric)}</>}
       </p>
     </div>
   )
@@ -95,7 +97,7 @@ export function DamagesEditor({ value, onChange, withCost = true }: { value: Dam
 export const completeDamages = (list: Damage[]) => list.filter((d) => d.zone.trim().length >= 2 && d.description.trim().length >= 2)
 
 /** Entrega vs devolución, lado a lado, con los cargos cobrados. */
-export function InspectionsSummary({ inspections, currency }: { inspections: Inspection[]; currency: string }) {
+export function InspectionsSummary({ inspections, currency, electric = false }: { inspections: Inspection[]; currency: string; electric?: boolean }) {
   if (!inspections.length) return <p className="text-sm text-slate-500">Se registra al entregar y al recibir el vehículo.</p>
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -104,7 +106,7 @@ export function InspectionsSummary({ inspections, currency }: { inspections: Ins
           <p className="text-xs font-semibold tracking-wide text-accent-600 uppercase">{i.kind === 'PICKUP' ? 'Entrega' : 'Devolución'}</p>
           <p className="font-semibold text-asphalt-900">{formatDateTime(i.performedAt)}</p>
           <ul className="mt-2 space-y-0.5 text-slate-600">
-            <li>Combustible: <b>{FRACTION[i.fuelEighths]}</b> · Kilometraje: <b>{i.mileage.toLocaleString('es-EC')} km</b></li>
+            <li>{electric ? 'Batería' : 'Combustible'}: <b>{level(i.fuelEighths, electric)}</b> · Kilometraje: <b>{i.mileage.toLocaleString('es-EC')} km</b></li>
             {i.cleanliness && <li>Limpieza: <b>{CLEAN_LABEL[i.cleanliness]}</b></li>}
             <li>{i.kind === 'PICKUP' ? 'Daños previos' : 'Daños nuevos'}: {i.damages.length ? i.damages.map((d) => `${d.zone} (${SEVERITY_LABEL[d.severity].toLowerCase()})`).join(', ') : 'ninguno'}</li>
             {i.notes && <li className="italic">“{i.notes}”</li>}

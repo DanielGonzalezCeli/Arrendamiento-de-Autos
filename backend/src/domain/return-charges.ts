@@ -1,11 +1,12 @@
 import { BUSINESS_RULES, MINUTE_MS } from './business-rules';
-import { FuelPolicy } from './enums';
+import { FuelPolicy, FuelType } from './enums';
 
 /**
  * RN28 — inspección de devolución y cargos adicionales (sin IVA; la factura lo agrega).
  *  - Combustible: octavos de tanque faltantes × galones del tanque × precio del galón del combustible del
  *    modelo (Extra, Súper o Diésel), según la política: lleno a lleno compara contra tanque lleno, "mismo
- *    nivel" contra el nivel de la entrega y prepago no cobra.
+ *    nivel" contra el nivel de la entrega y prepago no cobra. Los eléctricos no usan gasolina: el faltante
+ *    de batería (en octavos = 12,5 %) × kWh de la batería × precio del kWh.
  *  - Limpieza: tarifa normal (sucio) o profunda (muy sucio).
  *  - Daños nuevos: costo estimado hasta el deducible; con la cobertura total (CDW) el cliente no paga daños.
  *  - Retraso: días extra con la misma tolerancia de la facturación (RN04), a la tarifa diaria base.
@@ -18,6 +19,20 @@ export enum FuelGrade {
   Extra = 'EXTRA',
   Super = 'SUPER',
   Diesel = 'DIESEL',
+  Electric = 'ELECTRIC',
+}
+
+/**
+ * Energía que usa un modelo según su motor: eléctrico → ELECTRIC (con batería); diésel → DIESEL;
+ * gasolina e híbrido → la gasolina elegida (Extra por defecto). Un motor de combustión nunca puede quedar como
+ * ELECTRIC ni un eléctrico como gasolina: así el cargo de devolución siempre cobra lo que el auto realmente usa.
+ */
+export function energyFor(fuelType: FuelType, requested?: FuelGrade | null): { grade: FuelGrade; error?: string } {
+  if (fuelType === FuelType.Electric) return { grade: FuelGrade.Electric };
+  if (requested === FuelGrade.Electric) return { grade: FuelGrade.Extra, error: 'Solo un vehículo eléctrico puede cargar electricidad' };
+  if (fuelType === FuelType.Diesel) return { grade: FuelGrade.Diesel };
+  if (requested === FuelGrade.Diesel) return { grade: FuelGrade.Extra, error: 'Un motor a gasolina no usa diésel' };
+  return { grade: requested ?? FuelGrade.Extra };
 }
 
 export enum Cleanliness {
@@ -51,6 +66,8 @@ export interface ReturnChargeInput {
   fuelPolicy: FuelPolicy;
   fuelGrade: FuelGrade;
   tankLiters: number;
+  /** Eléctricos: capacidad de la batería (kWh). */
+  batteryKwh?: number | null;
   /** Nivel registrado en la entrega (octavos); null = no se registró (se asume lleno). */
   pickupFuelEighths: number | null;
   returnFuelEighths: number;
@@ -89,7 +106,18 @@ export function computeReturnCharges(input: ReturnChargeInput, settings: ChargeS
   // Combustible
   const reference = input.fuelPolicy === FuelPolicy.FullToFull ? TANK_EIGHTHS : input.pickupFuelEighths ?? TANK_EIGHTHS;
   const missingEighths = input.fuelPolicy === FuelPolicy.Prepaid ? 0 : Math.max(reference - input.returnFuelEighths, 0);
-  if (missingEighths > 0) {
+  if (missingEighths > 0 && input.fuelGrade === FuelGrade.Electric) {
+    const kwh = round2((missingEighths / TANK_EIGHTHS) * (input.batteryKwh ?? 0));
+    const price = settings.fuelPrices[FuelGrade.Electric];
+    lines.push({
+      code: 'CHARGE_ELECTRIC',
+      description: `Carga eléctrica: falta ${(missingEighths * 12.5).toLocaleString('es-EC')} % de batería (${kwh.toLocaleString('es-EC')} kWh)`,
+      quantity: kwh, unitPrice: price, subtotal: round2(kwh * price),
+    });
+    if (settings.refuelServiceFee > 0) {
+      lines.push({ code: 'REFUEL_SERVICE', description: 'Servicio de recarga', quantity: 1, unitPrice: settings.refuelServiceFee, subtotal: settings.refuelServiceFee });
+    }
+  } else if (missingEighths > 0) {
     const gallons = round2((missingEighths / TANK_EIGHTHS) * (input.tankLiters / LITERS_PER_GALLON));
     const price = settings.fuelPrices[input.fuelGrade];
     lines.push({
@@ -146,4 +174,4 @@ export function lateDaysBetween(pickupAt: Date, scheduledDropoffAt: Date, return
   return Math.max(days(pickupAt, returnedAt) - days(pickupAt, scheduledDropoffAt), 0);
 }
 
-export const FUEL_LABEL: Record<FuelGrade, string> = { [FuelGrade.Extra]: 'Extra', [FuelGrade.Super]: 'Súper', [FuelGrade.Diesel]: 'Diésel' };
+export const FUEL_LABEL: Record<FuelGrade, string> = { [FuelGrade.Extra]: 'Extra', [FuelGrade.Super]: 'Súper', [FuelGrade.Diesel]: 'Diésel', [FuelGrade.Electric]: 'Eléctrico' };

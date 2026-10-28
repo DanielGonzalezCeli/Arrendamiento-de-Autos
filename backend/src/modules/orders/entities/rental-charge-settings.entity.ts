@@ -13,6 +13,8 @@ export class RentalChargeSettings {
   @Column(fuel) fuelPriceExtra: number;
   @Column(fuel) fuelPriceSuper: number;
   @Column(fuel) fuelPriceDiesel: number;
+  /** Precio del kWh (carga de eléctricos). */
+  @Column(fuel) electricityPriceKwh: number;
   @Column(money) refuelServiceFee: number;
   @Column(money) cleaningBasic: number;
   @Column(money) cleaningDeep: number;

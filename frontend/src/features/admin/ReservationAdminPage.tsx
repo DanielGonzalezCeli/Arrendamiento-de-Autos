@@ -103,7 +103,7 @@ export function ReservationAdminPage() {
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 font-semibold text-asphalt-900">Inspección del vehículo</h2>
-        <InspectionsSummary inspections={r.inspections} currency={r.currency} />
+        <InspectionsSummary inspections={r.inspections} currency={r.currency} electric={isElectric(r)} />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -148,6 +148,9 @@ function Info({ title, children }: { title: string; children: React.ReactNode })
 
 type DialogProps = { reservation: AdminReservation; onClose: (message?: string) => void }
 
+/** El snapshot de la reserva guarda el tipo de motor del modelo. */
+const isElectric = (r: AdminReservation) => (r.vehicleSnapshot as { fuel_type?: string }).fuel_type === 'ELECTRIC'
+
 function PickupDialog({ reservation, onClose }: DialogProps) {
   const [unitId, setUnitId] = useState(reservation.freeUnits[0]?.id ?? '')
   const unit = reservation.freeUnits.find((u) => u.id === unitId)
@@ -181,8 +184,8 @@ function PickupDialog({ reservation, onClose }: DialogProps) {
             </Field>
           </div>
           <div>
-            <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Combustible al entregar</p>
-            <FuelGauge value={fuel} onChange={setFuel} />
+            <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">{isElectric(reservation) ? 'Batería al entregar' : 'Combustible al entregar'}</p>
+            <FuelGauge value={fuel} onChange={setFuel} electric={isElectric(reservation)} />
           </div>
           <div>
             <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Daños previos (no se cobran al cliente)</p>
@@ -235,7 +238,9 @@ function ReturnDialog({ reservation, onClose }: DialogProps) {
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-600">
           Placa <span className="font-mono font-semibold">{reservation.vehicleSnapshot.plate}</span> · se devuelve en {reservation.dropoffDepot.name}
-          {p && <> · {FUEL_LABEL[p.fuel.grade]}, tanque de {p.fuel.tankLiters} L ({formatMoney(p.fuel.pricePerGallon, 'USD')}/gal)</>}.
+          {p && (p.fuel.grade === 'ELECTRIC'
+            ? <> · eléctrico, batería de {p.fuel.batteryKwh?.toLocaleString('es-EC')} kWh ({formatMoney(p.fuel.pricePerGallon, 'USD')}/kWh)</>
+            : <> · {FUEL_LABEL[p.fuel.grade]}, tanque de {p.fuel.tankLiters} L ({formatMoney(p.fuel.pricePerGallon, 'USD')}/gal)</>)}.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Kilometraje al devolver" htmlFor="km" hint={pickup ? `En la entrega: ${pickup.mileage.toLocaleString('es-EC')} km` : undefined}>
@@ -246,8 +251,8 @@ function ReturnDialog({ reservation, onClose }: DialogProps) {
           </Field>
         </div>
         <div>
-          <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Combustible al devolver</p>
-          <FuelGauge value={fuel} onChange={setFuel} reference={pickup?.fuelEighths ?? null} />
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">{p?.fuel.grade === 'ELECTRIC' ? 'Batería al devolver' : 'Combustible al devolver'}</p>
+          <FuelGauge value={fuel} onChange={setFuel} reference={pickup?.fuelEighths ?? null} electric={p?.fuel.grade === 'ELECTRIC'} />
         </div>
         <div>
           <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Limpieza</p>

@@ -23,7 +23,7 @@ export class ChargeSettingsService {
   /** Forma que usa el cálculo de dominio. */
   static toDomain(s: RentalChargeSettings): ChargeSettings {
     return {
-      fuelPrices: { EXTRA: s.fuelPriceExtra, SUPER: s.fuelPriceSuper, DIESEL: s.fuelPriceDiesel },
+      fuelPrices: { EXTRA: s.fuelPriceExtra, SUPER: s.fuelPriceSuper, DIESEL: s.fuelPriceDiesel, ELECTRIC: s.electricityPriceKwh },
       refuelServiceFee: s.refuelServiceFee,
       cleaningBasic: s.cleaningBasic,
       cleaningDeep: s.cleaningDeep,

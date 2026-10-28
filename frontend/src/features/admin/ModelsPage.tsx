@@ -8,12 +8,18 @@ import { FUEL_LABEL, FUEL_POLICY_LABEL, TRANSMISSION_LABEL } from '../../lib/for
 import { useAdminMutation, useAdminQuery, type Category, type Supplier, type VehicleModel } from './admin-api'
 import { ActiveBadge, EntityForm, Modal, Pill, SectionHeader, TD, Table, rules, type FieldSpec } from './components'
 
-const FUEL_GRADE_LABEL = { EXTRA: 'Extra / Ecopaís', SUPER: 'Súper', DIESEL: 'Diésel' }
+const FUEL_GRADE_LABEL = { EXTRA: 'Extra / Ecopaís', SUPER: 'Súper', DIESEL: 'Diésel', ELECTRIC: 'Electricidad (kWh)' }
+/** RN28: la energía sigue al motor (el backend lo valida igual). */
+const gradesFor = (values: Record<string, unknown>) => {
+  const grades = values.fuelType === 'ELECTRIC' ? ['ELECTRIC'] : values.fuelType === 'DIESEL' ? ['DIESEL'] : ['EXTRA', 'SUPER']
+  return grades.map((g) => ({ value: g, label: FUEL_GRADE_LABEL[g as keyof typeof FUEL_GRADE_LABEL] }))
+}
+const isElectric = (values: Record<string, unknown>) => values.fuelType === 'ELECTRIC'
 const options = (labels: Record<string, string>) => Object.entries(labels).map(([value, label]) => ({ value, label }))
 
 const EMPTY = {
   supplierId: '', categoryId: '', make: '', model: '', acrissCode: '', transmission: 'MANUAL', fuelType: 'GASOLINE',
-  fuelPolicy: 'FULL_TO_FULL', fuelGrade: 'EXTRA', tankCapacityL: 45, seats: 5, doors: 4, bagCapacity: 2, airConditioning: true, imageUrl: '', description: '', published: false,
+  fuelPolicy: 'FULL_TO_FULL', fuelGrade: 'EXTRA', tankCapacityL: 45, batteryKwh: '', seats: 5, doors: 4, bagCapacity: 2, airConditioning: true, imageUrl: '', description: '', published: false,
 }
 
 export function ModelsPage() {
@@ -36,8 +42,12 @@ export function ModelsPage() {
     { name: 'transmission', label: 'Transmisión', type: 'select', required: true, options: options(TRANSMISSION_LABEL) },
     { name: 'fuelType', label: 'Combustible', type: 'select', required: true, options: options(FUEL_LABEL) },
     { name: 'fuelPolicy', label: 'Política de combustible', type: 'select', required: true, options: options(FUEL_POLICY_LABEL) },
-    { name: 'fuelGrade', label: 'Gasolina / diésel que usa', type: 'select', required: true, options: options(FUEL_GRADE_LABEL), hint: 'Precio del galón en los cargos de devolución' },
-    { name: 'tankCapacityL', label: 'Tanque (litros)', type: 'number', step: '0.1', required: true, validate: rules.range(10, 200) },
+    { name: 'fuelGrade', label: 'Energía que usa', type: 'select', required: true, optionsFor: gradesFor, hint: 'Precio del galón o del kWh en los cargos de devolución' },
+    { name: 'tankCapacityL', label: 'Tanque (litros)', type: 'number', step: '0.1', required: true, validate: rules.range(10, 200), hint: 'En eléctricos no se usa' },
+    {
+      name: 'batteryKwh', label: 'Batería (kWh)', type: 'number', step: '0.1', hint: 'Obligatorio en eléctricos',
+      validate: (v, values) => (isElectric(values) ? rules.range(5, 250)(v) : undefined),
+    },
     { name: 'seats', label: 'Asientos', type: 'number', required: true, validate: rules.integer(1, 15) },
     { name: 'doors', label: 'Puertas', type: 'number', required: true, validate: rules.integer(2, 6) },
     { name: 'bagCapacity', label: 'Maletas', type: 'number', required: true, validate: rules.integer(0, 10) },

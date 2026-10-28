@@ -10,6 +10,7 @@ interface ChargeSettings {
   fuelPriceExtra: number
   fuelPriceSuper: number
   fuelPriceDiesel: number
+  electricityPriceKwh: number
   refuelServiceFee: number
   cleaningBasic: number
   cleaningDeep: number
@@ -28,6 +29,10 @@ const FIELDS: FieldSpec[] = [
   { name: 'fuelPriceExtra', label: 'Galón Extra / Ecopaís (USD)', type: 'number', step: '0.001', required: true, validate: price3, hint: 'Precio regulado' },
   { name: 'fuelPriceSuper', label: 'Galón Súper (USD)', type: 'number', step: '0.001', required: true, validate: price3, hint: 'Precio libre: referencia Primax' },
   { name: 'fuelPriceDiesel', label: 'Galón Diésel (USD)', type: 'number', step: '0.001', required: true, validate: price3, hint: 'Precio regulado' },
+  {
+    name: 'electricityPriceKwh', label: 'kWh para eléctricos (USD)', type: 'number', step: '0.001', required: true,
+    validate: (v) => (Number(v) > 0 && Number(v) <= 5 ? undefined : 'Entre 0,001 y 5'), hint: 'Referencia: carga rápida en electrolinera',
+  },
   { name: 'refuelServiceFee', label: 'Servicio de recarga (USD)', type: 'number', step: '0.01', required: true, validate: rules.money(0, 1000), hint: '0 = solo el combustible' },
   { name: 'cleaningBasic', label: 'Limpieza normal (USD)', type: 'number', step: '0.01', required: true, validate: rules.money(0, 1000) },
   { name: 'cleaningDeep', label: 'Limpieza profunda (USD)', type: 'number', step: '0.01', required: true, validate: rules.money(0, 1000) },
@@ -48,7 +53,8 @@ export function ChargeSettingsTab() {
     <div className="flex flex-col gap-4">
       <p className="flex items-start gap-2 text-sm text-slate-500">
         <Fuel className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-        Se usan en la inspección de devolución: combustible faltante (octavos de tanque × galones del tanque del modelo × precio del galón),
+        Se usan en la inspección de devolución: combustible faltante (octavos de tanque × galones del tanque del modelo × precio del galón;
+        en eléctricos, batería faltante × kWh de la batería × precio del kWh),
         limpieza y daños hasta el deducible. Valores sin IVA. Los precios del combustible en Ecuador se actualizan el 12 de cada mes.
       </p>
       {saved && <Alert tone="success">Tarifas actualizadas.</Alert>}

@@ -20,8 +20,9 @@ export interface VehicleModel {
   transmission: string
   fuelType: string
   fuelPolicy: string
-  fuelGrade: 'EXTRA' | 'SUPER' | 'DIESEL'
+  fuelGrade: 'EXTRA' | 'SUPER' | 'DIESEL' | 'ELECTRIC'
   tankCapacityL: number
+  batteryKwh: number | null
   seats: number
   doors: number
   bagCapacity: number

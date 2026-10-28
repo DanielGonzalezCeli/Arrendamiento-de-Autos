@@ -10,6 +10,8 @@ import { VehicleCategory } from '../catalog/entities/vehicle-category.entity';
 import { VehicleModel } from '../catalog/entities/vehicle-model.entity';
 import { isUuid } from '../orders/uuid';
 import { stillCommittedSql } from '../availability/availability.service';
+import { energyFor, FuelGrade } from '../../domain/return-charges';
+import { FuelType } from '../../domain/enums';
 import {
   CategoryDto, CityDto, ExtraDto, RateDto, SupplierDto, UpdateCategoryDto, UpdateExtraDto, UpdateRateDto, UpdateSupplierDto,
   UpdateVehicleModelDto, VehicleModelDto,
@@ -47,7 +49,7 @@ export class CatalogAdminService {
   }
 
   createModel(dto: VehicleModelDto) {
-    return this.dataSource.getRepository(VehicleModel).save({ ...dto, active: true });
+    return this.dataSource.getRepository(VehicleModel).save({ ...dto, ...energyOf(dto), active: true });
   }
 
   async updateModel(id: string, dto: UpdateVehicleModelDto) {
@@ -55,7 +57,8 @@ export class CatalogAdminService {
     if (dto.active === false && model.active) await this.assertNoFutureReservations('vehicle_model_id', id, 'desactivar el modelo');
     // Un modelo inactivo nunca puede quedar publicado.
     const published = dto.active === false ? false : dto.published;
-    await this.dataSource.getRepository(VehicleModel).update(id, { ...dto, ...(published !== undefined ? { published } : {}) });
+    const energy = energyOf({ fuelType: dto.fuelType ?? model.fuelType, fuelGrade: dto.fuelGrade ?? model.fuelGrade, batteryKwh: dto.batteryKwh !== undefined ? dto.batteryKwh : model.batteryKwh });
+    await this.dataSource.getRepository(VehicleModel).update(id, { ...dto, ...energy, ...(published !== undefined ? { published } : {}) });
     return this.dataSource.getRepository(VehicleModel).findOneOrFail({ where: { id }, relations: { category: true, supplier: true } });
   }
 
@@ -188,4 +191,18 @@ function searchIssues(model: VehicleModel, s: ModelSearchStats): string[] {
   }
   if (s.otherSupplier > 0) issues.push(`${s.otherSupplier} unidad(es) en agencias de otro proveedor`);
   return issues;
+}
+
+/**
+ * RN28: combustible coherente con el motor (un eléctrico se cobra en kWh y necesita su batería;
+ * un motor de combustión no tiene batería). Errores con el nombre de campo del formulario.
+ */
+function energyOf(m: { fuelType: FuelType; fuelGrade?: FuelGrade | null; batteryKwh?: number | null }) {
+  const { grade, error } = energyFor(m.fuelType, m.fuelGrade);
+  if (error) throw DomainError.validation(error, [{ name: 'fuelGrade', reason: error }]);
+  if (grade === FuelGrade.Electric) {
+    if (!m.batteryKwh) throw DomainError.validation('Indica la capacidad de la batería (kWh) del eléctrico', [{ name: 'batteryKwh', reason: 'obligatorio en eléctricos' }]);
+    return { fuelGrade: grade, batteryKwh: m.batteryKwh };
+  }
+  return { fuelGrade: grade, batteryKwh: null };
 }

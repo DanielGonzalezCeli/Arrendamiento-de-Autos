@@ -46,7 +46,8 @@ export interface ReturnInput extends InspectionInput {
 export interface ReturnPreview {
   charges: ReturnChargeResult;
   /** Combustible y tanque usados en el cálculo (para mostrarlos en el panel). */
-  fuel: { grade: FuelGrade; tankLiters: number; policy: FuelPolicy; pricePerGallon: number; pickupEighths: number | null };
+  /** pricePerGallon es el precio por kWh en los eléctricos (batteryKwh no nulo). */
+  fuel: { grade: FuelGrade; tankLiters: number; batteryKwh: number | null; policy: FuelPolicy; pricePerGallon: number; pickupEighths: number | null };
   hasFullCoverage: boolean;
   maintenanceDue: boolean;
   nextMaintenanceKm: number;
@@ -168,7 +169,7 @@ export class RentalOperationsService {
       || (reservation.partnerData as { coverage_type?: string } | null)?.coverage_type === 'TOTAL';
     const dailyRate = reservation.priceBreakdown.lines.find((l) => l.code === 'BASE')?.unit_price ?? 0;
     const charges = computeReturnCharges({
-      fuelPolicy: model.fuelPolicy, fuelGrade: model.fuelGrade, tankLiters: model.tankCapacityL,
+      fuelPolicy: model.fuelPolicy, fuelGrade: model.fuelGrade, tankLiters: model.tankCapacityL, batteryKwh: model.batteryKwh,
       pickupFuelEighths: pickup?.fuelEighths ?? null, returnFuelEighths: input.fuelEighths ?? TANK_EIGHTHS,
       cleanliness: input.cleanliness ?? Cleanliness.Clean, damages: input.damages ?? [], hasFullCoverage,
       pickupAt: reservation.pickupAt, scheduledDropoffAt: reservation.dropoffAt, returnedAt, dailyRate,
@@ -176,7 +177,7 @@ export class RentalOperationsService {
     const threshold = nextMaintenanceKm(unit.mileage);
     const preview: ReturnPreview = {
       charges,
-      fuel: { grade: model.fuelGrade, tankLiters: model.tankCapacityL, policy: model.fuelPolicy, pricePerGallon: settings.fuelPrices[model.fuelGrade], pickupEighths: pickup?.fuelEighths ?? null },
+      fuel: { grade: model.fuelGrade, tankLiters: model.tankCapacityL, batteryKwh: model.batteryKwh, policy: model.fuelPolicy, pricePerGallon: settings.fuelPrices[model.fuelGrade], pickupEighths: pickup?.fuelEighths ?? null },
       hasFullCoverage,
       maintenanceDue: mileage >= threshold,
       nextMaintenanceKm: threshold,

@@ -1,10 +1,10 @@
-import { FuelPolicy } from '../../../src/domain/enums';
+import { FuelPolicy, FuelType } from '../../../src/domain/enums';
 import {
-  ChargeSettings, Cleanliness, computeReturnCharges, DamageSeverity, FuelGrade, lateDaysBetween, ReturnChargeInput,
+  ChargeSettings, Cleanliness, computeReturnCharges, DamageSeverity, energyFor, FuelGrade, lateDaysBetween, ReturnChargeInput,
 } from '../../../src/domain/return-charges';
 
 const settings: ChargeSettings = {
-  fuelPrices: { EXTRA: 3.17, SUPER: 5.49, DIESEL: 3.11 }, refuelServiceFee: 0, cleaningBasic: 15, cleaningDeep: 40, damageDeductible: 800,
+  fuelPrices: { EXTRA: 3.17, SUPER: 5.49, DIESEL: 3.11, ELECTRIC: 0.25 }, refuelServiceFee: 0, cleaningBasic: 15, cleaningDeep: 40, damageDeductible: 800,
 };
 const pickupAt = new Date('2026-11-02T15:00:00Z');
 const dropoffAt = new Date('2026-11-05T15:00:00Z');
@@ -34,6 +34,21 @@ describe('RN28 — cargos de la inspección de devolución', () => {
     const prepaid = computeReturnCharges({ ...base, fuelPolicy: FuelPolicy.Prepaid, returnFuelEighths: 0 }, settings);
     expect(prepaid.lines).toEqual([]);
     expect(prepaid.notes[0]).toMatch(/prepagado/);
+  });
+
+  it('eléctrico: se cobra la batería faltante en kWh, nunca gasolina (BYD 43,2 kWh, falta 1/2 = 21,6 kWh × 0,25)', () => {
+    const r = computeReturnCharges({ ...base, fuelGrade: FuelGrade.Electric, batteryKwh: 43.2, tankLiters: 45, returnFuelEighths: 4 }, settings);
+    expect(r.lines).toEqual([expect.objectContaining({ code: 'CHARGE_ELECTRIC', quantity: 21.6, unitPrice: 0.25, subtotal: 5.4 })]);
+    expect(r.lines[0].description).toMatch(/50 % de batería/);
+  });
+
+  it('la energía sigue al motor: eléctrico → ELECTRIC, diésel → DIESEL, gasolina/híbrido → la elegida', () => {
+    expect(energyFor(FuelType.Electric, FuelGrade.Extra)).toEqual({ grade: FuelGrade.Electric });
+    expect(energyFor(FuelType.Diesel)).toEqual({ grade: FuelGrade.Diesel });
+    expect(energyFor(FuelType.Hybrid, FuelGrade.Super)).toEqual({ grade: FuelGrade.Super });
+    expect(energyFor(FuelType.Gasoline)).toEqual({ grade: FuelGrade.Extra });
+    expect(energyFor(FuelType.Gasoline, FuelGrade.Electric).error).toBeDefined();
+    expect(energyFor(FuelType.Gasoline, FuelGrade.Diesel).error).toBeDefined();
   });
 
   it('limpieza normal y profunda', () => {

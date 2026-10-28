@@ -54,6 +54,10 @@ export class VehicleModel {
   @Column({ type: 'varchar', length: 10, default: FuelGrade.Extra })
   fuelGrade: FuelGrade;
 
+  /** RN28: capacidad de la batería (kWh) de los eléctricos; null en motores de combustión. */
+  @Column({ type: 'numeric', precision: 5, scale: 1, nullable: true, transformer: new ColumnNumericTransformer() })
+  batteryKwh: number | null;
+
   /** RN28: capacidad del tanque en litros. */
   @Column({ type: 'numeric', precision: 5, scale: 1, default: 45, transformer: new ColumnNumericTransformer() })
   tankCapacityL: number;

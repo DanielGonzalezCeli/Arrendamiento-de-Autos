@@ -41,6 +41,7 @@ export class VehicleModelDto {
   /** RN28: combustible y tanque (cargo por combustible faltante en la devolución). */
   @ApiPropertyOptional({ enum: FuelGrade }) @IsOptional() @IsEnum(FuelGrade) fuelGrade?: FuelGrade;
   @ApiPropertyOptional({ example: 45, description: 'Litros' }) @IsOptional() @IsNumber({ maxDecimalPlaces: 1 }) @Min(10) @Max(200) tankCapacityL?: number;
+  @ApiPropertyOptional({ example: 43.2, description: 'kWh de la batería (obligatorio en eléctricos)' }) @IsOptional() @IsNumber({ maxDecimalPlaces: 1 }) @Min(5) @Max(250) batteryKwh?: number | null;
 }
 export class UpdateVehicleModelDto extends PartialType(VehicleModelDto) {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() active?: boolean;
@@ -176,6 +177,7 @@ export class ChargeSettingsDto {
   @ApiPropertyOptional({ example: 3.17 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceExtra?: number;
   @ApiPropertyOptional({ example: 5.49 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceSuper?: number;
   @ApiPropertyOptional({ example: 3.11 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceDiesel?: number;
+  @ApiPropertyOptional({ example: 0.25, description: 'USD por kWh (eléctricos)' }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(5) electricityPriceKwh?: number;
   @ApiPropertyOptional({ example: 0 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) refuelServiceFee?: number;
   @ApiPropertyOptional({ example: 15 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) cleaningBasic?: number;
   @ApiPropertyOptional({ example: 40 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) cleaningDeep?: number;

@@ -240,6 +240,16 @@ describe('API interna — administración', () => {
     }).expect(201)).body;
     const listed = (await http().get('/api/admin/models').set(admin()).expect(200)).body.find((m: { id: string }) => m.id === created.id);
     expect(listed.searchIssues).toEqual(expect.arrayContaining(['No está publicado', 'No tiene unidades en la flota']));
+    expect(created).toMatchObject({ fuelGrade: 'EXTRA', batteryKwh: null });
+
+    // RN28: la energía sigue al motor. Pasar a eléctrico exige la batería y deja de cobrar gasolina; volver a
+    // gasolina quita la batería; un motor a gasolina no puede declararse eléctrico.
+    await http().patch(`/api/admin/models/${created.id}`).set(admin()).send({ fuelType: 'ELECTRIC' }).expect(400);
+    const electric = await http().patch(`/api/admin/models/${created.id}`).set(admin()).send({ fuelType: 'ELECTRIC', fuelGrade: 'SUPER', batteryKwh: 60 }).expect(200);
+    expect(electric.body).toMatchObject({ fuelType: 'ELECTRIC', fuelGrade: 'ELECTRIC', batteryKwh: 60 });
+    const gasoline = await http().patch(`/api/admin/models/${created.id}`).set(admin()).send({ fuelType: 'GASOLINE', fuelGrade: 'SUPER' }).expect(200);
+    expect(gasoline.body).toMatchObject({ fuelGrade: 'SUPER', batteryKwh: null });
+    await http().patch(`/api/admin/models/${created.id}`).set(admin()).send({ fuelGrade: 'ELECTRIC' }).expect(400);
   });
 
   it('fotos: el admin sube una imagen y la web la lee; solo JPG/PNG/WebP reales', async () => {
