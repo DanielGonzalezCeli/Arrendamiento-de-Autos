@@ -12,6 +12,9 @@ import { Reservation } from './entities/reservation.entity';
 import { HoldService } from './hold.service';
 import { OrderPreviewService } from './order-preview.service';
 import { OrderPricingService } from './order-pricing.service';
+import { ChargeSettingsService } from './charge-settings.service';
+import { RentalChargeSettings } from './entities/rental-charge-settings.entity';
+import { RentalInspection } from './entities/rental-inspection.entity';
 import { RentalOperationsService } from './rental-operations.service';
 import { ReservationService } from './reservation.service';
 import { InvoicesModule } from '../invoices/invoices.module';
@@ -19,14 +22,14 @@ import { InvoicesModule } from '../invoices/invoices.module';
 /** Dominio de órdenes: hold, preview y reservas. Compartido por la API interna y la de integración. */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Hold, OrderPreview, Reservation, ReservationExtra, ReservationHistory]),
+    TypeOrmModule.forFeature([Hold, OrderPreview, Reservation, ReservationExtra, ReservationHistory, RentalInspection, RentalChargeSettings]),
     CatalogModule,
     SearchModule,
     AvailabilityModule,
     EventsModule,
     InvoicesModule,
   ],
-  providers: [HoldService, OrderPreviewService, OrderPricingService, ReservationService, RentalOperationsService],
-  exports: [HoldService, OrderPreviewService, ReservationService, RentalOperationsService],
+  providers: [HoldService, OrderPreviewService, OrderPricingService, ReservationService, RentalOperationsService, ChargeSettingsService],
+  exports: [HoldService, OrderPreviewService, ReservationService, RentalOperationsService, ChargeSettingsService],
 })
 export class OrdersModule {}

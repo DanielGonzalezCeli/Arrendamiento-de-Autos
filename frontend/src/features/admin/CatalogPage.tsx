@@ -6,6 +6,7 @@ import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatMoney } from '../../lib/format'
 import { useAdminMutation, useAdminQuery, type Category, type City, type Extra, type Rate, type Supplier } from './admin-api'
 import { ActiveBadge, EntityForm, Modal, SectionHeader, TD, Table, rules, type FieldSpec } from './components'
+import { ChargeSettingsTab } from './ChargeSettingsTab'
 
 const EXTRA_TYPES = { EQUIPMENT: 'Equipamiento', COVERAGE: 'Cobertura', SERVICE: 'Servicio' } as const
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -83,7 +84,7 @@ function CrudTab<T extends { id: string | number }>({ path, noun, columns, field
   )
 }
 
-const TABS = ['Tarifas', 'Categorías', 'Extras', 'Proveedores', 'Ciudades'] as const
+const TABS = ['Tarifas', 'Cargos de devolución', 'Categorías', 'Extras', 'Proveedores', 'Ciudades'] as const
 
 export function CatalogPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Tarifas')
@@ -202,6 +203,8 @@ export function CatalogPage() {
           ]}
         />
       )}
+
+      {tab === 'Cargos de devolución' && <ChargeSettingsTab />}
 
       {tab === 'Ciudades' && (
         <CrudTab<City>

@@ -8,6 +8,7 @@ import { IsInternationalPhone, IsPersonName, IsStrictEmail, IsUserPassword } fro
 import { DEPOT_SERVICE_CODES } from '../../catalog/constants.service';
 import { ExtraType, FuelPolicy, FuelType, OrderStatus, RentalStatus, Transmission, UnitStatus, UserRole } from '../../../domain/enums';
 import { RFC3339 } from '../../integration-api/dto/catalog-requests.dto';
+import { Cleanliness, DamageSeverity, FuelGrade } from '../../../domain/return-charges';
 
 /** DTOs del panel de administración (API interna /api/admin). */
 
@@ -37,6 +38,9 @@ export class VehicleModelDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) description?: string | null;
   /** Publicado = visible en el marketplace y en /search del Hub. */
   @ApiProperty() @IsBoolean() published: boolean;
+  /** RN28: combustible y tanque (cargo por combustible faltante en la devolución). */
+  @ApiPropertyOptional({ enum: FuelGrade }) @IsOptional() @IsEnum(FuelGrade) fuelGrade?: FuelGrade;
+  @ApiPropertyOptional({ example: 45, description: 'Litros' }) @IsOptional() @IsNumber({ maxDecimalPlaces: 1 }) @Min(10) @Max(200) tankCapacityL?: number;
 }
 export class UpdateVehicleModelDto extends PartialType(VehicleModelDto) {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() active?: boolean;
@@ -143,12 +147,39 @@ export class ReservationFiltersDto {
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() depotId?: number;
 }
 
-export class PickupDto {
+/** RN28: daño registrado en una inspección. */
+export class DamageDto {
+  @ApiProperty({ example: 'Parachoques delantero' }) @Transform(trim) @IsString() @Length(2, 80) zone: string;
+  @ApiProperty({ enum: DamageSeverity }) @IsEnum(DamageSeverity) severity: DamageSeverity;
+  @ApiProperty({ example: 'Rayón de 10 cm' }) @Transform(trim) @IsString() @Length(2, 300) description: string;
+  @ApiProperty({ example: 120, description: 'Costo estimado de la reparación (USD, sin IVA)' }) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100_000) estimatedCost: number;
+}
+
+class InspectionDto {
+  @ApiPropertyOptional({ minimum: 0, maximum: 8, description: 'Combustible en octavos de tanque (8 = lleno)' }) @IsOptional() @IsInt() @Min(0) @Max(8) fuelEighths?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(2_000_000) mileage?: number;
+  @ApiPropertyOptional({ type: [DamageDto] }) @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => DamageDto) damages?: DamageDto[];
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) notes?: string;
+}
+
+export class PickupDto extends InspectionDto {
   @ApiPropertyOptional({ format: 'uuid', description: 'Placa elegida; si se omite se asigna la primera libre' }) @IsOptional() @IsUUID() fleetUnitId?: string;
 }
 
-export class ReturnDto {
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(2_000_000) mileage?: number;
+export class ReturnDto extends InspectionDto {
+  @ApiPropertyOptional({ enum: Cleanliness }) @IsOptional() @IsEnum(Cleanliness) cleanliness?: Cleanliness;
+  @ApiPropertyOptional({ description: 'Hora real de devolución (RFC 3339); por defecto, ahora' }) @IsOptional() @Matches(RFC3339) returnedAt?: string;
+}
+
+/** RN28: precios del galón y tarifas de los cargos de devolución. */
+export class ChargeSettingsDto {
+  @ApiPropertyOptional({ example: 3.17 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceExtra?: number;
+  @ApiPropertyOptional({ example: 5.49 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceSuper?: number;
+  @ApiPropertyOptional({ example: 3.11 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.01) @Max(50) fuelPriceDiesel?: number;
+  @ApiPropertyOptional({ example: 0 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) refuelServiceFee?: number;
+  @ApiPropertyOptional({ example: 15 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) cleaningBasic?: number;
+  @ApiPropertyOptional({ example: 40 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1000) cleaningDeep?: number;
+  @ApiPropertyOptional({ example: 800 }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100_000) damageDeductible?: number;
 }
 
 // ── Usuarios ─────────────────────────────────────────────────────────────────

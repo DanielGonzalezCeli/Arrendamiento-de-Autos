@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../domain/enums';
@@ -15,7 +15,7 @@ import { BookingAdminService } from './booking-admin.service';
 import { CatalogAdminService } from './catalog-admin.service';
 import { DepotAdminService } from './depot-admin.service';
 import {
-  CategoryDto, CityDto, CreateUserDto, DepotDto, ResetPasswordDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
+  CategoryDto, ChargeSettingsDto, CityDto, CreateUserDto, DepotDto, ResetPasswordDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
   UpdateCategoryDto, UpdateDepotDto, UpdateExtraDto, UpdateFleetUnitDto, UpdateRateDto, UpdateSupplierDto, UpdateUserDto,
   UpdateVehicleModelDto, VehicleBlockDto, VehicleModelDto,
 } from './dto/admin.dto';
@@ -24,6 +24,8 @@ import { IntegrationAdminService } from './integration-admin.service';
 import { InvoiceService } from '../invoices/invoice.service';
 import { sendDocument } from '../invoices/invoices.controller';
 import { Response } from 'express';
+import { ChargeSettingsService } from '../orders/charge-settings.service';
+import { ReturnInput } from '../orders/rental-operations.service';
 
 /**
  * Panel de administración (/api/admin/*). Solo usuarios con rol ADMIN: la protección está aquí
@@ -43,6 +45,7 @@ export class AdminController {
     private readonly integration: IntegrationAdminService,
     private readonly booking: BookingAdminService,
     private readonly invoices: InvoiceService,
+    private readonly chargeSettingsService: ChargeSettingsService,
     private readonly reservations: ReservationService,
     private readonly rentals: RentalOperationsService,
     private readonly media: MediaService,
@@ -77,8 +80,25 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Registrar la devolución (la unidad queda en la agencia de devolución)' })
   async return(@Param('id') id: string, @Body() dto: ReturnDto, @CurrentUser() user: AuthUser) {
-    await this.rentals.return(id, dto, `admin:${user.id}`);
+    await this.rentals.return(id, toReturnInput(dto), `admin:${user.id}`);
     return this.operations.reservationDetail(id);
+  }
+
+  @Post('reservations/:id/return/preview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Calcular los cargos de la devolución sin registrarla (RN28)' })
+  previewReturn(@Param('id') id: string, @Body() dto: ReturnDto) {
+    return this.rentals.previewReturn(id, toReturnInput(dto));
+  }
+
+  @Get('charge-settings')
+  @ApiOperation({ summary: 'Precios del combustible y tarifas de los cargos de devolución' })
+  chargeSettings() { return this.chargeSettingsService.get(); }
+
+  @Put('charge-settings')
+  @ApiOperation({ summary: 'Actualizar precios del combustible y tarifas de cargos' })
+  updateChargeSettings(@Body() dto: ChargeSettingsDto, @CurrentUser() user: AuthUser) {
+    return this.chargeSettingsService.update(dto, `admin:${user.id}`);
   }
 
   @Post('reservations/:id/cancel')
@@ -184,4 +204,8 @@ export class AdminController {
   @Post('booking/sync') @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reconciliar ahora el stock con Booking (PushStockUpdate)' })
   bookingSyncNow() { return this.booking.syncNow(); }
+}
+
+function toReturnInput(dto: ReturnDto): ReturnInput {
+  return { ...dto, returnedAt: dto.returnedAt ? new Date(dto.returnedAt) : undefined };
 }

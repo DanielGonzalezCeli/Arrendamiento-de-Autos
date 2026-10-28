@@ -4,7 +4,8 @@ import * as bcrypt from 'bcryptjs';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { buildTypeOrmOptions } from '../../config/typeorm.config';
-import { UserRole } from '../../domain/enums';
+import { FuelType, UserRole } from '../../domain/enums';
+import { FuelGrade } from '../../domain/return-charges';
 import { City } from '../../modules/catalog/entities/city.entity';
 import { CurrencyRate } from '../../modules/catalog/entities/currency-rate.entity';
 import { DepotOpeningHours } from '../../modules/catalog/entities/depot-opening-hours.entity';
@@ -75,6 +76,11 @@ async function seedCatalog(manager: EntityManager) {
   const categoryId = (code: string) => categories.find((c) => c.code === code)!.id;
 
   let plateNumber = 1000;
+  // RN28: capacidad de tanque de fábrica (litros), base del cargo por combustible.
+  const TANK_LITERS: Record<string, number> = {
+    'andes-picanto': 35, 'andes-onix': 44, 'andes-corolla': 43, 'andes-sportage': 54, 'andes-hilux': 80,
+    'pacif-accent': 43, 'pacif-sentra': 47, 'pacif-tucson': 54, 'pacif-fortuner': 80, 'pacif-h1': 75,
+  };
   for (const seed of VEHICLE_MODELS) {
     const model = await manager.save(VehicleModel, {
       supplierId: seed.supplierId,
@@ -84,6 +90,8 @@ async function seedCatalog(manager: EntityManager) {
       acrissCode: seed.acriss,
       transmission: seed.transmission,
       fuelType: seed.fuelType,
+      fuelGrade: seed.fuelType === FuelType.Diesel ? FuelGrade.Diesel : FuelGrade.Extra,
+      tankCapacityL: TANK_LITERS[seed.key] ?? 45,
       seats: seed.seats,
       doors: seed.doors,
       bagCapacity: seed.bags,

@@ -143,6 +143,55 @@ describe('API interna — administración', () => {
     expect(await availability.countAvailableUnits(db.manager, later)).toBe(whileOut + 1);
   });
 
+  it('RN28: inspección de entrega y devolución con cargos facturados; daño grave o km → taller', async () => {
+    const db = app.get(DataSource);
+    const booking = await book(startDay + 150);
+    const picked = await http().post(`/api/admin/reservations/${booking.id}/pickup`).set(admin())
+      .send({ fuelEighths: 8, damages: [{ zone: 'Puerta trasera', severity: 'MINOR', description: 'Rayón previo', estimatedCost: 50 }] }).expect(200);
+    const unitId = picked.body.fleetUnitId as string;
+    const [{ mileage: startKm }] = await db.query(`SELECT mileage FROM fleet_units WHERE id = $1`, [unitId]);
+    expect(picked.body.inspections).toEqual([expect.objectContaining({ kind: 'PICKUP', fuelEighths: 8, mileage: startKm })]);
+
+    // Vista previa: no registra nada
+    const returnBody = {
+      fuelEighths: 6, cleanliness: 'DIRTY', mileage: startKm + 350,
+      damages: [{ zone: 'Parachoques delantero', severity: 'SEVERE', description: 'Golpe fuerte', estimatedCost: 300 }],
+    };
+    const preview = await http().post(`/api/admin/reservations/${booking.id}/return/preview`).set(admin()).send(returnBody).expect(200);
+    const codes = preview.body.charges.lines.map((l: { code: string }) => l.code);
+    expect(codes).toEqual([expect.stringMatching(/^FUEL_(EXTRA|SUPER|DIESEL)$/), 'CLEANING', 'DAMAGE']);
+    expect(preview.body.charges.lines[2].subtotal).toBe(300);
+    expect(preview.body.fuel.pricePerGallon).toBeGreaterThan(0);
+    expect((await http().get(`/api/admin/reservations/${booking.id}`).set(admin()).expect(200)).body.rentalStatus).toBe('PICKED_UP');
+
+    // Validaciones: hora futura y odómetro hacia atrás
+    await http().post(`/api/admin/reservations/${booking.id}/return`).set(admin()).send({ returnedAt: new Date(Date.now() + 3600_000).toISOString() }).expect(400);
+    expect(startKm).toBeGreaterThan(0);
+    await http().post(`/api/admin/reservations/${booking.id}/return`).set(admin()).send({ mileage: startKm - 1 }).expect(400);
+
+    const returned = await http().post(`/api/admin/reservations/${booking.id}/return`).set(admin()).send(returnBody).expect(200);
+    const inspection = returned.body.inspections.find((i: { kind: string }) => i.kind === 'RETURN');
+    expect(inspection).toMatchObject({ fuelEighths: 6, cleanliness: 'DIRTY', chargesSubtotal: preview.body.charges.subtotal });
+    // Factura de los cargos (con IVA) además de la del alquiler
+    const chargesInvoice = returned.body.invoices.find((i: { id: string }) => i.id === inspection.invoiceId);
+    expect(chargesInvoice).toMatchObject({ type: 'INVOICE', subtotal: preview.body.charges.subtotal });
+    expect(chargesInvoice.total).toBeCloseTo(preview.body.charges.subtotal * 1.15, 1);
+    // Daño grave → la unidad pasa a taller
+    const [unit] = await db.query(`SELECT status, mileage FROM fleet_units WHERE id = $1`, [unitId]);
+    expect(unit).toMatchObject({ status: 'MAINTENANCE', mileage: startKm + 350 });
+    await db.query(`UPDATE fleet_units SET status = 'AVAILABLE' WHERE id = $1`, [unitId]);
+  });
+
+  it('RN28: tarifas de cargos editables (precio del galón)', async () => {
+    const before = await http().get('/api/admin/charge-settings').set(admin()).expect(200);
+    expect(before.body).toMatchObject({ fuelPriceExtra: expect.any(Number), fuelPriceDiesel: expect.any(Number), damageDeductible: expect.any(Number) });
+    await http().put('/api/admin/charge-settings').set(admin()).send({ fuelPriceSuper: -1 }).expect(400);
+    const updated = await http().put('/api/admin/charge-settings').set(admin()).send({ fuelPriceSuper: 5.599 }).expect(200);
+    expect(updated.body.fuelPriceSuper).toBe(5.599);
+    await http().put('/api/admin/charge-settings').set(admin()).send({ fuelPriceSuper: before.body.fuelPriceSuper }).expect(200);
+    await http().put('/api/admin/charge-settings').set(customer()).send({ fuelPriceSuper: 1 }).expect(403);
+  });
+
   it('el administrador cancela la reserva de un cliente', async () => {
     const booking = await book(startDay + 10);
     const cancelled = await http().post(`/api/admin/reservations/${booking.id}/cancel`).set(admin()).expect(200);

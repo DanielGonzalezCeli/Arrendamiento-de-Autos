@@ -8,11 +8,12 @@ import { FUEL_LABEL, FUEL_POLICY_LABEL, TRANSMISSION_LABEL } from '../../lib/for
 import { useAdminMutation, useAdminQuery, type Category, type Supplier, type VehicleModel } from './admin-api'
 import { ActiveBadge, EntityForm, Modal, Pill, SectionHeader, TD, Table, rules, type FieldSpec } from './components'
 
+const FUEL_GRADE_LABEL = { EXTRA: 'Extra / Ecopaís', SUPER: 'Súper', DIESEL: 'Diésel' }
 const options = (labels: Record<string, string>) => Object.entries(labels).map(([value, label]) => ({ value, label }))
 
 const EMPTY = {
   supplierId: '', categoryId: '', make: '', model: '', acrissCode: '', transmission: 'MANUAL', fuelType: 'GASOLINE',
-  fuelPolicy: 'FULL_TO_FULL', seats: 5, doors: 4, bagCapacity: 2, airConditioning: true, imageUrl: '', description: '', published: false,
+  fuelPolicy: 'FULL_TO_FULL', fuelGrade: 'EXTRA', tankCapacityL: 45, seats: 5, doors: 4, bagCapacity: 2, airConditioning: true, imageUrl: '', description: '', published: false,
 }
 
 export function ModelsPage() {
@@ -35,6 +36,8 @@ export function ModelsPage() {
     { name: 'transmission', label: 'Transmisión', type: 'select', required: true, options: options(TRANSMISSION_LABEL) },
     { name: 'fuelType', label: 'Combustible', type: 'select', required: true, options: options(FUEL_LABEL) },
     { name: 'fuelPolicy', label: 'Política de combustible', type: 'select', required: true, options: options(FUEL_POLICY_LABEL) },
+    { name: 'fuelGrade', label: 'Gasolina / diésel que usa', type: 'select', required: true, options: options(FUEL_GRADE_LABEL), hint: 'Precio del galón en los cargos de devolución' },
+    { name: 'tankCapacityL', label: 'Tanque (litros)', type: 'number', step: '0.1', required: true, validate: rules.range(10, 200) },
     { name: 'seats', label: 'Asientos', type: 'number', required: true, validate: rules.integer(1, 15) },
     { name: 'doors', label: 'Puertas', type: 'number', required: true, validate: rules.integer(2, 6) },
     { name: 'bagCapacity', label: 'Maletas', type: 'number', required: true, validate: rules.integer(0, 10) },

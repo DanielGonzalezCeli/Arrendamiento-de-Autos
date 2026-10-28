@@ -101,6 +101,7 @@ export class AdminOperationsService {
       freeUnits: canPickUp ? await this.rentals.freeUnits(reservation) : [],
       voucherPath: this.vouchers.linkFor(reservation).path,
       invoices: (await this.invoices.listForReservation(reservation.id)).map(toInvoiceView),
+      inspections: await this.rentals.inspections(reservation.id),
       actions: {
         pickUp: canPickUp,
         return: reservation.rentalStatus === RentalStatus.PickedUp,

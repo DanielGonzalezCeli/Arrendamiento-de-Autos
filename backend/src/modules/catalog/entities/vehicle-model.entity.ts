@@ -4,6 +4,8 @@ import {
 import { FuelPolicy, FuelType, Transmission } from '../../../domain/enums';
 import { Supplier } from './supplier.entity';
 import { VehicleCategory } from './vehicle-category.entity';
+import { FuelGrade } from '../../../domain/return-charges';
+import { ColumnNumericTransformer } from '../../../common/transformers/column-numeric.transformer';
 
 /**
  * Modelo comercial "o similar". Su id es el vehicle_id del contrato (confirmado por el equipo de integración):
@@ -47,6 +49,14 @@ export class VehicleModel {
 
   @Column({ type: 'enum', enum: FuelPolicy, enumName: 'fuel_policy', default: FuelPolicy.FullToFull })
   fuelPolicy: FuelPolicy;
+
+  /** RN28: combustible que usa (Extra, Súper o Diésel): define el precio del galón en los cargos de devolución. */
+  @Column({ type: 'varchar', length: 10, default: FuelGrade.Extra })
+  fuelGrade: FuelGrade;
+
+  /** RN28: capacidad del tanque en litros. */
+  @Column({ type: 'numeric', precision: 5, scale: 1, default: 45, transformer: new ColumnNumericTransformer() })
+  tankCapacityL: number;
 
   @Column({ type: 'smallint' })
   seats: number;

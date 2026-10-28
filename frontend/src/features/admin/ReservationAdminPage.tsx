@@ -1,16 +1,19 @@
 import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, Ticket } from 'lucide-react'
-import { useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useDeferredValue, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
+import { apiFetch } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { describeCard } from '../../lib/payment-card'
 import { InvoiceList } from '../invoices/InvoiceList'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, useAdminMutation, useAdminQuery, type AdminReservation } from './admin-api'
 import { Modal, Pill } from './components'
+import { CLEAN_LABEL, completeDamages, DamagesEditor, FUEL_LABEL, FuelGauge, InspectionsSummary, type Cleanliness, type Damage, type ReturnPreview } from './inspection'
 
 const ACTION_LABEL: Record<string, string> = {
   CREATED: 'Reserva creada',
@@ -99,6 +102,11 @@ export function ReservationAdminPage() {
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 font-semibold text-asphalt-900">Inspección del vehículo</h2>
+        <InspectionsSummary inspections={r.inspections} currency={r.currency} />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="mb-1 font-semibold text-asphalt-900">Comprobantes electrónicos</h2>
         <InvoiceList invoices={r.invoices} basePath="/api/admin/invoices" />
       </div>
@@ -142,28 +150,51 @@ type DialogProps = { reservation: AdminReservation; onClose: (message?: string) 
 
 function PickupDialog({ reservation, onClose }: DialogProps) {
   const [unitId, setUnitId] = useState(reservation.freeUnits[0]?.id ?? '')
-  const pickUp = useAdminMutation<{ fleetUnitId: string }, AdminReservation>('POST', `reservations/${reservation.id}/pickup`)
-  const plate = reservation.freeUnits.find((u) => u.id === unitId)?.plate
+  const unit = reservation.freeUnits.find((u) => u.id === unitId)
+  const [fuel, setFuel] = useState(8)
+  const [mileage, setMileage] = useState('')
+  const [damages, setDamages] = useState<Damage[]>([])
+  const [notes, setNotes] = useState('')
+  const pickUp = useAdminMutation<Record<string, unknown>, AdminReservation>('POST', `reservations/${reservation.id}/pickup`)
+
+  const submit = () => pickUp.mutate(
+    { fleetUnitId: unitId, fuelEighths: fuel, mileage: mileage ? Number(mileage) : undefined, damages: completeDamages(damages), notes: notes || undefined },
+    { onSuccess: () => onClose(`Entregado: placa ${unit?.plate}.`) },
+  )
 
   return (
-    <Modal title="Registrar entrega" onClose={() => onClose()}>
+    <Modal title="Registrar entrega" onClose={() => onClose()} wide>
       {reservation.freeUnits.length === 0 ? (
         <Alert tone="error">No hay unidades libres de este modelo en la agencia para todo el periodo. Revisa la flota o los bloqueos.</Alert>
       ) : (
         <div className="flex flex-col gap-4">
-          <Field label="Unidad a entregar" htmlFor="unit">
-            <select id="unit" className={INPUT_CLASS} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-              {reservation.freeUnits.map((u) => (
-                <option key={u.id} value={u.id}>{u.plate} · {u.year}{u.color ? ` · ${u.color}` : ''} · {u.mileage.toLocaleString('es-EC')} km</option>
-              ))}
-            </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Unidad a entregar" htmlFor="unit">
+              <select id="unit" className={INPUT_CLASS} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                {reservation.freeUnits.map((u) => (
+                  <option key={u.id} value={u.id}>{u.plate} · {u.year}{u.color ? ` · ${u.color}` : ''} · {u.mileage.toLocaleString('es-EC')} km</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Kilometraje de salida" htmlFor="km-out" hint={`Registrado: ${unit?.mileage.toLocaleString('es-EC') ?? '—'} km`}>
+              <input id="km-out" type="number" min={unit?.mileage ?? 0} className={INPUT_CLASS} placeholder={String(unit?.mileage ?? '')} value={mileage} onChange={(e) => setMileage(e.target.value)} />
+            </Field>
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Combustible al entregar</p>
+            <FuelGauge value={fuel} onChange={setFuel} />
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Daños previos (no se cobran al cliente)</p>
+            <DamagesEditor value={damages} onChange={setDamages} withCost={false} />
+          </div>
+          <Field label="Observaciones (opcional)" htmlFor="pickup-notes">
+            <input id="pickup-notes" className={INPUT_CLASS} value={notes} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
           </Field>
           {pickUp.error && <ErrorAlert error={pickUp.error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => onClose()}>Cancelar</Button>
-            <Button loading={pickUp.isPending} onClick={() => pickUp.mutate({ fleetUnitId: unitId }, { onSuccess: () => onClose(`Entregado: placa ${plate}.`) })}>
-              Confirmar entrega
-            </Button>
+            <Button loading={pickUp.isPending} onClick={submit}>Confirmar entrega</Button>
           </div>
         </div>
       )}
@@ -172,33 +203,96 @@ function PickupDialog({ reservation, onClose }: DialogProps) {
 }
 
 function ReturnDialog({ reservation, onClose }: DialogProps) {
+  const pickup = reservation.inspections.find((i) => i.kind === 'PICKUP')
+  const [fuel, setFuel] = useState(pickup?.fuelEighths ?? 8)
   const [mileage, setMileage] = useState('')
-  const [invalid, setInvalid] = useState<string>()
-  const doReturn = useAdminMutation<{ mileage?: number }, AdminReservation>('POST', `reservations/${reservation.id}/return`)
+  const [cleanliness, setCleanliness] = useState<Cleanliness>('CLEAN')
+  const [damages, setDamages] = useState<Damage[]>([])
+  const [returnedAt, setReturnedAt] = useState('')
+  const [notes, setNotes] = useState('')
+  const doReturn = useAdminMutation<Record<string, unknown>, AdminReservation>('POST', `reservations/${reservation.id}/return`)
 
-  function submit() {
-    const km = mileage.trim() === '' ? undefined : Number(mileage)
-    if (km !== undefined && (!Number.isInteger(km) || km < 0 || km > 2_000_000)) {
-      setInvalid('Kilometraje entero entre 0 y 2.000.000')
-      return
-    }
-    setInvalid(undefined)
-    doReturn.mutate({ mileage: km }, { onSuccess: () => onClose('Devolución registrada. La unidad queda en la agencia de devolución.') })
+  const body = {
+    fuelEighths: fuel, cleanliness, damages: completeDamages(damages), notes: notes || undefined,
+    mileage: mileage ? Number(mileage) : undefined,
+    returnedAt: returnedAt ? new Date(returnedAt).toISOString() : undefined,
   }
+  // Cargos en vivo (sin registrar nada) mientras el agente llena la inspección.
+  const deferred = useDeferredValue(JSON.stringify(body))
+  const preview = useQuery({
+    queryKey: ['admin', 'return-preview', reservation.id, deferred],
+    queryFn: () => apiFetch<ReturnPreview>(`/api/admin/reservations/${reservation.id}/return/preview`, { method: 'POST', body: JSON.parse(deferred) }),
+    placeholderData: keepPreviousData,
+    retry: false,
+    // Tras confirmar la reserva ya está devuelta: no se vuelve a calcular (respondería 409).
+    enabled: doReturn.isIdle || doReturn.isError,
+  })
+  const p = preview.data
+  const total = p ? Math.round(p.charges.subtotal * 115) / 100 : 0
 
   return (
-    <Modal title="Registrar devolución" onClose={() => onClose()}>
+    <Modal title="Registrar devolución" onClose={() => onClose()} wide>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-600">
-          Placa <span className="font-mono font-semibold">{reservation.vehicleSnapshot.plate}</span> · se devuelve en {reservation.dropoffDepot.name}.
+          Placa <span className="font-mono font-semibold">{reservation.vehicleSnapshot.plate}</span> · se devuelve en {reservation.dropoffDepot.name}
+          {p && <> · {FUEL_LABEL[p.fuel.grade]}, tanque de {p.fuel.tankLiters} L ({formatMoney(p.fuel.pricePerGallon, 'USD')}/gal)</>}.
         </p>
-        <Field label="Kilometraje al devolver (opcional)" htmlFor="km" error={invalid ?? undefined} hint="No puede ser menor al registrado en la entrega.">
-          <input id="km" type="number" min={0} className={INPUT_CLASS} value={mileage} onChange={(e) => setMileage(e.target.value)} aria-invalid={invalid ? true : undefined} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Kilometraje al devolver" htmlFor="km" hint={pickup ? `En la entrega: ${pickup.mileage.toLocaleString('es-EC')} km` : undefined}>
+            <input id="km" type="number" min={0} className={INPUT_CLASS} value={mileage} onChange={(e) => setMileage(e.target.value)} />
+          </Field>
+          <Field label="Hora real de devolución" htmlFor="returned-at" hint="Vacío = ahora">
+            <input id="returned-at" type="datetime-local" className={INPUT_CLASS} value={returnedAt} onChange={(e) => setReturnedAt(e.target.value)} />
+          </Field>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Combustible al devolver</p>
+          <FuelGauge value={fuel} onChange={setFuel} reference={pickup?.fuelEighths ?? null} />
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Limpieza</p>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Limpieza">
+            {(Object.keys(CLEAN_LABEL) as Cleanliness[]).map((c) => (
+              <button key={c} type="button" role="radio" aria-checked={cleanliness === c} onClick={() => setCleanliness(c)}
+                className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${cleanliness === c ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-stone-300 text-slate-600 hover:border-stone-400'}`}>
+                {CLEAN_LABEL[c]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Daños nuevos</p>
+          <DamagesEditor value={damages} onChange={setDamages} />
+        </div>
+        <Field label="Observaciones (opcional)" htmlFor="return-notes">
+          <input id="return-notes" className={INPUT_CLASS} value={notes} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+
+        <div className="rounded-2xl bg-stone-50 p-4 text-sm" aria-live="polite">
+          <p className="mb-2 font-semibold text-asphalt-900">Cargos adicionales {preview.isFetching && <span className="text-xs font-normal text-slate-400">· calculando…</span>}</p>
+          {preview.error ? <ErrorAlert error={preview.error} /> : p && (
+            p.charges.lines.length ? (
+              <>
+                {p.charges.lines.map((l) => <p key={l.code} className="flex justify-between gap-3 text-slate-600"><span>{l.description}</span><span>{formatMoney(l.subtotal, reservation.currency)}</span></p>)}
+                <p className="mt-2 flex justify-between border-t border-stone-200 pt-2 font-semibold text-asphalt-900">
+                  <span>Total con IVA (se factura y cobra a la tarjeta registrada)</span><span>{formatMoney(total, reservation.currency)}</span>
+                </p>
+              </>
+            ) : <p className="font-semibold text-emerald-700">Sin cargos: el vehículo vuelve en perfecto estado.</p>
+          )}
+          {p?.charges.notes.map((n) => <p key={n} className="mt-1 text-xs text-slate-500">{n}</p>)}
+          {p?.charges.hasSevereDamage && <p className="mt-1 text-xs font-semibold text-amber-700">Daño grave: la unidad pasará a taller.</p>}
+          {p?.maintenanceDue && <p className="mt-1 text-xs font-semibold text-amber-700">Llegó a {p.nextMaintenanceKm.toLocaleString('es-EC')} km: la unidad pasará a mantenimiento preventivo.</p>}
+        </div>
+
         {doReturn.error && <ErrorAlert error={doReturn.error} />}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => onClose()}>Cancelar</Button>
-          <Button loading={doReturn.isPending} onClick={submit}>Confirmar devolución</Button>
+          <Button loading={doReturn.isPending} onClick={() => doReturn.mutate(body, {
+            onSuccess: () => onClose(p?.charges.lines.length ? `Devolución registrada con cargos por ${formatMoney(total, reservation.currency)} (factura emitida).` : 'Devolución registrada sin cargos.'),
+          })}>
+            Confirmar devolución
+          </Button>
         </div>
       </div>
     </Modal>

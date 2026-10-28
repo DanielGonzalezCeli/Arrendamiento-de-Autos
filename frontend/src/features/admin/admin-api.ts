@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/api'
 import type { OrderStatus, RentalStatus } from '../../lib/types'
 import type { InvoiceView } from '../invoices/InvoiceList'
+import type { Inspection } from './inspection'
 
 /** Tipos y hooks del panel de administración (API interna /api/admin, solo rol ADMIN). */
 
@@ -19,6 +20,8 @@ export interface VehicleModel {
   transmission: string
   fuelType: string
   fuelPolicy: string
+  fuelGrade: 'EXTRA' | 'SUPER' | 'DIESEL'
+  tankCapacityL: number
   seats: number
   doors: number
   bagCapacity: number
@@ -146,6 +149,7 @@ export interface AdminReservation {
   freeUnits: { id: string; plate: string; color: string | null; year: number; mileage: number }[]
   voucherPath: string
   invoices: InvoiceView[]
+  inspections: Inspection[]
   actions: { pickUp: boolean; return: boolean; cancel: boolean }
 }
 
@@ -245,7 +249,7 @@ export function useAdminQuery<T>(path: string, options: { refetchInterval?: numb
   })
 }
 
-type Method = 'POST' | 'PATCH' | 'DELETE'
+type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 /** Escritura en /api/admin; al terminar refresca todas las consultas del panel (y el catálogo público). */
 export function useAdminMutation<TBody = unknown, TResult = unknown>(method: Method, path: string | ((body: TBody) => string)) {
