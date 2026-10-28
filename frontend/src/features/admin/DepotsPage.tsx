@@ -90,7 +90,7 @@ export function DepotsPage() {
             <td className={`${TD} text-xs text-slate-500`}>{d.services.map((s) => DEPOT_SERVICES[s] ?? s).join(', ')}</td>
             <td className={TD}><ActiveBadge active={d.active} on="Activa" off="Inactiva" /></td>
             <td className={`${TD} text-right`}>
-              <button type="button" aria-label={`Editar ${d.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => { setSaved(false); setEditing(d) }}>
+              <button type="button" aria-label={`Editar ${d.name}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100" onClick={() => { setSaved(false); setEditing(d) }}>
                 <Pencil className="h-4 w-4" />
               </button>
             </td>

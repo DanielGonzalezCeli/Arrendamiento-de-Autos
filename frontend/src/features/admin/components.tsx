@@ -106,7 +106,7 @@ export function EntityForm({
           if (f.type === 'checkbox') {
             return (
               <label key={f.name} className={`flex items-center gap-2 text-sm text-slate-700 ${f.full ? 'sm:col-span-2' : ''}`}>
-                <input type="checkbox" id={id} className="h-4 w-4 rounded border-slate-300 text-brand-600" checked={Boolean(value)} onChange={(e) => set(f.name, e.target.checked)} />
+                <input type="checkbox" id={id} className="h-4 w-4 rounded border-stone-300 text-brand-600" checked={Boolean(value)} onChange={(e) => set(f.name, e.target.checked)} />
                 {f.label}
               </label>
             )
@@ -142,7 +142,7 @@ export function EntityForm({
       </div>
       {children?.(values, set)}
       {error !== null && <ErrorAlert error={error} />}
-      <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <div className="flex justify-end gap-2 border-t border-stone-100 pt-4">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" loading={saving}>{submitLabel}</Button>
       </div>

@@ -66,14 +66,15 @@ export function RegisterPage() {
             onChange={(e) => setForm({ ...form, email: e.target.value.replace(/\s/g, '') })} onBlur={touch('email')} error={errorFor('email')} />
         </Field>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="phone" className="text-xs font-semibold uppercase tracking-wide text-slate-500">Teléfono (opcional)</label>
+          <label htmlFor="phone" className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Teléfono (opcional)</label>
           <PhoneInput id="phone" value={form.phone ?? ''} onChange={(phone) => setForm({ ...form, phone })} onBlur={touch('phone')} error={errorFor('phone')} />
         </div>
         <Field label="Contraseña" htmlFor="password" error={errorFor('password')} hint="Mínimo 8 caracteres, con letras y números.">
           <Input id="password" type="password" autoComplete="new-password" value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })} onBlur={touch('password')} error={errorFor('password')} />
         </Field>
-        <Button type="submit" loading={loading}>
+        {form.password && <PasswordStrength password={form.password} />}
+        <Button type="submit" loading={loading} className="py-3">
           <UserPlus className="h-4 w-4" /> Crear cuenta
         </Button>
         <p className="text-center text-sm text-slate-500">
@@ -84,5 +85,29 @@ export function RegisterPage() {
         </p>
       </form>
     </AuthLayout>
+  )
+}
+
+const STRENGTH = [
+  { label: 'Débil', bar: 'bg-rose-500', text: 'text-rose-600' },
+  { label: 'Aceptable', bar: 'bg-accent-500', text: 'text-accent-600' },
+  { label: 'Buena', bar: 'bg-brand-500', text: 'text-brand-700' },
+  { label: 'Fuerte', bar: 'bg-emerald-500', text: 'text-emerald-700' },
+]
+
+/** Indicador orientativo: el mínimo real (8 caracteres con letras y números) lo valida validatePassword. */
+function PasswordStrength({ password }: { password: string }) {
+  const meetsMinimum = !validatePassword(password)
+  const score = !meetsMinimum ? 0 : 1 + Number(password.length >= 12) + Number(/[^A-Za-z0-9]/.test(password) || (/[a-z]/.test(password) && /[A-Z]/.test(password)))
+  const level = STRENGTH[score]
+  return (
+    <div className="-mt-2 flex items-center gap-3" aria-live="polite">
+      <div className="flex flex-1 gap-1" aria-hidden="true">
+        {STRENGTH.map((s, i) => (
+          <span key={s.label} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= score ? level.bar : 'bg-stone-200'}`} />
+        ))}
+      </div>
+      <span className={`whitespace-nowrap text-xs font-semibold ${level.text}`}>Seguridad: {level.label}</span>
+    </div>
   )
 }

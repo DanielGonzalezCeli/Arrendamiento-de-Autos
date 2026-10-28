@@ -54,7 +54,7 @@ function CrudTab<T extends { id: string | number }>({ path, noun, columns, field
             {columns.map((c) => <td key={c.head} className={TD}>{c.cell(row)}</td>)}
             <td className={`${TD} whitespace-nowrap text-right`}>
               {editable && (
-                <button type="button" aria-label={`Editar ${noun}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setEditing(row)}>
+                <button type="button" aria-label={`Editar ${noun}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100" onClick={() => setEditing(row)}>
                   <Pencil className="h-4 w-4" />
                 </button>
               )}
@@ -95,7 +95,7 @@ export function CatalogPage() {
   return (
     <div>
       <SectionHeader title="Catálogo y tarifas" subtitle="Datos comerciales que usan la búsqueda y el cálculo de precios." />
-      <div role="tablist" className="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200">
+      <div role="tablist" className="mb-5 flex gap-1 overflow-x-auto border-b border-stone-200">
         {TABS.map((t) => (
           <button
             key={t}

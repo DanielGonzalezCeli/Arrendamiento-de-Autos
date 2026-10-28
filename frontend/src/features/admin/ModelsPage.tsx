@@ -65,7 +65,7 @@ export function ModelsPage() {
         {models.data?.map((m) => (
           <tr key={m.id} className={m.active ? '' : 'opacity-60'}>
             <td className={TD}>
-              {m.imageUrl ? <img src={assetUrl(m.imageUrl)} alt="" className="h-10 w-16 rounded-md object-cover" /> : <div className="h-10 w-16 rounded-md bg-slate-100" />}
+              {m.imageUrl ? <img src={assetUrl(m.imageUrl)} alt="" className="h-10 w-16 rounded-md object-cover" /> : <div className="h-10 w-16 rounded-md bg-stone-100" />}
             </td>
             <td className={TD}>
               <p className="font-semibold">{m.make} {m.model}</p>
@@ -98,12 +98,12 @@ export function ModelsPage() {
                 title={m.published ? 'Ocultar' : 'Publicar'}
                 aria-label={`${m.published ? 'Ocultar' : 'Publicar'} ${m.make} ${m.model}`}
                 disabled={!m.active || update.isPending}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                className="rounded-lg p-2 text-slate-500 hover:bg-stone-100 disabled:opacity-40"
                 onClick={() => update.mutate({ id: m.id, published: !m.published })}
               >
                 {m.published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
-              <button type="button" aria-label={`Editar ${m.make} ${m.model}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setEditing(m)}>
+              <button type="button" aria-label={`Editar ${m.make} ${m.model}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100" onClick={() => setEditing(m)}>
                 <Pencil className="h-4 w-4" />
               </button>
             </td>

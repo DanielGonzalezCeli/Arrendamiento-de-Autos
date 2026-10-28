@@ -86,7 +86,7 @@ export function UsersPage() {
               <td className={TD}>
                 <select
                   aria-label={`Rol de ${u.email}`}
-                  className={`${INPUT_CLASS} w-36 py-1.5`}
+                  className={`${INPUT_CLASS} w-36 min-w-36 py-1.5`}
                   value={u.role}
                   disabled={self || update.isPending}
                   onChange={(e) => update.mutate({ id: u.id, role: e.target.value }, { onSuccess: () => setNotice(`Rol de ${u.email} actualizado.`) })}
@@ -107,11 +107,11 @@ export function UsersPage() {
                 />
               </td>
               <td className={`${TD} whitespace-nowrap text-right`}>
-                <button type="button" title="Editar datos" aria-label={`Editar ${u.email}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                <button type="button" title="Editar datos" aria-label={`Editar ${u.email}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100"
                   onClick={() => { setNotice(null); setDialog({ kind: 'edit', user: u }) }}>
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button type="button" title="Restablecer contraseña" aria-label={`Restablecer la contraseña de ${u.email}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                <button type="button" title="Restablecer contraseña" aria-label={`Restablecer la contraseña de ${u.email}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100"
                   onClick={() => { setNotice(null); setDialog({ kind: 'password', user: u }) }}>
                   <KeyRound className="h-4 w-4" />
                 </button>

@@ -38,7 +38,7 @@ export function ReservationsPage() {
   return (
     <div>
       <SectionHeader title="Reservas" subtitle="Reservas del marketplace y del Booking Hub. Desde el detalle se registra la entrega y la devolución." />
-      <div className="mb-4 flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex flex-wrap gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
         <label className="relative min-w-0 flex-[2_1_16rem]">
           <span className="sr-only">Buscar</span>
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -64,7 +64,7 @@ export function ReservationsPage() {
           <p className="mb-2 text-sm text-slate-500">{data?.length ?? 0} reserva(s){data?.length === 200 ? ' (se muestran las 200 más recientes por fecha de recogida)' : ''}</p>
           <Table head={['Reserva', 'Vehículo', 'Conductor', { label: 'Agencia de recogida', className: 'hidden xl:table-cell' }, 'Fechas', 'Estado', 'Total']} empty={!data?.length}>
             {data?.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50">
+              <tr key={r.id} className="hover:bg-stone-50">
                 <td className={`${TD} whitespace-nowrap`}>
                   <Link to={`/admin/reservas/${r.id}`} className="font-mono font-semibold text-brand-700 hover:underline">{r.locator}</Link>
                   <span className="block text-xs text-slate-500">{CHANNEL_LABEL[r.channel]}</span>

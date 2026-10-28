@@ -48,7 +48,7 @@ export function ReservationAdminPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-slate-500">Localizador</p>
-          <h1 className="font-mono text-2xl font-bold text-slate-900">{r.locator}</h1>
+          <h1 className="font-mono text-2xl font-bold text-asphalt-900">{r.locator}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <StatusBadge status={r.status} rentalStatus={r.rentalStatus} />
             <Pill tone="blue">{CHANNEL_LABEL[r.channel]}</Pill>
@@ -96,9 +96,9 @@ export function ReservationAdminPage() {
         </Info>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 font-semibold text-slate-900">Historial</h2>
-        <ol className="flex flex-col gap-3 border-l-2 border-slate-100 pl-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 font-semibold text-asphalt-900">Historial</h2>
+        <ol className="flex flex-col gap-3 border-l-2 border-stone-100 pl-4">
           {r.history.map((h) => (
             <li key={h.id} className="relative text-sm">
               <span className="absolute -left-[1.4rem] top-1 h-2.5 w-2.5 rounded-full bg-brand-500" />
@@ -124,7 +124,7 @@ function cardOf(reference: string): string | null {
 
 function Info({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+    <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm shadow-sm">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
       {children}
     </div>

@@ -44,7 +44,7 @@ export function IntegrationPage() {
       </div>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><KeyRound className="h-4 w-4" /> Clientes OAuth2 (client credentials)</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-semibold text-asphalt-900"><KeyRound className="h-4 w-4" /> Clientes OAuth2 (client credentials)</h2>
         <Table head={['Client ID', 'Nombre', 'Afiliado', 'Scopes', 'Estado']} empty={!clients.length}>
           {clients.map((c) => (
             <tr key={c.clientId}>
@@ -60,7 +60,7 @@ export function IntegrationPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><Webhook className="h-4 w-4" /> Suscripciones de webhooks</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-semibold text-asphalt-900"><Webhook className="h-4 w-4" /> Suscripciones de webhooks</h2>
         <Table head={['URL', 'Propietario', 'Eventos', 'Entregados', 'Con fallas', 'Estado']} empty={!subscriptions.length}>
           {subscriptions.map((s) => (
             <tr key={s.id}>
@@ -76,7 +76,7 @@ export function IntegrationPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><RefreshCw className="h-4 w-4" /> Últimas entregas</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-semibold text-asphalt-900"><RefreshCw className="h-4 w-4" /> Últimas entregas</h2>
         <Table head={['Evento', 'Destino', 'Intento', 'Respuesta', 'Fecha', 'Estado', '']} empty={!deliveries.length}>
           {deliveries.map((d) => (
             <tr key={d.id}>
@@ -95,7 +95,7 @@ export function IntegrationPage() {
                     type="button"
                     title="Reintentar ahora"
                     aria-label="Reintentar entrega"
-                    className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                    className="rounded-lg p-2 text-slate-500 hover:bg-stone-100"
                     disabled={retry.isPending}
                     onClick={() => retry.mutate({ id: d.id }, { onSuccess: setReport })}
                   >
@@ -113,9 +113,9 @@ export function IntegrationPage() {
 
 function Info({ label, value, detail }: { label: string; value: string; detail: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-xl font-bold text-asphalt-900">{value}</p>
       <p className="text-sm text-slate-500">{detail}</p>
     </div>
   )

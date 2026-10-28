@@ -46,7 +46,7 @@ export function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-semibold text-slate-900">Flota ({totalUnits} unidades)</h2>
+          <h2 className="mb-3 font-semibold text-asphalt-900">Flota ({totalUnits} unidades)</h2>
           <ul className="flex flex-col gap-2">
             {data.fleet.map((f) => (
               <li key={f.status}>
@@ -62,7 +62,7 @@ export function DashboardPage() {
           </ul>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-semibold text-slate-900">Integración con el Booking Hub</h2>
+          <h2 className="mb-3 font-semibold text-asphalt-900">Integración con el Booking Hub</h2>
           <dl className="grid grid-cols-3 gap-3 text-center">
             <div className="rounded-xl bg-stone-100 p-3"><dt className="text-xs text-slate-500">Eventos por publicar</dt><dd className="text-xl font-bold">{data.webhooks.pending_events}</dd></div>
             <div className="rounded-xl bg-stone-100 p-3"><dt className="text-xs text-slate-500">Webhooks reintentando</dt><dd className="text-xl font-bold">{data.webhooks.failed}</dd></div>
@@ -77,12 +77,12 @@ export function DashboardPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">Últimas reservas</h2>
+          <h2 className="font-semibold text-asphalt-900">Últimas reservas</h2>
           <Link to="/admin/reservas" className="text-sm font-medium text-brand-600 hover:underline">Ver todas</Link>
         </div>
         <Table head={['Localizador', 'Vehículo', 'Conductor', 'Recogida', 'Canal', 'Estado', 'Total']} empty={!data.recentReservations.length}>
           {data.recentReservations.map((r) => (
-            <tr key={r.id} className="hover:bg-slate-50">
+            <tr key={r.id} className="hover:bg-stone-50">
               <td className={`${TD} whitespace-nowrap`}><Link to={`/admin/reservas/${r.id}`} className="font-mono font-semibold text-brand-700 hover:underline">{r.locator}</Link></td>
               <td className={TD}>{r.vehicle}</td>
               <td className={TD}>{r.driver}</td>

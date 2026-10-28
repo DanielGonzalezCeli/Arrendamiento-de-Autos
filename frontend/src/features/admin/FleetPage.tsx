@@ -96,10 +96,10 @@ export function FleetPage() {
                 </div>
               </td>
               <td className={`${TD} whitespace-nowrap text-right`}>
-                <button type="button" aria-label={`Bloqueos de ${u.plate}`} title="Bloqueos de mantenimiento" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setBlocksOf(u)}>
+                <button type="button" aria-label={`Bloqueos de ${u.plate}`} title="Bloqueos de mantenimiento" className="rounded-lg p-2 text-slate-500 hover:bg-stone-100" onClick={() => setBlocksOf(u)}>
                   <CalendarOff className="h-4 w-4" />
                 </button>
-                <button type="button" aria-label={`Editar ${u.plate}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setEditing(u)}>
+                <button type="button" aria-label={`Editar ${u.plate}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100" onClick={() => setEditing(u)}>
                   <Pencil className="h-4 w-4" />
                 </button>
               </td>
@@ -155,7 +155,7 @@ function BlocksDialog({ unit, onClose }: { unit: FleetUnit; onClose: () => void 
     <Modal title={`Bloqueos de ${unit.plate}`} onClose={onClose} wide>
       <p className="mb-3 text-sm text-slate-500">Durante un bloqueo la unidad no cuenta para la disponibilidad (mantenimiento, revisión, reparación).</p>
       {blocks.isLoading ? <LoadingBlock /> : (
-        <ul className="mb-4 flex flex-col divide-y divide-slate-100 rounded-xl border border-slate-200">
+        <ul className="mb-4 flex flex-col divide-y divide-stone-100 rounded-xl border border-stone-200">
           {!blocks.data?.length && <li className="px-4 py-6 text-center text-sm text-slate-400">Sin bloqueos</li>}
           {blocks.data?.map((b) => (
             <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
