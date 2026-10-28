@@ -1,4 +1,4 @@
-import { Building2, CalendarCheck, Car, Gauge, Network, Tags, Users, Warehouse } from 'lucide-react'
+import { Building2, CalendarCheck, Car, Gauge, Network, Radio, Tags, Users, Warehouse } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const LINKS = [
@@ -9,7 +9,8 @@ const LINKS = [
   { to: '/admin/agencias', label: 'Agencias', icon: Building2 },
   { to: '/admin/catalogo', label: 'Catálogo y tarifas', icon: Tags },
   { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
-  { to: '/admin/integracion', label: 'Integración', icon: Network },
+  { to: '/admin/booking', label: 'Booking (v3)', icon: Radio },
+  { to: '/admin/integracion', label: 'Integración (v1)', icon: Network },
 ]
 
 const LINK = ({ isActive }: { isActive: boolean }) =>

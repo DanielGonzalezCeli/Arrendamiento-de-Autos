@@ -191,6 +191,46 @@ export interface IntegrationOverview {
   outbox: { pending: number; total: number }
 }
 
+export interface BookingOverview {
+  config: {
+    nodeId: string
+    partnerName: string
+    stockMode: 'off' | 'grpc' | 'http'
+    stockTarget: string | null
+    stockIntervalMs: number
+    stockClientActive: boolean
+    apiKeyConfigured: boolean
+  }
+  fleet: { total: number; states: Record<string, number> }
+  sync: { tracked: number; ok: number; failing: number; lastSyncedAt: string | null; total: number }
+  pushes: {
+    id: string
+    itemId: string
+    transport: string
+    success: boolean
+    errorCode: string | null
+    message: string | null
+    availableUnits: string | null
+    date: string | null
+    timeSlot: string | null
+    createdAt: string
+  }[]
+  orders: {
+    id: string
+    locator: string
+    status: OrderStatus
+    rentalStatus: RentalStatus
+    pickupAt: string
+    dropoffAt: string
+    totalPrice: number
+    currency: string
+    driver: string
+    vehicle: string
+    plate: string | null
+    createdAt: string
+  }[]
+}
+
 const ADMIN = '/api/admin'
 
 /** GET /api/admin/{path}; la clave de caché empieza por 'admin' para invalidar todo tras un cambio. */

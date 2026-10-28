@@ -11,6 +11,7 @@ import { MAX_IMAGE_BYTES, MediaService, UploadedImage } from '../media/media.ser
 import { RentalOperationsService } from '../orders/rental-operations.service';
 import { ReservationService } from '../orders/reservation.service';
 import { AdminOperationsService } from './admin-operations.service';
+import { BookingAdminService } from './booking-admin.service';
 import { CatalogAdminService } from './catalog-admin.service';
 import { DepotAdminService } from './depot-admin.service';
 import {
@@ -37,6 +38,7 @@ export class AdminController {
     private readonly fleet: FleetAdminService,
     private readonly depots: DepotAdminService,
     private readonly integration: IntegrationAdminService,
+    private readonly booking: BookingAdminService,
     private readonly reservations: ReservationService,
     private readonly rentals: RentalOperationsService,
     private readonly media: MediaService,
@@ -160,4 +162,12 @@ export class AdminController {
   @Post('integration/dispatch') @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Procesar ahora el outbox y las entregas pendientes' })
   dispatchNow() { return this.integration.dispatchNow(); }
+
+  // ── Booking Prototipo (contrato v3 + inventory.proto) ─────────────────────
+  @Get('booking')
+  @ApiOperation({ summary: 'Estado de la integración v3: configuración, flota, stock enviado y reservas de Booking' })
+  bookingOverview() { return this.booking.overview(); }
+  @Post('booking/sync') @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reconciliar ahora el stock con Booking (PushStockUpdate)' })
+  bookingSyncNow() { return this.booking.syncNow(); }
 }

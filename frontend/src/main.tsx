@@ -10,6 +10,7 @@ import { DashboardPage } from './features/admin/DashboardPage'
 import { DepotsPage } from './features/admin/DepotsPage'
 import { FleetPage } from './features/admin/FleetPage'
 import { IntegrationPage } from './features/admin/IntegrationPage'
+import { BookingPage } from './features/admin/BookingPage'
 import { ModelsPage } from './features/admin/ModelsPage'
 import { ReservationAdminPage } from './features/admin/ReservationAdminPage'
 import { ReservationsPage } from './features/admin/ReservationsPage'
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
               { path: 'agencias', element: <DepotsPage /> },
               { path: 'catalogo', element: <CatalogPage /> },
               { path: 'usuarios', element: <UsersPage /> },
+              { path: 'booking', element: <BookingPage /> },
               { path: 'integracion', element: <IntegrationPage /> },
             ],
           },

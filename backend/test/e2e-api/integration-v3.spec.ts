@@ -202,6 +202,25 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     expect(mine[0]).toMatchObject({ specversion: '1.0', correlation_id: 'cid-test-reserva', data: { auto_id: car.vehicle_id } });
   });
 
+  it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {
+    await http().get('/api/admin/booking').expect(401);
+    const login = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(200);
+    const admin = { Authorization: `Bearer ${login.body.accessToken}` };
+
+    const res = await http().get('/api/admin/booking').set(admin).expect(200);
+    expect(res.body.config).toMatchObject({ nodeId: 'NODE_AUT_RUTALIBRE', stockMode: 'grpc', stockClientActive: true, apiKeyConfigured: true });
+    expect(JSON.stringify(res.body)).not.toContain(TEST_API_KEY);
+    const states = Object.values(res.body.fleet.states as Record<string, number>).reduce((a, b) => a + b, 0);
+    expect(states).toBe(res.body.fleet.total);
+    expect(res.body.sync.ok).toBeGreaterThan(0);
+    expect(res.body.pushes[0]).toMatchObject({ transport: 'grpc', success: true });
+    expect(res.body.orders.map((o: { locator: string }) => o.locator)).toEqual(expect.arrayContaining(pnrs));
+
+    const sync = await http().post('/api/admin/booking/sync').set(admin).expect(200);
+    expect(sync.body).toMatchObject({ failed: 0 });
+    expect(sync.body.checked).toBe(res.body.fleet.total);
+  });
+
   it('promociones B2B: GET público, PUT con X-API-Key y validación', async () => {
     const before = await http().get('/api/v3/autos/promociones/contrato').expect(200);
     expect(before.body).toMatchObject({ proveedor_codigo: 'NODE_AUT_RUTALIBRE', vertical: 'AUTOS' });
