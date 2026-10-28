@@ -187,4 +187,6 @@ export interface Reservation {
   cancellationFee: number | null
   canModify: boolean
   canCancel: boolean
+  /** Ruta del voucher público (link firmado con QR y PDF). */
+  voucherPath: string | null
 }

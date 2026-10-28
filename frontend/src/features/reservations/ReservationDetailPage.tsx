@@ -1,12 +1,13 @@
-import { ArrowLeft, PartyPopper, XCircle } from 'lucide-react'
+import { ArrowLeft, Download, PartyPopper, Ticket, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
 import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
 import { LoadingBlock } from '../../components/ui/Spinner'
+import { API_BASE_URL } from '../../lib/api'
 import { formatDateTime, formatMoney, TRANSMISSION_LABEL } from '../../lib/format'
 import { describeCard } from '../../lib/payment-card'
 import type { Reservation, RouteEndpoint } from '../../lib/types'
@@ -33,12 +34,13 @@ export function ReservationDetailPage() {
       </Link>
 
       {params.get('nueva') && r.status === 'CONFIRMED' && (
-        <div className="mb-6 flex items-center gap-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-6 text-white shadow">
-          <PartyPopper className="h-10 w-10 shrink-0" />
-          <div>
-            <p className="text-lg font-bold">¡Reserva confirmada!</p>
-            <p className="text-emerald-50">Tu localizador es <strong className="font-mono">{r.locator}</strong>. Preséntalo en la agencia con tu licencia.</p>
+        <div className="topo mb-6 flex animate-pop flex-wrap items-center gap-4 rounded-2xl bg-brand-800 p-6 text-white shadow-lg shadow-brand-900/20">
+          <PartyPopper className="h-10 w-10 shrink-0 text-accent-300" />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-xl font-bold">¡Reserva confirmada!</p>
+            <p className="text-brand-100">Tu localizador es <strong className="font-mono text-accent-300">{r.locator}</strong>. Presenta tu voucher en la agencia con tu licencia.</p>
           </div>
+          {r.voucherPath && <ButtonLink to={r.voucherPath} variant="accent"><Ticket className="h-4 w-4" /> Ver mi voucher</ButtonLink>}
         </div>
       )}
 
@@ -82,6 +84,7 @@ export function ReservationDetailPage() {
               </p>
             )}
           </Card>
+          {r.voucherPath && r.status !== 'CANCELLED' && <VoucherCard path={r.voucherPath} />}
           {r.status === 'CANCELLED' ? (
             <Alert tone="info">
               Cancelada el {formatDateTime(r.cancelledAt!)}.{' '}
@@ -93,6 +96,24 @@ export function ReservationDetailPage() {
         </div>
       </div>
     </PageContainer>
+  )
+}
+
+/** Acceso al voucher: el link (con su token) sirve también para compartirlo o abrirlo en el celular. */
+function VoucherCard({ path }: { path: string }) {
+  const [base, query] = path.split('?')
+  return (
+    <Card className="p-6">
+      <h2 className="flex items-center gap-2 font-semibold text-asphalt-900"><Ticket className="h-4 w-4 text-accent-600" /> Tu voucher</h2>
+      <p className="mt-1 text-sm text-slate-500">Con código QR para el mostrador. Puedes abrirlo en el celular o descargarlo.</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <ButtonLink to={path} variant="primary">Ver voucher</ButtonLink>
+        <a href={`${API_BASE_URL}/api/vouchers/${base.split('/').pop()}/pdf?${query}`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-stone-50 active:scale-[0.97]">
+          <Download className="h-4 w-4" /> PDF
+        </a>
+      </div>
+    </Card>
   )
 }
 

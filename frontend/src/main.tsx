@@ -23,6 +23,7 @@ import { CheckoutPage } from './features/checkout/CheckoutPage'
 import { CreditsPage } from './features/credits/CreditsPage'
 import { MyReservationsPage } from './features/reservations/MyReservationsPage'
 import { ReservationDetailPage } from './features/reservations/ReservationDetailPage'
+import { VoucherPage } from './features/vouchers/VoucherPage'
 import { ResultsPage } from './features/search/ResultsPage'
 import { VehicleDetailPage } from './features/vehicle/VehicleDetailPage'
 import './index.css'
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
           { path: '/reservar/:vehicleId', element: <RequireAuth><CheckoutPage /></RequireAuth> },
           { path: '/mis-reservas', element: <RequireAuth><MyReservationsPage /></RequireAuth> },
           { path: '/mis-reservas/:id', element: <RequireAuth><ReservationDetailPage /></RequireAuth> },
+          { path: '/voucher/:locator', element: <VoucherPage /> },
           {
             path: '/admin',
             element: <RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>,

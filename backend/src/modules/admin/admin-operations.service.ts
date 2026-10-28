@@ -12,6 +12,7 @@ import { canonicalEmail, normalizeName, normalizePhone } from '../../domain/cont
 import { UserRole } from '../../domain/enums';
 import { hashPassword } from '../users/password';
 import { CreateUserDto, ReservationFiltersDto, ResetPasswordDto, UpdateUserDto } from './dto/admin.dto';
+import { VoucherService } from '../vouchers/voucher.service';
 
 const TZ = 'America/Guayaquil';
 const LIST_LIMIT = 200;
@@ -22,6 +23,7 @@ export class AdminOperationsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly rentals: RentalOperationsService,
+    private readonly vouchers: VoucherService,
   ) {}
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ export class AdminOperationsService {
       ...reservation,
       history,
       freeUnits: canPickUp ? await this.rentals.freeUnits(reservation) : [],
+      voucherPath: this.vouchers.linkFor(reservation).path,
       actions: {
         pickUp: canPickUp,
         return: reservation.rentalStatus === RentalStatus.PickedUp,

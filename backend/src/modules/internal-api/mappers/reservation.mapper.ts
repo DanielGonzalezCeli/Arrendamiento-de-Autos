@@ -3,7 +3,7 @@ import { describePaymentReference } from '../../../domain/payment-simulator';
 import { Reservation } from '../../orders/entities/reservation.entity';
 
 /** Vista de una reserva para el marketplace y el panel (API interna). */
-export function toReservationView(r: Reservation, now = new Date()) {
+export function toReservationView(r: Reservation, voucherPath: string | null = null, now = new Date()) {
   const notStarted = r.status === OrderStatus.Confirmed && r.rentalStatus === RentalStatus.NotStarted && now < r.pickupAt;
   return {
     id: r.id,
@@ -26,5 +26,7 @@ export function toReservationView(r: Reservation, now = new Date()) {
     cancellationFee: r.cancellationFee,
     canModify: notStarted,
     canCancel: notStarted,
+    /** Ruta del voucher en el frontend (link firmado); null si no se pidió. */
+    voucherPath,
   };
 }

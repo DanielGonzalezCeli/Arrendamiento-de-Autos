@@ -6,10 +6,11 @@ import { OrdersModule } from '../orders/orders.module';
 import { SearchModule } from '../search/search.module';
 import { CheckoutController } from './checkout.controller';
 import { PublicCatalogController } from './public-catalog.controller';
+import { VouchersModule } from '../vouchers/vouchers.module';
 
 /** API interna (/api) para el frontend: reutiliza los mismos servicios de dominio que la API de integración. */
 @Module({
-  imports: [CatalogModule, SearchModule, OrdersModule, IdempotencyModule, MediaModule],
+  imports: [CatalogModule, SearchModule, OrdersModule, IdempotencyModule, MediaModule, VouchersModule],
   controllers: [PublicCatalogController, CheckoutController],
 })
 export class InternalApiModule {}

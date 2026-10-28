@@ -1,8 +1,8 @@
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, Ticket } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime, formatMoney } from '../../lib/format'
@@ -55,6 +55,7 @@ export function ReservationAdminPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ButtonLink to={r.voucherPath} variant="secondary"><Ticket className="h-4 w-4" /> Voucher</ButtonLink>
           {r.actions.pickUp && <Button onClick={() => setDialog('pickup')}><ArrowUpFromLine className="h-4 w-4" /> Registrar entrega</Button>}
           {r.actions.return && <Button onClick={() => setDialog('return')}><ArrowDownToLine className="h-4 w-4" /> Registrar devolución</Button>}
           {r.actions.cancel && <Button variant="danger" onClick={() => setDialog('cancel')}><Ban className="h-4 w-4" /> Cancelar</Button>}

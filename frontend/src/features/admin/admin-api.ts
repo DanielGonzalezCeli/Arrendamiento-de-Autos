@@ -143,6 +143,7 @@ export interface AdminReservation {
   dropoffDepot: Depot
   history: HistoryEntry[]
   freeUnits: { id: string; plate: string; color: string | null; year: number; mileage: number }[]
+  voucherPath: string
   actions: { pickUp: boolean; return: boolean; cancel: boolean }
 }
 

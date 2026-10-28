@@ -13,6 +13,8 @@ import { OrderPreviewService } from '../orders/order-preview.service';
 import { ReservationService } from '../orders/reservation.service';
 import { CheckoutConfirmDto, CheckoutHoldDto, CheckoutPreviewDto, ModifyMyReservationDto } from './dto/checkout.dto';
 import { toReservationView } from './mappers/reservation.mapper';
+import { VoucherService } from '../vouchers/voucher.service';
+import { Reservation } from '../orders/entities/reservation.entity';
 
 const DRIVER_FIELDS = { firstName: 'driver.firstName', lastName: 'driver.lastName', email: 'driver.email', phone: 'driver.phone' };
 
@@ -32,7 +34,12 @@ export class CheckoutController {
     private readonly previews: OrderPreviewService,
     private readonly reservations: ReservationService,
     private readonly idempotency: IdempotencyService,
+    private readonly vouchers: VoucherService,
   ) {}
+
+  private view(r: Reservation) {
+    return toReservationView(r, this.vouchers.linkFor(r).path);
+  }
 
   @Post('checkout/hold')
   @HttpCode(HttpStatus.OK)
@@ -77,7 +84,7 @@ export class CheckoutController {
         ownerSub,
         channel: OrderChannel.Web,
         userId: user.id,
-      }, manager).then((r) => toReservationView(r)),
+      }, manager).then((r) => this.view(r)),
     );
     res.status(result.status);
     return result.body;
@@ -86,13 +93,13 @@ export class CheckoutController {
   @Get('me/reservations')
   @ApiOperation({ summary: 'Mis reservas' })
   async mine(@CurrentUser() user: AuthUser) {
-    return (await this.reservations.listForOwner(webOwnerSub(user.id))).map((r) => toReservationView(r));
+    return (await this.reservations.listForOwner(webOwnerSub(user.id))).map((r) => this.view(r));
   }
 
   @Get('me/reservations/:id')
   @ApiOperation({ summary: 'Detalle de una reserva propia' })
   async one(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return toReservationView(await this.reservations.getForOwner(id, webOwnerSub(user.id)));
+    return this.view(await this.reservations.getForOwner(id, webOwnerSub(user.id)));
   }
 
   @Post('me/reservations/:id/modify')
@@ -107,13 +114,13 @@ export class CheckoutController {
       pickupLocation: dto.pickupDepotId !== undefined ? { depotId: dto.pickupDepotId } : undefined,
       dropoffLocation: dto.dropoffDepotId !== undefined ? { depotId: dto.dropoffDepotId } : undefined,
     });
-    return toReservationView(updated);
+    return this.view(updated);
   }
 
   @Post('me/reservations/:id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancelar (gratis hasta 24 h antes)' })
   async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return toReservationView(await this.reservations.cancel(id, webOwnerSub(user.id)));
+    return this.view(await this.reservations.cancel(id, webOwnerSub(user.id)));
   }
 }

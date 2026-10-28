@@ -82,6 +82,22 @@ describe('API interna — checkout y mis reservas', () => {
     await http().get(`/api/me/reservations/${confirmed.body.id}`).set(as(1)).expect(404);
     await http().post(`/api/me/reservations/${confirmed.body.id}/cancel`).set(as(1)).expect(404);
 
+    // Voucher: link firmado público (QR + PDF) sin datos de contacto; con otro token → 404
+    expect(confirmed.body.voucherPath).toMatch(new RegExp(`^/voucher/${confirmed.body.locator}\\?t=[\\w-]{22}$`));
+    const token = new URL(confirmed.body.voucherPath, 'http://x').searchParams.get('t')!;
+    const voucher = await http().get(`/api/vouchers/${confirmed.body.locator}`).query({ t: token }).expect(200);
+    expect(voucher.body).toMatchObject({ locator: confirmed.body.locator, status: 'CONFIRMED', driver: { fullName: `${driver.firstName} ${driver.lastName}` } });
+    expect(voucher.body.url).toMatch(new RegExp(`/voucher/${confirmed.body.locator}\\?t=${token}$`));
+    expect(voucher.body.qrSvg).toMatch(/^<svg/);
+    expect(JSON.stringify(voucher.body)).not.toContain(driver.email);
+    await http().get(`/api/vouchers/${confirmed.body.locator}`).query({ t: 'A'.repeat(22) }).expect(404);
+    await http().get(`/api/vouchers/${confirmed.body.locator}`).expect(404);
+    const pdf = await http().get(`/api/vouchers/${confirmed.body.locator}/pdf`).query({ t: token })
+      .buffer(true).parse((res, cb) => { const parts: Buffer[] = []; res.on('data', (c: Buffer) => parts.push(c)); res.on('end', () => cb(null, Buffer.concat(parts))); })
+      .expect(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+
     const modified = await http().post(`/api/me/reservations/${confirmed.body.id}/modify`).set(as(0))
       .send({ extrasToRemove: ['CDW'], extrasToAdd: ['GPS'] }).expect(200);
     expect(modified.body.extras.map((e: { code: string }) => e.code)).toEqual(['GPS']);
