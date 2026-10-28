@@ -14,6 +14,7 @@ import { OrderPreviewService } from './order-preview.service';
 import { OrderPricingService } from './order-pricing.service';
 import { RentalOperationsService } from './rental-operations.service';
 import { ReservationService } from './reservation.service';
+import { InvoicesModule } from '../invoices/invoices.module';
 
 /** Dominio de órdenes: hold, preview y reservas. Compartido por la API interna y la de integración. */
 @Module({
@@ -23,6 +24,7 @@ import { ReservationService } from './reservation.service';
     SearchModule,
     AvailabilityModule,
     EventsModule,
+    InvoicesModule,
   ],
   providers: [HoldService, OrderPreviewService, OrderPricingService, ReservationService, RentalOperationsService],
   exports: [HoldService, OrderPreviewService, ReservationService, RentalOperationsService],

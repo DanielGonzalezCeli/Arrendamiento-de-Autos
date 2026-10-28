@@ -17,9 +17,9 @@ describe('Entidades ↔ esquema de la migración', () => {
   });
 
   it('todas las tablas de la migración tienen su entidad', () => {
-    // 29 tablas de negocio (docs/BASE_DATOS.md: media_images y, del Reto 2, promotion_agreement y stock_sync_*);
+    // 31 tablas de negocio (docs/BASE_DATOS.md: media_images y, del Reto 2, promotion_agreement, stock_sync_* e invoices/invoice_sequences);
     // evita que el test pase vacío si no se cargan entidades.
-    expect(dataSource.entityMetadatas).toHaveLength(29);
+    expect(dataSource.entityMetadatas).toHaveLength(31);
   });
 
   it('cada columna mapeada existe en la tabla con la misma nulabilidad', async () => {

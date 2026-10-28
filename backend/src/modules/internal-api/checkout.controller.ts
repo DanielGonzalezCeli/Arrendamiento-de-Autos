@@ -84,6 +84,7 @@ export class CheckoutController {
         ownerSub,
         channel: OrderChannel.Web,
         userId: user.id,
+        billing: dto.billing ?? null,
       }, manager).then((r) => this.view(r)),
     );
     res.status(result.status);

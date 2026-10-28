@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../domain/enums';
@@ -21,6 +21,9 @@ import {
 } from './dto/admin.dto';
 import { FleetAdminService } from './fleet-admin.service';
 import { IntegrationAdminService } from './integration-admin.service';
+import { InvoiceService } from '../invoices/invoice.service';
+import { sendDocument } from '../invoices/invoices.controller';
+import { Response } from 'express';
 
 /**
  * Panel de administración (/api/admin/*). Solo usuarios con rol ADMIN: la protección está aquí
@@ -39,6 +42,7 @@ export class AdminController {
     private readonly depots: DepotAdminService,
     private readonly integration: IntegrationAdminService,
     private readonly booking: BookingAdminService,
+    private readonly invoices: InvoiceService,
     private readonly reservations: ReservationService,
     private readonly rentals: RentalOperationsService,
     private readonly media: MediaService,
@@ -162,6 +166,16 @@ export class AdminController {
   @Post('integration/dispatch') @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Procesar ahora el outbox y las entregas pendientes' })
   dispatchNow() { return this.integration.dispatchNow(); }
+
+  // ── Facturación (RN27) ────────────────────────────────────────────────────
+  @Get('invoices')
+  @ApiOperation({ summary: 'Últimos comprobantes emitidos (facturas y notas de crédito)' })
+  @ApiQuery({ name: 'q', required: false, description: 'Número, comprador, identificación o localizador' })
+  listInvoices(@Query('q') q?: string) { return this.invoices.listRecent(q); }
+  @Get('invoices/:id/pdf')
+  async invoicePdf(@Param('id') id: string, @Res() res: Response) { sendDocument(res, await this.invoices.document(id, 'pdf', null)); }
+  @Get('invoices/:id/xml')
+  async invoiceXml(@Param('id') id: string, @Res() res: Response) { sendDocument(res, await this.invoices.document(id, 'xml', null)); }
 
   // ── Booking Prototipo (contrato v3 + inventory.proto) ─────────────────────
   @Get('booking')

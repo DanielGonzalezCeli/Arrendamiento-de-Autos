@@ -63,6 +63,13 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
   await page.getByText('Navegador GPS').click()
   await expect(total).not.toHaveText(totalBefore ?? '')
   await expect(page.locator('#firstName')).toHaveValue('Elena')
+  // Facturación (RN27): más de USD 50 → no se admite consumidor final; cédula inválida → error en el campo
+  await expect(page.getByRole('radio', { name: 'Consumidor final' })).toBeDisabled()
+  await expect(page.locator('#billingName')).toHaveValue('Elena Prueba')
+  await page.locator('#billingId').fill('1710034066')
+  await page.getByRole('button', { name: 'Continuar al pago' }).click()
+  await expect(page.getByText('La cédula no es válida (revisa los 10 dígitos).')).toBeVisible()
+  await page.locator('#billingId').fill('1710034065')
   await snap(page, '05-checkout')
   await page.getByRole('button', { name: 'Continuar al pago' }).click()
 
@@ -96,6 +103,10 @@ test('un cliente nuevo busca, reserva con un extra y cancela', async ({ page }) 
   const locator = await page.locator('strong.font-mono').first().textContent()
   expect(locator).toMatch(/^[A-Z]+-[A-Z2-9]{6}$/)
   await expect(page.getByText('Navegador GPS').first()).toBeVisible()
+  // Factura electrónica emitida con el pago y voucher con QR
+  await expect(page.getByText(/^Factura/).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: /^PDF de 001-001-/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ver mi voucher' })).toBeVisible()
   await snap(page, '06-confirmacion')
 
   // 8. Mis reservas → cancelar

@@ -13,6 +13,8 @@ import { UserRole } from '../../domain/enums';
 import { hashPassword } from '../users/password';
 import { CreateUserDto, ReservationFiltersDto, ResetPasswordDto, UpdateUserDto } from './dto/admin.dto';
 import { VoucherService } from '../vouchers/voucher.service';
+import { InvoiceService } from '../invoices/invoice.service';
+import { toInvoiceView } from '../invoices/invoice.mapper';
 
 const TZ = 'America/Guayaquil';
 const LIST_LIMIT = 200;
@@ -24,6 +26,7 @@ export class AdminOperationsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly rentals: RentalOperationsService,
     private readonly vouchers: VoucherService,
+    private readonly invoices: InvoiceService,
   ) {}
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -97,6 +100,7 @@ export class AdminOperationsService {
       history,
       freeUnits: canPickUp ? await this.rentals.freeUnits(reservation) : [],
       voucherPath: this.vouchers.linkFor(reservation).path,
+      invoices: (await this.invoices.listForReservation(reservation.id)).map(toInvoiceView),
       actions: {
         pickUp: canPickUp,
         return: reservation.rentalStatus === RentalStatus.PickedUp,

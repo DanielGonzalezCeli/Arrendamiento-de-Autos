@@ -7,6 +7,7 @@ import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { describeCard } from '../../lib/payment-card'
+import { InvoiceList } from '../invoices/InvoiceList'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, useAdminMutation, useAdminQuery, type AdminReservation } from './admin-api'
 import { Modal, Pill } from './components'
@@ -95,6 +96,11 @@ export function ReservationAdminPage() {
             <li className="flex justify-between gap-2"><span>IVA</span><span>{formatMoney(r.priceBreakdown.tax, r.currency)}</span></li>
           </ul>
         </Info>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-1 font-semibold text-asphalt-900">Comprobantes electrónicos</h2>
+        <InvoiceList invoices={r.invoices} basePath="/api/admin/invoices" />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">

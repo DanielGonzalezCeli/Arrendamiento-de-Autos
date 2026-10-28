@@ -17,7 +17,9 @@ import type { Offer, Reservation } from '../../lib/types'
 import { useAuth } from '../auth/AuthContext'
 import { readLastSearch, useExtras } from '../catalog/queries'
 import { criteriaToParams } from '../search/search-criteria'
+import { BillingForm, type BillingInput } from './BillingForm'
 import { confirmReservation, createHold, createPreview, type DriverInput } from './checkout-api'
+import { FINAL_CONSUMER_MAX_TOTAL, validateBuyerId } from '../../lib/sri'
 import { ExtrasSelector } from './ExtrasSelector'
 import { HoldCountdown } from './HoldCountdown'
 import { PaymentDialog } from './PaymentDialog'
@@ -70,6 +72,9 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
   })
   // Una clave por intento de pago: un doble clic o un reintento por red no cobran dos veces.
   // Si el servidor ya respondió (p. ej. tarjeta rechazada), el siguiente intento usa una clave nueva.
+  const [billing, setBilling] = useState<BillingInput>({
+    idType: '05', idNumber: '', name: [user?.firstName, user?.lastName].filter(Boolean).join(' '), address: '', email: user?.email ?? '',
+  })
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [paying, setPaying] = useState(false)
 
@@ -98,6 +103,9 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
       { ...driver, firstName: driver.firstName.trim(), lastName: driver.lastName.trim(), phone: driver.phone || undefined },
       paymentToken,
       idempotencyKey,
+      billingType === '07'
+        ? { idType: '07', email: driver.email.trim() }
+        : { idType: billingType, idNumber: billing.idNumber.trim(), name: billing.name.trim(), address: billing.address.trim() || undefined, email: driver.email.trim() },
     ),
     onError: (error) => {
       if (error instanceof ApiError) setIdempotencyKey(crypto.randomUUID())
@@ -127,9 +135,21 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
   })
   const { errorFor, touch, canSubmit } = useFormValidation<keyof DriverInput>(driverErrors, confirm.error, 'driver.')
 
+  const total = preview.data?.price.total ?? null
+  // El SRI no admite consumidor final por encima de USD 50: si el total sube (p. ej. por un extra), se pide cédula.
+  const billingType = billing.idType === '07' && total !== null && total > FINAL_CONSUMER_MAX_TOTAL ? '05' : billing.idType
+  const billingErrors = collectErrors<'idType' | 'idNumber' | 'name'>({
+    idType: null,
+    idNumber: validateBuyerId(billingType, billing.idNumber),
+    name: billingType !== '07' && billing.name.trim().length < 3 ? 'Ingresa el nombre o la razón social.' : null,
+  })
+  const billingForm = useFormValidation<'idType' | 'idNumber' | 'name'>(billingErrors, confirm.error, 'billing.')
+
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!canSubmit() || !preview.data) return
+    const driverOk = canSubmit()
+    const billingOk = billingForm.canSubmit()
+    if (!driverOk || !billingOk || !preview.data) return
     confirm.reset()
     setPaying(true)
   }
@@ -185,6 +205,11 @@ function Checkout({ vehicleId, token, offer, pickupAt, dropoffAt, backUrl }: Che
                 <PhoneInput id="phone" value={driver.phone ?? ''} onChange={(phone) => setDriver({ ...driver, phone })} onBlur={touch('phone')} error={errorFor('phone')} />
               </div>
             </div>
+          </Card>
+
+          <Card className="p-6">
+            <StepTitle n={3} className="mb-4">Datos de facturación</StepTitle>
+            <BillingForm value={{ ...billing, idType: billingType }} onChange={setBilling} total={total} errorFor={billingForm.errorFor} touch={billingForm.touch} />
           </Card>
         </div>
 

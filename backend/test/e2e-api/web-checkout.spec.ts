@@ -63,7 +63,17 @@ describe('API interna — checkout y mis reservas', () => {
     expect(declined.body).toMatchObject({ status: 402, code: 'PAYMENT_NOT_AUTHORIZED' });
     expect((await http().get('/api/me/reservations').set(as(0)).expect(200)).body).toHaveLength(0);
 
-    const confirmBody = { orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_mastercard_4444_approved1' };
+    // RN27: más de USD 50 → el SRI no admite consumidor final; hay que identificar al comprador
+    const noBilling = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', randomUUID())
+      .send({ orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_visa_4242_nobilling1' }).expect(400);
+    expect(noBilling.body.invalidParams).toEqual([expect.objectContaining({ name: 'billing.idType' })]);
+    const badCedula = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', randomUUID())
+      .send({ orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_visa_4242_badcedula1', billing: { idType: '05', idNumber: '1710034066', name: 'Ana Pérez' } })
+      .expect(400);
+    expect(badCedula.body.invalidParams).toEqual([expect.objectContaining({ name: 'billing.idNumber' })]);
+
+    const billing = { idType: '05', idNumber: '1710034065', name: 'Ana Pérez', address: 'Av. Amazonas y Colón, Quito', email: 'ana@correo.ec' };
+    const confirmBody = { orderPreviewId: preview.body.orderPreviewId, driver, paymentToken: 'tok_sim_mastercard_4444_approved1', billing };
     const confirmed = await http().post('/api/checkout/confirm').set(as(0)).set('Idempotency-Key', key).send(confirmBody).expect(201);
     expect(confirmed.body).toMatchObject({
       status: 'CONFIRMED', channel: 'WEB', totalPrice: preview.body.price.total, canCancel: true,
@@ -98,12 +108,39 @@ describe('API interna — checkout y mis reservas', () => {
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
 
+    // Factura emitida en la misma transacción del pago, con el formato del SRI
+    const invoicesOf = async () => (await http().get(`/api/me/reservations/${confirmed.body.id}/invoices`).set(as(0)).expect(200)).body as {
+      id: string; type: string; number: string; accessKey: string; total: number; buyer: { id: string; name: string };
+    }[];
+    const [invoice] = await invoicesOf();
+    expect(invoice).toMatchObject({ type: 'INVOICE', total: confirmed.body.totalPrice, buyer: { id: '1710034065', name: 'ANA PÉREZ' } });
+    expect(invoice.number).toMatch(/^001-001-\d{9}$/);
+    expect(invoice.accessKey).toMatch(/^\d{49}$/);
+    const asBuffer = (req: request.Test) => req.buffer(true)
+      .parse((res, cb) => { const parts: Buffer[] = []; res.on('data', (c: Buffer) => parts.push(c)); res.on('end', () => cb(null, Buffer.concat(parts))); });
+    const ride = await asBuffer(http().get(`/api/me/invoices/${invoice.id}/pdf`).set(as(0))).expect(200);
+    expect((ride.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+    const xml = (await asBuffer(http().get(`/api/me/invoices/${invoice.id}/xml`).set(as(0))).expect(200)).body.toString();
+    expect(xml).toContain(`<claveAcceso>${invoice.accessKey}</claveAcceso>`);
+    expect(xml).toContain(`<importeTotal>${confirmed.body.totalPrice.toFixed(2)}</importeTotal>`);
+    expect(xml).toContain('<identificacionComprador>1710034065</identificacionComprador>');
+    await http().get(`/api/me/invoices/${invoice.id}/pdf`).set(as(1)).expect(404);
+    await http().get(`/api/me/reservations/${confirmed.body.id}/invoices`).set(as(1)).expect(404);
+
     const modified = await http().post(`/api/me/reservations/${confirmed.body.id}/modify`).set(as(0))
       .send({ extrasToRemove: ['CDW'], extrasToAdd: ['GPS'] }).expect(200);
     expect(modified.body.extras.map((e: { code: string }) => e.code)).toEqual(['GPS']);
 
     const cancelled = await http().post(`/api/me/reservations/${confirmed.body.id}/cancel`).set(as(0)).expect(200);
     expect(cancelled.body).toMatchObject({ status: 'CANCELLED', canCancel: false, cancellationFee: 0 });
+
+    // Modificación (CDW → GPS, más barato) = nota de crédito por la diferencia; cancelación sin penalización = nota de
+    // crédito por el resto. Lo facturado neto queda en cero.
+    const docs = await invoicesOf();
+    expect(docs.map((d) => d.type)).toEqual(['INVOICE', 'CREDIT_NOTE', 'CREDIT_NOTE']);
+    const net = docs.reduce((sum, d) => sum + Math.round(d.total * 100) * (d.type === 'INVOICE' ? 1 : -1), 0);
+    expect(net).toBe(0);
+    expect(docs[1].total).toBeCloseTo(confirmed.body.totalPrice - modified.body.totalPrice, 2);
   });
 
   it('el backend nunca acepta el número de tarjeta: solo el token de la pasarela', async () => {

@@ -13,10 +13,11 @@ import { DepotAdminService } from './depot-admin.service';
 import { FleetAdminService } from './fleet-admin.service';
 import { IntegrationAdminService } from './integration-admin.service';
 import { VouchersModule } from '../vouchers/vouchers.module';
+import { InvoicesModule } from '../invoices/invoices.module';
 
 /** Panel de administración (/api/admin). Reutiliza los servicios de dominio (reservas, disponibilidad, eventos). */
 @Module({
-  imports: [OrdersModule, AvailabilityModule, EventsModule, MediaModule, FleetStatusModule, StockSyncModule, VouchersModule],
+  imports: [OrdersModule, AvailabilityModule, EventsModule, MediaModule, FleetStatusModule, StockSyncModule, VouchersModule, InvoicesModule],
   controllers: [AdminController],
   providers: [AdminOperationsService, CatalogAdminService, FleetAdminService, DepotAdminService, IntegrationAdminService, BookingAdminService],
 })

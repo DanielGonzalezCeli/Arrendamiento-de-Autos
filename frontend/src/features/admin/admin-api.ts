@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/api'
 import type { OrderStatus, RentalStatus } from '../../lib/types'
+import type { InvoiceView } from '../invoices/InvoiceList'
 
 /** Tipos y hooks del panel de administración (API interna /api/admin, solo rol ADMIN). */
 
@@ -144,6 +145,7 @@ export interface AdminReservation {
   history: HistoryEntry[]
   freeUnits: { id: string; plate: string; color: string | null; year: number; mileage: number }[]
   voucherPath: string
+  invoices: InvoiceView[]
   actions: { pickUp: boolean; return: boolean; cancel: boolean }
 }
 

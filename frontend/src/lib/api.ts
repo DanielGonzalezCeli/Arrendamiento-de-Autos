@@ -92,3 +92,19 @@ export function errorMessage(error: unknown): string {
   if (error instanceof TypeError) return 'No se pudo conectar con el servidor. Si es la primera visita, espera unos segundos e inténtalo de nuevo.'
   return 'Ocurrió un error inesperado.'
 }
+
+/** Descarga un archivo protegido (con el token de la sesión) y lo guarda con el nombre que indica el backend. */
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, body?.detail ?? `Error ${response.status}`, body?.code, body?.invalidParams ?? [])
+  }
+  const name = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName
+  const url = URL.createObjectURL(await response.blob())
+  const link = Object.assign(document.createElement('a'), { href: url, download: name })
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

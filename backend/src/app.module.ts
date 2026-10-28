@@ -19,6 +19,7 @@ import { IntegrationApiModule } from './modules/integration-api/integration-api.
 import { IntegrationAuthModule } from './modules/integration-auth/integration-auth.module';
 import { InternalApiModule } from './modules/internal-api/internal-api.module';
 import { VouchersModule } from './modules/vouchers/vouchers.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 
 /** Campos que nunca deben aparecer en los logs. */
 const REDACTED_PATHS = [
@@ -71,6 +72,7 @@ const REDACTED_PATHS = [
     IntegrationAuthModule,
     InternalApiModule,
     VouchersModule,
+    InvoicesModule,
     AdminModule,
     IntegrationApiModule,
     // Reto 2: contrato v3 con Booking Prototipo (/api/v3) + envío de stock por gRPC
@@ -80,6 +82,7 @@ const REDACTED_PATHS = [
       { path: INTERNAL_BASE_PATH, module: AuthModule },
       { path: INTERNAL_BASE_PATH, module: InternalApiModule },
       { path: INTERNAL_BASE_PATH, module: VouchersModule },
+      { path: INTERNAL_BASE_PATH, module: InvoicesModule },
       { path: INTERNAL_BASE_PATH, module: AdminModule },
       { path: INTEGRATION_BASE_PATH, module: IntegrationApiModule },
     ]),

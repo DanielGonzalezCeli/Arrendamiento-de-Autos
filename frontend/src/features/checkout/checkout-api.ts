@@ -22,10 +22,19 @@ export interface DriverInput {
  * Paga (token de la pasarela simulada) y confirma. El Idempotency-Key es uno por intento de pago:
  * un doble clic o un reintento por error de red no cobran ni reservan dos veces.
  */
-export function confirmReservation(orderPreviewId: string, driver: DriverInput, paymentToken: string, idempotencyKey: string) {
+/** Datos de facturación tal como los recibe el backend (RN27). */
+export interface BillingPayload {
+  idType: string
+  idNumber?: string
+  name?: string
+  address?: string
+  email?: string
+}
+
+export function confirmReservation(orderPreviewId: string, driver: DriverInput, paymentToken: string, idempotencyKey: string, billing?: BillingPayload) {
   return apiFetch<Reservation>('/api/checkout/confirm', {
     method: 'POST',
-    body: { orderPreviewId, driver, paymentToken },
+    body: { orderPreviewId, driver, paymentToken, billing },
     headers: { 'Idempotency-Key': idempotencyKey },
   })
 }

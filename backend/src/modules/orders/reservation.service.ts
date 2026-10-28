@@ -31,6 +31,8 @@ import { OrderPricingService, Quote } from './order-pricing.service';
 import { buildRouteSnapshot, buildVehicleSnapshot } from './reservation-snapshots';
 import { isUuid } from './uuid';
 import { occupiedPeriodSql } from '../availability/availability.service';
+import { InvoiceService } from '../invoices/invoice.service';
+import { BuyerIdType, BuyerInput } from '../../domain/sri';
 
 export interface CreateReservationInput {
   orderPreviewId: string;
@@ -42,6 +44,8 @@ export interface CreateReservationInput {
   channel: OrderChannel;
   userId?: string | null;
   affiliateId?: number | null;
+  /** Datos de facturación (web). Sin ellos: el canal web solo admite consumidor final (≤ USD 50). */
+  billing?: BuyerInput | null;
 }
 
 /** Reserva de un auto concreto (placa) pedida por Booking Prototipo — contrato v3. */
@@ -89,6 +93,7 @@ export class ReservationService {
     private readonly availability: AvailabilityService,
     private readonly pricing: OrderPricingService,
     private readonly outbox: OutboxService,
+    private readonly invoices: InvoiceService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -128,6 +133,12 @@ export class ReservationService {
           `El total pasó de ${preview.totalPrice} a ${quote.breakdown.total} ${preview.currency}; genera una nueva preview`);
       }
       const breakdown = preview.expiresAt <= now ? quote.breakdown : preview.breakdown;
+      // RN27: datos de facturación validados antes de escribir nada (la web sin datos solo admite consumidor final ≤ USD 50).
+      const buyer = input.billing
+        ? this.invoices.validateBuyer(input.billing, breakdown.total)
+        : input.channel === OrderChannel.Web
+          ? this.invoices.validateBuyer({ idType: BuyerIdType.FinalConsumer, email: input.driver.email }, breakdown.total)
+          : null;
 
       const reservation = await m.save(Reservation, m.create(Reservation, {
         locator: generateLocator(model.supplier.code),
@@ -163,6 +174,8 @@ export class ReservationService {
       await m.update(OrderPreview, preview.id, { consumedAt: now });
       await this.history(m, reservation, ReservationAction.Created, input.ownerSub, null);
       await this.outbox.record(m, DomainEventType.CarOrderConfirmed, reservation.id, eventPayload(reservation));
+      // RN27: la factura se emite en la misma transacción que el cobro.
+      await this.invoices.issueForReservation(m, reservation, buyer);
 
       return this.reload(m, reservation.id);
     });
@@ -222,6 +235,7 @@ export class ReservationService {
       await this.saveExtras(m, reservation.id, quote.extras, quote.breakdown);
       await this.history(m, reservation, ReservationAction.Created, input.ownerSub, null);
       await this.outbox.record(m, DomainEventType.CarOrderConfirmed, reservation.id, eventPayload(reservation));
+      await this.invoices.issueForReservation(m, reservation);
       return this.reload(m, reservation.id);
     });
   }
@@ -316,6 +330,7 @@ export class ReservationService {
       const updated = await this.reload(m, reservation.id);
       await this.history(m, updated, ReservationAction.Modified, ownerSub, before);
       await this.outbox.record(m, DomainEventType.CarOrderModified, updated.id, eventPayload(updated));
+      await this.invoices.issueAdjustment(m, updated, reservation.priceBreakdown);
       return updated;
     });
   }
@@ -349,6 +364,7 @@ export class ReservationService {
       const cancelled = await this.reload(m, reservation.id);
       await this.history(m, cancelled, ReservationAction.Cancelled, actorSub, before);
       await this.outbox.record(m, DomainEventType.CarOrderCancelled, cancelled.id, { ...eventPayload(cancelled), cancellation_fee: fee });
+      await this.invoices.issueRefund(m, cancelled, Math.round((cancelled.totalPrice - fee) * 100) / 100, `Cancelación de la reserva ${cancelled.locator}`);
       return cancelled;
     });
   }

@@ -6,8 +6,10 @@ import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
-import { LoadingBlock } from '../../components/ui/Spinner'
-import { API_BASE_URL } from '../../lib/api'
+import { LoadingBlock, Skeleton } from '../../components/ui/Spinner'
+import { useQuery } from '@tanstack/react-query'
+import { API_BASE_URL, apiFetch } from '../../lib/api'
+import { InvoiceList, type InvoiceView } from '../invoices/InvoiceList'
 import { formatDateTime, formatMoney, TRANSMISSION_LABEL } from '../../lib/format'
 import { describeCard } from '../../lib/payment-card'
 import type { Reservation, RouteEndpoint } from '../../lib/types'
@@ -85,6 +87,7 @@ export function ReservationDetailPage() {
             )}
           </Card>
           {r.voucherPath && r.status !== 'CANCELLED' && <VoucherCard path={r.voucherPath} />}
+          <InvoicesCard reservation={r} />
           {r.status === 'CANCELLED' ? (
             <Alert tone="info">
               Cancelada el {formatDateTime(r.cancelledAt!)}.{' '}
@@ -96,6 +99,21 @@ export function ReservationDetailPage() {
         </div>
       </div>
     </PageContainer>
+  )
+}
+
+/** Factura del pago y comprobantes posteriores (ajustes, notas de crédito, cargos de devolución). */
+function InvoicesCard({ reservation }: { reservation: Reservation }) {
+  // La clave incluye estado y total: tras modificar o cancelar se vuelve a pedir (hay un comprobante nuevo).
+  const invoices = useQuery({
+    queryKey: ['invoices', reservation.id, reservation.status, reservation.totalPrice],
+    queryFn: () => apiFetch<InvoiceView[]>(`/api/me/reservations/${reservation.id}/invoices`),
+  })
+  return (
+    <Card className="p-6">
+      <h2 className="mb-1 font-semibold text-asphalt-900">Facturación</h2>
+      {invoices.isLoading ? <Skeleton className="h-16" /> : invoices.isError ? <ErrorAlert error={invoices.error} /> : <InvoiceList invoices={invoices.data ?? []} basePath="/api/me/invoices" />}
+    </Card>
   )
 }
 
