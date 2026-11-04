@@ -21,12 +21,16 @@ export interface StockUpdateAck {
   current_available?: number;
 }
 
+/** Motivo del aviso en el push REST (la guía de Booking muestra ORDER_CREATED). */
+export type StockReason = 'ORDER_CREATED' | 'STOCK_RELEASED' | 'VEHICLE_UNAVAILABLE';
+
 /** Lo que Booking debería saber de un auto: disponible (1) u ocupado (0) y la franja a la que se refiere. */
 export interface DesiredStock {
   itemId: string;
   units: 0 | 1;
   date: string;
   timeSlot: string;
+  reason: StockReason;
 }
 
 /** slot_id canónico acordado con el equipo de integración: slot-YYYYMMDD-HHMM. */
@@ -51,7 +55,8 @@ export function desiredStock(
   const units = availableUnits(unit.state);
   const reserved = unit.state === VehicleState.Reserved || unit.state === VehicleState.ReadyForPickup;
   const at = reserved && unit.nextPickupAt ? toZoned(unit.nextPickupAt, timeZone) : currentSlot(now, timeZone);
-  return { itemId: unit.vehicleId, units, date: at.date, timeSlot: at.time };
+  const reason: StockReason = units === 1 ? 'STOCK_RELEASED' : reserved ? 'ORDER_CREATED' : 'VEHICLE_UNAVAILABLE';
+  return { itemId: unit.vehicleId, units, date: at.date, timeSlot: at.time, reason };
 }
 
 /**

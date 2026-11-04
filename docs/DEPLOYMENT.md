@@ -77,6 +77,8 @@ Booking Prototipo exige que `/health` responda en < 4 s; Render free se duerme a
 
 **Variables:** públicas (configuradas por CLI) `NODE_ENV`, `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `PUBLIC_WEB_URL`, `USER_JWT_EXPIRES_IN`, `STOCK_SYNC_MODE`, `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `WEBSITES_CONTAINER_START_TIME_LIMIT=600`; secretas (cargadas a mano en el portal, nunca en el repo) `DATABASE_URL`, `USER_JWT_SECRET` (la misma de Render: deriva la clave de los secretos de webhooks), `LOCAL_OAUTH_PRIVATE_KEY`, `BOOKING_API_KEY` (distinta de la local; se comparte solo con el líder técnico de Booking).
 
+**Stock hacia Booking:** en Azure `STOCK_SYNC_MODE=http`, que hace un POST a `BOOKING_STOCK_HTTP_URL` (por defecto `https://booking-core-api.azurewebsites.net/api/v3/inventory/stock`) con `X-API-Key: BOOKING_API_KEY` y el body de la guía de socios (`item_id`, `available_units`, `date`, `reason`, más los campos del `.proto`). El backend local puede seguir con `grpc` por Tailscale. Rutas de la guía de socios, además del contrato v3: `POST /api/v3/autos/search` (`ciudad`, `fecha_inicio`, `fecha_fin`, `categoria`) y `POST /api/v3/autos/orders` (body del contrato v3).
+
 **Despliegue continuo:** el job `deploy-azure` de `.github/workflows/ci.yml` corre en cada push a `main` después de backend, frontend y E2E: compila, poda dependencias de desarrollo, empaqueta `backend/{dist,node_modules,package.json}` + `contracts/` y lo publica con `azure/webapps-deploy` usando el secreto de GitHub `AZURE_WEBAPP_PUBLISH_PROFILE` (perfil de publicación descargado del portal).
 
 **Costo:** B1 ≈ 13 USD/mes contra los 100 USD de crédito; el mismo plan puede alojar el gateway y los microservicios de la fase C sin costo adicional.

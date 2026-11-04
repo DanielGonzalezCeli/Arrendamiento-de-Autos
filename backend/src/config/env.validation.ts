@@ -131,7 +131,7 @@ export class EnvironmentVariables {
   BOOKING_GRPC_TARGET: string = 'localhost:50051';
 
   @IsUrl({ require_tld: false })
-  BOOKING_STOCK_HTTP_URL: string = 'https://rda1-backend-integracion-sistemas.onrender.com/api/v3/inventory/stock';
+  BOOKING_STOCK_HTTP_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/inventory/stock';
 
   /** Cada cuánto se reconcilia el stock con Booking (ms). 0 = solo al reservar/cancelar. */
   @IsInt()

@@ -6,7 +6,7 @@ import { FleetStatusService, FleetUnitView } from '../fleet-status/fleet-status.
 import { BookingStockTransport, GrpcStockTransport, HttpStockTransport, resolveProtoPath } from './booking-stock.client';
 import { StockSyncLog } from './entities/stock-sync-log.entity';
 import { StockSyncState } from './entities/stock-sync-state.entity';
-import { desiredStock, needsPush, nextTimestamp, slotId, StockUpdateAck, StockUpdateMessage } from './stock-message';
+import { desiredStock, needsPush, nextTimestamp, slotId, StockReason, StockUpdateAck, StockUpdateMessage } from './stock-message';
 
 export interface SyncSummary {
   checked: number;
@@ -45,7 +45,7 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
     try {
       this.transport = mode === 'grpc'
         ? new GrpcStockTransport(this.config.get<string>('BOOKING_GRPC_TARGET')!, resolveProtoPath(this.config.get('INVENTORY_PROTO_PATH')))
-        : new HttpStockTransport(this.config.get<string>('BOOKING_STOCK_HTTP_URL')!);
+        : new HttpStockTransport(this.config.get<string>('BOOKING_STOCK_HTTP_URL')!, this.config.get<string>('BOOKING_API_KEY'));
     } catch (error) {
       this.logger.error(`No se pudo iniciar el cliente de stock (${mode}): ${(error as Error).message}`);
       return;
@@ -118,7 +118,7 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
         available_units: desired.units,
         timestamp: nextTimestamp(Number(synced?.lastTimestamp ?? 0), Date.now()),
         slot_id: slotId(desired.date, desired.timeSlot),
-      }, synced);
+      }, desired.reason, synced);
       if (ok) summary.pushed++;
       else summary.failed++;
     }
@@ -128,12 +128,12 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
     return summary;
   }
 
-  private async push(itemId: string, message: StockUpdateMessage, previous: StockSyncState | undefined): Promise<boolean> {
+  private async push(itemId: string, message: StockUpdateMessage, reason: StockReason, previous: StockSyncState | undefined): Promise<boolean> {
     const transport = this.transport!;
     let ack: StockUpdateAck | null = null;
     let failure: string | null = null;
     try {
-      ack = await transport.push(message);
+      ack = await transport.push(message, reason);
     } catch (error) {
       failure = (error as Error).message.slice(0, 300);
     }

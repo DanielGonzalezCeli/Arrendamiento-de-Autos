@@ -1,12 +1,12 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { resolve } from 'path';
-import { StockUpdateAck, StockUpdateMessage } from './stock-message';
+import { StockReason, StockUpdateAck, StockUpdateMessage } from './stock-message';
 
 /** Transporte hacia Booking: gRPC (Tailscale/local) o el respaldo REST en la nube con el mismo JSON. */
 export interface BookingStockTransport {
   readonly name: 'grpc' | 'http';
-  push(message: StockUpdateMessage): Promise<StockUpdateAck>;
+  push(message: StockUpdateMessage, reason: StockReason): Promise<StockUpdateAck>;
   close(): void;
 }
 
@@ -45,17 +45,21 @@ export class GrpcStockTransport implements BookingStockTransport {
   }
 }
 
-/** Respaldo acordado: POST {BOOKING_STOCK_HTTP_URL} con el JSON del mensaje protobuf. */
+/**
+ * Push REST de la guía de socios de Booking (Azure): POST {BOOKING_STOCK_HTTP_URL} con X-API-Key y
+ * { item_id, available_units, date, reason }. Se envían también los demás campos del mensaje protobuf
+ * (service_id, time_slot, timestamp, slot_id) para no perder la franja ni el orden de los avisos.
+ */
 export class HttpStockTransport implements BookingStockTransport {
   readonly name = 'http' as const;
 
-  constructor(private readonly url: string) {}
+  constructor(private readonly url: string, private readonly apiKey?: string) {}
 
-  async push(message: StockUpdateMessage): Promise<StockUpdateAck> {
+  async push(message: StockUpdateMessage, reason: StockReason): Promise<StockUpdateAck> {
     const response = await fetch(this.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message),
+      headers: { 'Content-Type': 'application/json', ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}) },
+      body: JSON.stringify({ ...message, reason }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const body = (await response.json().catch(() => ({}))) as Partial<StockUpdateAck>;

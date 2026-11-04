@@ -11,7 +11,8 @@ import { V3OrdersService } from './v3-orders.service';
 /**
  * Contrato v3 con Booking Prototipo (autos-openapi-v3.yaml), base /api/v3. Booking registra la tienda con
  * Base URL = https://<tienda>/api/v3 y llama rutas cortas (/health, /reservas, /orders/{id}/cancel); por eso
- * cada operación acepta también esos alias, además de las rutas del contrato (/autos/...).
+ * cada operación acepta también esos alias, además de las rutas del contrato (/autos/...). La guía de socios de
+ * Booking agrega POST /autos/search y POST /autos/orders (este último con el body del contrato v3).
  *
  * Público (security: [] en el contrato): salud y catálogo. Con X-API-Key: reservas, órdenes, cancelación,
  * PUT de promociones y feed de eventos.
@@ -51,7 +52,7 @@ export class IntegrationV3Controller {
   }
 
   // ── Órdenes ─────────────────────────────────────────────────────────────
-  @Post(['reservas', 'orders/create', 'autos/reservas', 'autos/orders/create'])
+  @Post(['reservas', 'orders', 'orders/create', 'autos/reservas', 'autos/orders', 'autos/orders/create'])
   @UseGuards(ApiKeyGuard)
   async createOrder(
     @Body() body: unknown, @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -83,6 +84,13 @@ export class IntegrationV3Controller {
   }
 
   // ── Catálogo (al final: "autos/:id" no debe tapar las rutas anteriores) ──
+  /** Guía de socios de Booking: búsqueda por ciudad, fechas y categoría (pública, como GET /autos). */
+  @Post('autos/search')
+  @HttpCode(200)
+  searchVehicles(@Body() body: unknown) {
+    return this.catalog.search(body);
+  }
+
   @Get('autos')
   listVehicles(@Query() query: CatalogQuery) {
     return this.catalog.list(query);

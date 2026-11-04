@@ -147,6 +147,18 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     const reservedPush = await waitFor(() => received.find((m) => m.item_id === car.vehicle_id && m.available_units === 0));
     expect(reservedPush).toMatchObject({ date: day(startDay), time_slot: '10:00', slot_id: `slot-${day(startDay).replace(/-/g, '')}-1000` });
 
+    // POST /autos/search (guía de socios): con fechas que se cruzan el auto no aparece; en otras fechas sí, con stock 1
+    const search = (extra: Record<string, unknown>) => http().post('/api/v3/autos/search').send({ ciudad: car.ubicacion.ciudad, ...extra });
+    const overlapping = await search({ fecha_inicio: day(startDay + 1), fecha_fin: day(startDay + 2) }).expect(200);
+    expect(overlapping.body.data.map((a: { vehicle_id: string }) => a.vehicle_id)).not.toContain(car.vehicle_id);
+    const later = await search({ fecha_inicio: day(startDay + 10), fecha_fin: day(startDay + 12), categoria: car.categoria }).expect(200);
+    expect(later.body.data.find((a: { vehicle_id: string }) => a.vehicle_id === car.vehicle_id)).toMatchObject({ stock: 1, categoria: car.categoria });
+    expect(later.body.data.every((a: { ubicacion: { ciudad: string } }) => a.ubicacion.ciudad === car.ubicacion.ciudad)).toBe(true);
+    expect((await search({ ciudad: 'Ciudad Inexistente' }).expect(200)).body.total).toBe(0);
+    await search({ fecha_inicio: day(startDay + 3), fecha_fin: day(startDay) }).expect(422)
+      .expect((res) => expect(res.body.code).toBe('INVALID_DATES'));
+    await search({ categoria: 'NAVE' }).expect(400);
+
     // Reintento con la misma clave → misma respuesta, sin segunda reserva
     const replay = await http().post('/api/v3/autos/reservas').set('X-API-Key', TEST_API_KEY).set('Idempotency-Key', idem).send(body).expect(201);
     expect(replay.body.pnr).toBe(pnr);
@@ -158,7 +170,7 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
       .expect((res) => expect(res.body.code).toBe('IDEMPOTENCY_CONFLICT'));
 
     // El mismo auto en fechas que se cruzan → 409 VEHICLE_UNAVAILABLE (dispara la compensación de la Saga)
-    const conflict = await http().post('/api/v3/autos/orders/create').set('X-API-Key', TEST_API_KEY).set('Idempotency-Key', key())
+    const conflict = await http().post('/api/v3/autos/orders').set('X-API-Key', TEST_API_KEY).set('Idempotency-Key', key())
       .send({ ...body, pickup_date: day(startDay + 1), dropoff_date: day(startDay + 5) }).expect(409);
     expect(conflict.body).toMatchObject({ status: 409, code: 'VEHICLE_UNAVAILABLE', type: 'https://booking.epn.edu.ec/errors/vehicle-unavailable' });
 
