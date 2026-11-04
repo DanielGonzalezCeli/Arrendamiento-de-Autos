@@ -29,6 +29,8 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
   private transport: BookingStockTransport | null = null;
   private timer: NodeJS.Timeout | null = null;
   private running: Promise<SyncSummary> | null = null;
+  /** Último error de la vuelta en curso, para que el resumen del log diga por qué falló. */
+  private lastFailure: string | null = null;
 
   constructor(
     private readonly config: ConfigService,
@@ -93,6 +95,7 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
 
   private async reconcile(unitsPromise: Promise<FleetUnitView[]>, now: Date): Promise<SyncSummary> {
     const summary: SyncSummary = { checked: 0, pushed: 0, failed: 0 };
+    this.lastFailure = null;
     let units: FleetUnitView[];
     try {
       units = await unitsPromise;
@@ -123,7 +126,8 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
       else summary.failed++;
     }
     if (summary.pushed || summary.failed) {
-      this.logger.log(`Stock → Booking: ${summary.pushed} enviados, ${summary.failed} con error (de ${summary.checked} autos)`);
+      const reason = summary.failed && this.lastFailure ? ` — último error: ${this.lastFailure}` : '';
+      this.logger.log(`Stock → Booking: ${summary.pushed} enviados, ${summary.failed} con error (de ${summary.checked} autos)${reason}`);
     }
     return summary;
   }
@@ -155,6 +159,7 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
         ? { syncedUnits: message.available_units, syncedDate: message.date, syncedTimeSlot: message.time_slot, syncedAt: new Date() }
         : {}),
     });
+    if (!settled) this.lastFailure = `${errorCode}${text ? `: ${text}` : ''}`;
     if (!settled && (previous?.attempts ?? 0) === 0) {
       this.logger.warn(`PushStockUpdate ${itemId} falló (${errorCode}): ${text ?? ''} — se reintentará`);
     }
