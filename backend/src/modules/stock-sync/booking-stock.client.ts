@@ -1,12 +1,12 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { resolve } from 'path';
-import { StockReason, StockUpdateAck, StockUpdateMessage } from './stock-message';
+import { StockUpdateAck, StockUpdateMessage } from './stock-message';
 
 /** Transporte hacia Booking: gRPC (Tailscale/local) o el respaldo REST en la nube con el mismo JSON. */
 export interface BookingStockTransport {
   readonly name: 'grpc' | 'http';
-  push(message: StockUpdateMessage, reason: StockReason): Promise<StockUpdateAck>;
+  push(message: StockUpdateMessage): Promise<StockUpdateAck>;
   close(): void;
 }
 
@@ -53,20 +53,30 @@ function problemSummary(body: Record<string, unknown>, raw: string): string {
 }
 
 /**
- * Push REST de la guía de socios de Booking (Azure): POST {BOOKING_STOCK_HTTP_URL} con X-API-Key y
- * { item_id, available_units, date, reason }. Se envían también los demás campos del mensaje protobuf
- * (service_id, time_slot, timestamp, slot_id) para no perder la franja ni el orden de los avisos.
+ * Push REST de Booking en Azure: POST {BOOKING_STOCK_HTTP_URL} con X-API-Key y exactamente el cuerpo que su
+ * validador acepta — { service_id, item_id, available_units, date, time_slot: "DEFAULT" }. Cualquier campo
+ * extra (timestamp, slot_id, reason) o una franja "HH:mm" responde 400 CONTRACT_VALIDATION_ERROR.
  */
+export function toBookingStockBody(message: StockUpdateMessage) {
+  return {
+    service_id: message.service_id,
+    item_id: message.item_id,
+    available_units: message.available_units,
+    date: message.date,
+    time_slot: 'DEFAULT',
+  };
+}
+
 export class HttpStockTransport implements BookingStockTransport {
   readonly name = 'http' as const;
 
   constructor(private readonly url: string, private readonly apiKey?: string) {}
 
-  async push(message: StockUpdateMessage, reason: StockReason): Promise<StockUpdateAck> {
+  async push(message: StockUpdateMessage): Promise<StockUpdateAck> {
     const response = await fetch(this.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}) },
-      body: JSON.stringify({ ...message, reason }),
+      body: JSON.stringify(toBookingStockBody(message)),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const raw = await response.text().catch(() => '');

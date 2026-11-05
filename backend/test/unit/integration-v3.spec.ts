@@ -104,31 +104,31 @@ describe('inventory.proto — PushStockUpdate', () => {
 
   it('reservado → 0 con la fecha y hora de retiro; disponible → 1 con la franja actual', () => {
     const reserved = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Reserved, nextPickupAt: new Date('2026-11-15T15:00:00Z') }, now, tz);
-    expect(reserved).toEqual({ itemId: 'auto-pan-1001', units: 0, date: '2026-11-15', timeSlot: '10:00', reason: 'ORDER_CREATED' });
+    expect(reserved).toEqual({ itemId: 'auto-pan-1001', units: 0, date: '2026-11-15', timeSlot: '10:00' });
     const free = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Available, nextPickupAt: null }, now, tz);
-    expect(free).toEqual({ itemId: 'auto-pan-1001', units: 1, date: '2026-11-10', timeSlot: '10:00', reason: 'STOCK_RELEASED' });
+    expect(free).toEqual({ itemId: 'auto-pan-1001', units: 1, date: '2026-11-10', timeSlot: '10:00' });
     const shop = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Maintenance, nextPickupAt: null }, now, tz);
-    expect(shop).toMatchObject({ units: 0, reason: 'VEHICLE_UNAVAILABLE' });
+    expect(shop).toMatchObject({ units: 0 });
   });
 
-  it('push REST: X-API-Key y body de la guía de Booking (item_id, available_units, date, reason)', async () => {
+  it('push REST: X-API-Key y solo los campos que acepta Booking (time_slot DEFAULT, sin extras)', async () => {
     const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ success: true, acknowledged: true, message: 'ok', source: 'HTTP_REST' }), { status: 200 }));
     try {
       const message = { service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', date: '2026-11-15', time_slot: '10:00', available_units: 0, timestamp: 1, slot_id: 'slot-20261115-1000' };
-      const ack = await new HttpStockTransport('https://booking.test/api/v3/inventory/stock', 'clave').push(message, 'ORDER_CREATED');
+      const ack = await new HttpStockTransport('https://booking.test/api/v3/inventory/stock', 'clave').push(message);
       expect(ack.success).toBe(true);
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('https://booking.test/api/v3/inventory/stock');
       expect((init.headers as Record<string, string>)['X-API-Key']).toBe('clave');
-      expect(JSON.parse(init.body as string)).toMatchObject({ item_id: 'auto-pan-1001', available_units: 0, date: '2026-11-15', reason: 'ORDER_CREATED' });
+      expect(JSON.parse(init.body as string)).toEqual({ service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', available_units: 0, date: '2026-11-15', time_slot: 'DEFAULT' });
     } finally {
       fetchMock.mockRestore();
     }
   });
 
   it('solo se reenvía si cambia la disponibilidad o la reserva', () => {
-    const free = { itemId: 'a', units: 1 as const, date: '2026-11-10', timeSlot: '10:30', reason: 'STOCK_RELEASED' as const };
+    const free = { itemId: 'a', units: 1 as const, date: '2026-11-10', timeSlot: '10:30' };
     expect(needsPush(free, { units: 1, date: '2026-11-10', timeSlot: '10:00' })).toBe(false);
     expect(needsPush(free, { units: null, date: null, timeSlot: null })).toBe(true);
     expect(needsPush({ ...free, units: 0 }, { units: 0, date: '2026-11-12', timeSlot: '10:00' })).toBe(true);
