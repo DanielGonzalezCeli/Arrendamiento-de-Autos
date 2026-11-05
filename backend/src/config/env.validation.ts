@@ -133,6 +133,15 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false })
   BOOKING_STOCK_HTTP_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/inventory/stock';
 
+  /** Contrato v3.1: aviso de check-in (entrega de llaves) a Booking. off = los avisos quedan pendientes en el outbox. */
+  @IsIn(['off', 'http'])
+  BOOKING_NOTIFY_MODE: 'off' | 'http' = 'off';
+
+  /** URL del check-in en Booking; {external_order_id} se reemplaza por el localizador (PNR). */
+  @IsString()
+  @Matches(/^https?:\/\/\S+\{external_order_id\}/)
+  BOOKING_CHECKIN_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/reservas/{external_order_id}/checkin';
+
   /** Cada cuánto se reconcilia el stock con Booking (ms). 0 = solo al reservar/cancelar. */
   @IsInt()
   @Min(0)

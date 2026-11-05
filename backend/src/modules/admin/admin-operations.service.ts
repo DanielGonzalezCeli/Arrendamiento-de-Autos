@@ -15,6 +15,10 @@ import { CreateUserDto, ReservationFiltersDto, ResetPasswordDto, UpdateUserDto }
 import { VoucherService } from '../vouchers/voucher.service';
 import { InvoiceService } from '../invoices/invoice.service';
 import { toInvoiceView } from '../invoices/invoice.mapper';
+import { Client } from '../clients/client.entity';
+import { normalizeIdentification } from '../clients/clients.service';
+import { BOOKING_PARTNER_SUB } from '../../domain/partners';
+import { BookingCheckin } from '../orders/entities/booking-checkin.entity';
 
 const TZ = 'America/Guayaquil';
 const LIST_LIMIT = 200;
@@ -83,7 +87,10 @@ export class AdminOperationsService {
       qb.andWhere(new Brackets((w) => w
         .where('lower(r.locator) LIKE :term', { term })
         .orWhere('lower(r.driverEmail) LIKE :term', { term })
-        .orWhere('lower(r.driverLastName) LIKE :term', { term })));
+        .orWhere('lower(r.driverLastName) LIKE :term', { term })
+        // Mostrador (v3.1): también por cédula/pasaporte del cliente o la licencia que mandó Booking
+        .orWhere('r.clientId IN (SELECT c.id FROM clients c WHERE c.identification LIKE :idTerm)', { idTerm: `%${normalizeIdentification(filters.q!)}%` })
+        .orWhere(`r.partnerData ->> 'license_number' LIKE :term`, { term })));
     }
     return (await qb.getMany()).map((r) => this.summary(r));
   }
@@ -102,6 +109,9 @@ export class AdminOperationsService {
       voucherPath: this.vouchers.linkFor(reservation).path,
       invoices: (await this.invoices.listForReservation(reservation.id)).map(toInvoiceView),
       inspections: await this.rentals.inspections(reservation.id),
+      client: reservation.clientId ? await this.dataSource.getRepository(Client).findOneBy({ id: reservation.clientId }) : null,
+      fromBooking: reservation.ownerSub === BOOKING_PARTNER_SUB,
+      bookingCheckin: await this.dataSource.getRepository(BookingCheckin).findOneBy({ reservationId: reservation.id }),
       actions: {
         pickUp: canPickUp,
         return: reservation.rentalStatus === RentalStatus.PickedUp,
@@ -234,6 +244,8 @@ export class AdminOperationsService {
       plate: (r.vehicleSnapshot as { plate?: string }).plate ?? null,
       driver: `${r.driverFirstName} ${r.driverLastName}`,
       driverEmail: r.driverEmail,
+      identification: (r.partnerData?.license_number as string | undefined) ?? null,
+      fromBooking: r.ownerSub === BOOKING_PARTNER_SUB,
       pickupDepot: r.pickupDepot?.name ?? (r.routeSnapshot as { pickup?: { name?: string } }).pickup?.name,
       pickupAt: r.pickupAt,
       dropoffAt: r.dropoffAt,

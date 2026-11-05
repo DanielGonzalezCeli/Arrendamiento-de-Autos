@@ -45,6 +45,13 @@ export class GrpcStockTransport implements BookingStockTransport {
   }
 }
 
+/** Lo útil de un error de Booking (Problem Details): code, detail y los campos inválidos, sin el resto del sobre. */
+function problemSummary(body: Record<string, unknown>, raw: string): string {
+  const fields = body.invalid_params ?? body.errors ?? body.violations ?? body.message;
+  const parts = [body.code, body.detail, fields === undefined ? undefined : JSON.stringify(fields)].filter((p) => p !== undefined && p !== null);
+  return parts.length ? parts.map(String).join(' · ').slice(0, 280) : raw.slice(0, 280);
+}
+
 /**
  * Push REST de la guía de socios de Booking (Azure): POST {BOOKING_STOCK_HTTP_URL} con X-API-Key y
  * { item_id, available_units, date, reason }. Se envían también los demás campos del mensaje protobuf
@@ -69,8 +76,7 @@ export class HttpStockTransport implements BookingStockTransport {
     } catch {
       // cuerpo vacío o no JSON: se reporta el texto tal cual
     }
-    // Sin "message", el detalle del 400 suele venir en otros campos (error, errors, detail): se guarda el cuerpo completo.
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${body.message ?? (raw.slice(0, 250) || response.statusText)}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${problemSummary(body as Record<string, unknown>, raw) || response.statusText}`);
     return { success: body.success ?? true, ...body };
   }
 

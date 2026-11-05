@@ -44,6 +44,10 @@ export class Reservation {
   @Column({ type: 'integer', nullable: true })
   affiliateId: number | null;
 
+  /** Contrato v3.1: cliente cross-platform (las reservas de Booking se vinculan al crearse). */
+  @Column({ type: 'uuid', nullable: true })
+  clientId: string | null;
+
   @Column({ type: 'uuid' })
   vehicleModelId: string;
 

@@ -1,19 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomInt } from 'crypto';
+import { EntityManager } from 'typeorm';
 import { translateToV3, v3Error, V3Code } from '../../common/problem-details/problem-details-v3';
 import { DomainError } from '../../domain/domain-error';
 import { OrderStatus } from '../../domain/enums';
+import { BOOKING_PARTNER_SUB } from '../../domain/partners';
 import { zonedToUtc } from '../../domain/zoned-time';
+import { ClientsService, isValidIdentification, normalizeIdentification } from '../clients/clients.service';
 import { FleetStatusService, vehicleIdForPlate } from '../fleet-status/fleet-status.service';
 import { IdempotencyService, IdempotentResult } from '../idempotency/idempotency.service';
 import { isUuid } from '../orders/uuid';
+import { Reservation } from '../orders/entities/reservation.entity';
 import { cancellationOutcome, ReservationService } from '../orders/reservation.service';
 import { StockSyncService } from '../stock-sync/stock-sync.service';
-import { parseCancel, parseCreateOrder, splitFullName } from './v3-request';
+import { CreateOrderRequest, parseCancel, parseCreateOrder, splitFullName } from './v3-request';
 import { toCancelResponse, toOrderResponse } from './v3-mapper';
 
-/** Dueño (owner_sub) de las reservas que crea Booking Prototipo por el contrato v3. */
-export const BOOKING_PARTNER_SUB = 'partner:booking-prototipo';
+/** Dueño (owner_sub) de las reservas de Booking; vive en el dominio porque también lo usa la entrega (check-in). */
+export { BOOKING_PARTNER_SUB };
 
 const PNR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
@@ -41,6 +45,7 @@ export class V3OrdersService {
     private readonly fleet: FleetStatusService,
     private readonly idempotency: IdempotencyService,
     private readonly stockSync: StockSyncService,
+    private readonly clients: ClientsService,
   ) {}
 
   async create(body: unknown, idempotencyKey: string | undefined, correlationId: string): Promise<IdempotentResult<unknown>> {
@@ -88,6 +93,8 @@ export class V3OrdersService {
               idempotency_key: idempotencyKey,
             },
           }, manager);
+          reservation.clientId = await this.resolveClient(request, manager);
+          await manager.update(Reservation, reservation.id, { clientId: reservation.clientId });
           return toOrderResponse(reservation);
         } catch (error) {
           throw asV3(error);
@@ -99,6 +106,25 @@ export class V3OrdersService {
       void this.stockSync.syncVehicle(unit.vehicleId);
     }
     return result;
+  }
+
+  /**
+   * Contrato v3.1: la reserva queda ligada a un cliente único. Si Booking manda un client_id nuestro se usa;
+   * si no, se busca o registra por identificación (o la licencia) y correo. Una identificación que no
+   * cumple el formato no impide reservar: se omite el vínculo.
+   */
+  private async resolveClient(request: CreateOrderRequest, manager: EntityManager): Promise<string | null> {
+    if (request.clientId && isUuid(request.clientId)) {
+      const known = await this.clients.findById(request.clientId, manager);
+      if (known) return known.id;
+    }
+    const identification = normalizeIdentification(request.driver.identification ?? request.driver.licenseNumber);
+    if (!isValidIdentification(identification)) return null;
+    const { client } = await this.clients.findOrCreate({
+      fullName: request.driver.fullName, email: request.driver.email, identification,
+      phone: request.driver.phone, licenseNumber: request.driver.licenseNumber, source: 'BOOKING',
+    }, manager);
+    return client.id;
   }
 
   async get(idOrPnr: string) {

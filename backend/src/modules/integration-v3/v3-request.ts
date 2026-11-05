@@ -7,6 +7,8 @@ export type CoverageType = 'BASIC' | 'TOTAL';
 /** CreateAutoOrderRequestV2 normalizado (campos en inglés del contrato v3). */
 export interface CreateOrderRequest {
   vehicleId: string;
+  /** Contrato v3.1: client_id devuelto por POST /clientes (opcional). */
+  clientId: string | null;
   pickupDate: string;
   dropoffDate: string;
   pickupTime: string;
@@ -19,6 +21,8 @@ export interface CreateOrderRequest {
     email: string;
     phone: string;
     licenseNumber: string;
+    /** Cédula/pasaporte; si no viene, se usa license_number (en Ecuador la licencia es la cédula). */
+    identification: string | null;
     countryLicense: string | null;
     age: number;
     flightNumber: string | null;
@@ -114,6 +118,7 @@ export function parseCreateOrder(raw: unknown): CreateOrderRequest {
 
   return {
     vehicleId: vehicleId!.toLowerCase(),
+    clientId: text(pick(body, 'client_id', 'cliente_id'), 64),
     pickupDate: pickupDate!,
     dropoffDate: dropoffDate!,
     pickupTime: pickupTime.slice(0, 5),
@@ -126,6 +131,7 @@ export function parseCreateOrder(raw: unknown): CreateOrderRequest {
       email: email!.toLowerCase(),
       phone: phone!,
       licenseNumber: licenseNumber!,
+      identification: text(pick(driver, 'identificacion', 'identification', 'cedula'), 30),
       countryLicense: text(pick(driver, 'country_license', 'pais_licencia'), 60),
       age: age as number,
       flightNumber: text(pick(driver, 'flight_number', 'numero_vuelo'), 12),

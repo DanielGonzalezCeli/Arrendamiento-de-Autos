@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { newCorrelationId } from '../../common/problem-details/problem-details-v3';
+import { BOOKING_PARTNER_SUB } from '../../domain/partners';
+import { BookingCheckin } from './entities/booking-checkin.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { BUSINESS_RULES } from '../../domain/business-rules';
@@ -97,6 +100,23 @@ export class RentalOperationsService {
         }));
         await this.history(m, reservation.id, ReservationAction.PickedUp, actorSub, before,
           { rental_status: RentalStatus.PickedUp, plate: unit.plate, fuel_eighths: fuelEighths, mileage });
+        // Contrato v3.1 (Outbox): si la reserva vino de Booking, el aviso de check-in se guarda en esta misma transacción.
+        if (reservation.ownerSub === BOOKING_PARTNER_SUB) {
+          await m.insert(BookingCheckin, {
+            reservationId: reservation.id,
+            locator: reservation.locator,
+            correlationId: newCorrelationId(),
+            payload: {
+              external_order_id: reservation.locator,
+              client_id: reservation.clientId,
+              estado: 'CONFIRMADO_ASISTIDO',
+              admin_id: actorSub,
+              fecha_checkin: now.toISOString(),
+              observaciones: input.notes?.trim() || 'Vehículo entregado físicamente con contrato y licencia validada',
+              placa: unit.plate,
+            },
+          });
+        }
         return m.findOneOrFail(Reservation, { where: { id: reservation.id }, relations: { extras: true } });
       });
     } catch (error) {

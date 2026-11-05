@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserJwtGuard } from '../auth/guards/user-jwt.guard';
 import { toReservationView } from '../internal-api/mappers/reservation.mapper';
 import { MAX_IMAGE_BYTES, MediaService, UploadedImage } from '../media/media.service';
+import { BookingCheckinService } from '../orders/booking-checkin.service';
 import { RentalOperationsService } from '../orders/rental-operations.service';
 import { ReservationService } from '../orders/reservation.service';
 import { AdminOperationsService } from './admin-operations.service';
@@ -49,6 +50,7 @@ export class AdminController {
     private readonly reservations: ReservationService,
     private readonly rentals: RentalOperationsService,
     private readonly media: MediaService,
+    private readonly checkins: BookingCheckinService,
   ) {}
 
   @Get('dashboard')
@@ -70,9 +72,10 @@ export class AdminController {
 
   @Post('reservations/:id/pickup')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Registrar la entrega: asigna una placa libre del modelo' })
+  @ApiOperation({ summary: 'Registrar la entrega (check-in de mostrador): asigna una placa libre y avisa a Booking si la reserva vino de allá' })
   async pickUp(@Param('id') id: string, @Body() dto: PickupDto, @CurrentUser() user: AuthUser) {
     await this.rentals.pickUp(id, dto, `admin:${user.id}`);
+    await this.checkins.dispatch(id); // contrato v3.1: check-in a Booking (si falla, queda en el outbox y se reintenta)
     return this.operations.reservationDetail(id);
   }
 

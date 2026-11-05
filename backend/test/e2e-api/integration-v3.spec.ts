@@ -1,8 +1,9 @@
-import { FAKE_BOOKING_GRPC_PORT, TEST_API_KEY } from './v3-env';
+import { FAKE_BOOKING_GRPC_PORT, FAKE_BOOKING_HTTP_PORT, TEST_API_KEY } from './v3-env';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { createServer, IncomingHttpHeaders, Server } from 'http';
 import { resolve } from 'path';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -43,6 +44,26 @@ async function startFakeBooking(received: Pushed[]): Promise<grpc.Server> {
   return server;
 }
 
+interface CheckinCall {
+  url: string;
+  headers: IncomingHttpHeaders;
+  body: Record<string, unknown>;
+}
+
+/** Booking por HTTP: recibe POST /api/v3/reservas/{id}/checkin y responde como el Booking real. */
+async function startFakeBookingHttp(calls: CheckinCall[]): Promise<Server> {
+  const server = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (chunk) => (raw += chunk));
+    req.on('end', () => {
+      calls.push({ url: req.url ?? '', headers: req.headers, body: JSON.parse(raw || '{}') });
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ acknowledged: true, status: 'CONFIRMADO_ASISTIDO' }));
+    });
+  });
+  await new Promise<void>((ok) => server.listen(FAKE_BOOKING_HTTP_PORT, '127.0.0.1', ok));
+  return server;
+}
+
 async function waitFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise<T> {
   const started = Date.now();
   for (;;) {
@@ -56,13 +77,17 @@ async function waitFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise
 describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC', () => {
   let app: INestApplication;
   let grpcServer: grpc.Server;
+  let httpServer: Server;
+  const checkins: CheckinCall[] = [];
   const received: Pushed[] = [];
   const pnrs: string[] = [];
   const keys: string[] = [];
   const startDay = 40 + Math.floor(Math.random() * 200);
+  const identifications: string[] = ['1710034065'];
 
   beforeAll(async () => {
     grpcServer = await startFakeBooking(received);
+    httpServer = await startFakeBookingHttp(checkins);
     app = await createApp();
   });
 
@@ -72,12 +97,14 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT id FROM outbox_events WHERE resource_id = ANY($1))`, [ids]);
     await db.query(`DELETE FROM outbox_events WHERE resource_id = ANY($1)`, [ids]);
     await db.query(`DELETE FROM reservations WHERE locator = ANY($1)`, [pnrs]);
+    await db.query(`DELETE FROM clients WHERE identification = ANY($1) OR email_canonical = $2`, [identifications, driver.email]);
     await db.query(`DELETE FROM idempotency_records WHERE idempotency_key = ANY($1)`, [keys]);
     // El servidor gRPC era simulado: se olvida lo "sincronizado" para que la próxima sincronización real envíe todo.
     await db.query(`DELETE FROM stock_sync_state`);
     await db.query(`DELETE FROM stock_sync_log`);
     await app?.close();
     grpcServer?.forceShutdown();
+    httpServer?.close();
   });
 
   const http = () => request(app.getHttpServer());
@@ -212,6 +239,84 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
       'ec.edu.epn.booking.autos.order.confirmed', 'ec.edu.epn.booking.autos.order.cancelled',
     ]);
     expect(mine[0]).toMatchObject({ specversion: '1.0', correlation_id: 'cid-test-reserva', data: { auto_id: car.vehicle_id } });
+  });
+
+  it('clientes v3.1: consulta, alta sin duplicados y vínculo con la reserva de Booking', async () => {
+    const id = `09${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+    identifications.push(id);
+    const email = `cliente.${id}@example.com`;
+    const auth = (r: request.Test) => r.set('X-API-Key', TEST_API_KEY);
+
+    await http().get('/api/v3/clientes').query({ email }).expect(401);
+    await auth(http().get('/api/v3/clientes')).expect(400);
+    await auth(http().get('/api/v3/clientes').query({ email })).expect(404)
+      .expect((res) => expect(res.body.code).toBe('NOT_FOUND'));
+
+    const body = { nombre: 'Lucía Paredes', email, identificacion: id, telefono: '+593987001122', licencia: id };
+    const created = await auth(http().post('/api/v3/clientes')).send(body).expect(201);
+    expect(created.body).toMatchObject({ nombre: 'Lucía Paredes', email, identificacion: id, origen: 'BOOKING', existente: false });
+    const clientId: string = created.body.client_id;
+
+    // La misma persona otra vez (cédula con puntos y guion, correo en mayúsculas) → 200 con el mismo client_id
+    const again = await auth(http().post('/api/v3/clientes'))
+      .send({ ...body, email: email.toUpperCase(), identificacion: `${id.slice(0, 2)}.${id.slice(2, 9)}-${id.slice(9)}` }).expect(200);
+    expect(again.body).toMatchObject({ client_id: clientId, existente: true });
+    expect((await auth(http().get('/api/v3/clientes').query({ identificacion: id })).expect(200)).body.client_id).toBe(clientId);
+    expect((await auth(http().get('/api/v3/clientes').query({ email })).expect(200)).body.client_id).toBe(clientId);
+    await auth(http().post('/api/v3/clientes')).send({ nombre: 'X', email: 'no-es-correo', identificacion: '1' }).expect(422)
+      .expect((res) => expect(res.body.invalid_params.map((p: { name: string }) => p.name)).toEqual(['nombre', 'email', 'identificacion']));
+
+    // Booking reserva con ese client_id → la reserva queda vinculada; sin client_id se vincula por la licencia
+    const catalog = await http().get('/api/v3/autos').query({ limit: 100 }).expect(200);
+    const car = catalog.body.data[catalog.body.data.length - 1];
+    const order = {
+      vehicle_id: car.vehicle_id, client_id: clientId, pickup_date: day(startDay + 30), dropoff_date: day(startDay + 31),
+      pickup_time: '10:00:00', dropoff_time: '12:00:00', coverage_type: 'BASIC',
+      driver: { full_name: 'Lucía Paredes', email, phone: '+593987001122', license_number: id, age: 31 },
+    };
+    const reserved = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key()).send(order).expect(201);
+    pnrs.push(reserved.body.pnr);
+    expect(reserved.body.client_id).toBe(clientId);
+    const second = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key())
+      .send({ ...order, client_id: undefined, pickup_date: day(startDay + 40), dropoff_date: day(startDay + 41) }).expect(201);
+    pnrs.push(second.body.pnr);
+    expect(second.body.client_id).toBe(clientId);
+    const [{ count }] = await app.get(DataSource).query(`SELECT count(*)::int AS count FROM clients WHERE identification = $1`, [id]);
+    expect(count).toBe(1);
+  });
+
+  it('mostrador v3.1: buscar por cédula, confirmar la entrega y avisar el check-in a Booking (outbox)', async () => {
+    const id = `08${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+    identifications.push(id);
+    const email = `mostrador.${id}@example.com`;
+    const catalog = await http().get('/api/v3/autos').query({ limit: 100 }).expect(200);
+    const car = catalog.body.data[Math.floor(catalog.body.data.length / 2)];
+    const order = await http().post('/api/v3/autos/orders').set('X-API-Key', TEST_API_KEY).set('Idempotency-Key', key()).send({
+      vehicle_id: car.vehicle_id, pickup_date: day(startDay + 50), dropoff_date: day(startDay + 52), coverage_type: 'BASIC',
+      driver: { full_name: 'Mario Cevallos', email, phone: '+593987003344', license_number: id, age: 40 },
+    }).expect(201);
+    const pnr: string = order.body.pnr;
+    pnrs.push(pnr);
+
+    const login = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(200);
+    const admin = { Authorization: `Bearer ${login.body.accessToken}` };
+    const found = await http().get('/api/admin/reservations').query({ q: id }).set(admin).expect(200);
+    expect(found.body).toHaveLength(1);
+    expect(found.body[0]).toMatchObject({ locator: pnr, rentalStatus: 'NOT_STARTED', fromBooking: true, identification: id });
+
+    const delivered = await http().post(`/api/admin/reservations/${found.body[0].id}/pickup`).set(admin)
+      .send({ fuelEighths: 8, notes: 'Contrato firmado y licencia validada' }).expect(200);
+    expect(delivered.body).toMatchObject({ rentalStatus: 'PICKED_UP', fromBooking: true, client: { identification: id } });
+    expect(delivered.body.bookingCheckin).toMatchObject({ status: 'SENT', acknowledgedStatus: 'CONFIRMADO_ASISTIDO', attempts: 1 });
+
+    const call = checkins.find((c) => c.url === `/api/v3/reservas/${pnr}/checkin`)!;
+    expect(call.headers['x-api-key']).toBe(TEST_API_KEY);
+    expect(call.headers['x-correlation-id']).toMatch(/^cid-aut-/);
+    expect(call.body).toMatchObject({
+      external_order_id: pnr, client_id: order.body.client_id, estado: 'CONFIRMADO_ASISTIDO',
+      observaciones: 'Contrato firmado y licencia validada',
+    });
+    expect(new Date(call.body.fecha_checkin as string).getTime()).toBeGreaterThan(Date.now() - 60_000);
   });
 
   it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {

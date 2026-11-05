@@ -159,6 +159,7 @@ export function toOrderResponse(r: Reservation, outcome?: CancellationOutcome) {
     order_id: r.locator,
     pnr: r.locator,
     codigo_reserva: r.locator,
+    client_id: r.clientId ?? null,
     status: r.status,
     estado: r.status,
     auto_id: vehicleId,

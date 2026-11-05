@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ClientsModule } from '../clients/clients.module';
 import { FleetStatusModule } from '../fleet-status/fleet-status.module';
 import { IdempotencyModule } from '../idempotency/idempotency.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -19,7 +20,7 @@ import { V3OrdersService } from './v3-orders.service';
  * (acuerdo del equipo de Autos) cada servicio de aquí pasa a su microservicio.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PromotionAgreement]), OrdersModule, IdempotencyModule, FleetStatusModule, StockSyncModule],
+  imports: [TypeOrmModule.forFeature([PromotionAgreement]), OrdersModule, IdempotencyModule, FleetStatusModule, StockSyncModule, ClientsModule],
   controllers: [IntegrationV3Controller],
   providers: [V3CatalogService, V3OrdersService, PromotionsService, EventsFeedService, ApiKeyGuard, CorrelationMiddleware],
 })

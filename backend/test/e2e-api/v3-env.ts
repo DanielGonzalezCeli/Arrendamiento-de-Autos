@@ -4,8 +4,11 @@
  */
 export const TEST_API_KEY = 'clave-de-prueba-booking-v3-0123456789';
 export const FAKE_BOOKING_GRPC_PORT = 50_999;
+export const FAKE_BOOKING_HTTP_PORT = 50_998;
 
 process.env.BOOKING_API_KEY = TEST_API_KEY;
 process.env.STOCK_SYNC_MODE = 'grpc';
 process.env.BOOKING_GRPC_TARGET = `127.0.0.1:${FAKE_BOOKING_GRPC_PORT}`;
 process.env.STOCK_SYNC_INTERVAL_MS = '0';
+process.env.BOOKING_NOTIFY_MODE = 'http';
+process.env.BOOKING_CHECKIN_URL = `http://127.0.0.1:${FAKE_BOOKING_HTTP_PORT}/api/v3/reservas/{external_order_id}/checkin`;
