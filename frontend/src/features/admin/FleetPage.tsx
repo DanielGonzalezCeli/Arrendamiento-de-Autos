@@ -20,7 +20,8 @@ export function FleetPage() {
   if (depotFilter) params.set('depotId', depotFilter)
   const query = params.toString()
 
-  const units = useAdminQuery<FleetUnit[]>(`fleet${query ? `?${query}` : ''}`)
+  // Se refresca solo: una reserva hecha desde Booking cambia el estado del auto sin recargar.
+  const units = useAdminQuery<FleetUnit[]>(`fleet${query ? `?${query}` : ''}`, { refetchInterval: 10_000 })
   const models = useAdminQuery<VehicleModel[]>('models')
   const depots = useAdminQuery<Depot[]>('depots')
   const [editing, setEditing] = useState<FleetUnit | 'new' | null>(null)

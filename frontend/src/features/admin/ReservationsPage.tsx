@@ -42,7 +42,7 @@ export function ReservationsPage() {
         <label className="relative min-w-0 flex-[2_1_16rem]">
           <span className="sr-only">Buscar</span>
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <input className={`${INPUT_CLASS} pl-9`} placeholder="Localizador, correo o apellido" value={q} onChange={(e) => setQ(e.target.value)} maxLength={80} />
+          <input className={`${INPUT_CLASS} pl-9`} placeholder="Localizador, cédula, correo o apellido" value={q} onChange={(e) => setQ(e.target.value)} maxLength={80} />
         </label>
         <select aria-label="Estado" className={`${INPUT_CLASS} min-w-0 flex-[1_1_10rem]`} value={state} onChange={(e) => setState(e.target.value)}>
           {STATES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}

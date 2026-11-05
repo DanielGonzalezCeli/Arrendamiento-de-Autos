@@ -61,17 +61,23 @@ test('el administrador entrega y recibe un vehículo y recorre el panel', async 
   await expect(page.getByText('Ingresos del mes')).toBeVisible()
   await snap(page, 'admin-01-resumen')
 
-  // Reservas → buscar por localizador → detalle
+  // Reservas → buscar por localizador
   const nav = page.getByRole('navigation', { name: 'Panel de administración' })
   await nav.getByRole('link', { name: 'Reservas' }).click()
-  await page.getByPlaceholder('Localizador, correo o apellido').fill(locator)
+  await page.getByPlaceholder('Localizador, cédula, correo o apellido').fill(locator)
   await expect(page.getByRole('link', { name: locator })).toHaveCount(1)
   await snap(page, 'admin-02-reservas')
-  await page.getByRole('link', { name: locator }).click()
+
+  // Mostrador (contrato v3.1): buscar por código → RESERVADO → "Confirmar entrega de llaves / Check-in"
+  await nav.getByRole('link', { name: 'Mostrador' }).click()
+  await page.getByPlaceholder('Código de reserva, cédula / identificación o correo').fill(locator)
+  await expect(page.getByRole('link', { name: locator })).toHaveCount(1)
+  await expect(page.getByText('RESERVADO · pendiente de entrega')).toBeVisible()
+  await snap(page, 'admin-02b-mostrador')
+  await page.getByRole('link', { name: 'Confirmar entrega de llaves / Check-in' }).click()
   await expect(page.getByRole('heading', { name: locator })).toBeVisible()
 
-  // Entrega: asigna una placa libre
-  await page.getByRole('button', { name: 'Registrar entrega' }).click()
+  // Entrega: el diálogo se abre solo y asigna una placa libre
   const dialog = page.getByRole('dialog')
   await expect(dialog.locator('#unit option').first()).toHaveText(/[A-Z]{3}-\d{3,4}/)
   await snap(page, 'admin-03-entrega')

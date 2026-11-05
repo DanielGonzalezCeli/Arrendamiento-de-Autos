@@ -1,7 +1,7 @@
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Ban, Ticket } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, Ban, KeyRound, Radio, Ticket } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useDeferredValue, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
@@ -32,7 +32,9 @@ function actorLabel(sub: string) {
 export function ReservationAdminPage() {
   const { id = '' } = useParams()
   const { data: r, isLoading, error } = useAdminQuery<AdminReservation>(`reservations/${id}`)
-  const [dialog, setDialog] = useState<'pickup' | 'return' | 'cancel' | null>(null)
+  // Desde el mostrador se llega con ?checkin=1: el diálogo de entrega se abre directamente.
+  const [params, setParams] = useSearchParams()
+  const [dialog, setDialog] = useState<'pickup' | 'return' | 'cancel' | null>(params.get('checkin') === '1' ? 'pickup' : null)
   const [done, setDone] = useState<string | null>(null)
 
   if (isLoading) return <LoadingBlock />
@@ -40,6 +42,7 @@ export function ReservationAdminPage() {
 
   const close = (message?: string) => {
     setDialog(null)
+    if (params.has('checkin')) setParams({}, { replace: true })
     if (message) setDone(message)
   }
 
@@ -55,12 +58,12 @@ export function ReservationAdminPage() {
           <h1 className="font-mono text-2xl font-bold text-asphalt-900">{r.locator}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <StatusBadge status={r.status} rentalStatus={r.rentalStatus} />
-            <Pill tone="blue">{CHANNEL_LABEL[r.channel]}</Pill>
+            <Pill tone="blue">{r.fromBooking ? 'Booking' : CHANNEL_LABEL[r.channel]}</Pill>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <ButtonLink to={r.voucherPath} variant="secondary"><Ticket className="h-4 w-4" /> Voucher</ButtonLink>
-          {r.actions.pickUp && <Button onClick={() => setDialog('pickup')}><ArrowUpFromLine className="h-4 w-4" /> Registrar entrega</Button>}
+          {r.actions.pickUp && <Button onClick={() => setDialog('pickup')}><KeyRound className="h-4 w-4" /> Confirmar entrega de llaves / Check-in</Button>}
           {r.actions.return && <Button onClick={() => setDialog('return')}><ArrowDownToLine className="h-4 w-4" /> Registrar devolución</Button>}
           {r.actions.cancel && <Button variant="danger" onClick={() => setDialog('cancel')}><Ban className="h-4 w-4" /> Cancelar</Button>}
         </div>
@@ -84,6 +87,7 @@ export function ReservationAdminPage() {
         <Info title="Conductor">
           <p className="font-semibold">{r.driverFirstName} {r.driverLastName} · {r.driverAge} años</p>
           <p className="text-slate-500">{r.driverEmail}{r.driverPhone ? ` · ${r.driverPhone}` : ''}</p>
+          {r.client && <p className="text-slate-500">Identificación <span className="font-mono">{r.client.identification}</span> · cliente <span className="font-mono text-xs">{r.client.id.slice(0, 8)}</span></p>}
         </Info>
         <Info title="Pago">
           <p className="font-semibold">{formatMoney(r.totalPrice, r.currency)}</p>
@@ -100,6 +104,8 @@ export function ReservationAdminPage() {
           </ul>
         </Info>
       </div>
+
+      {r.fromBooking && <BookingCheckinCard reservation={r} />}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 font-semibold text-asphalt-900">Inspección del vehículo</h2>
@@ -148,6 +154,27 @@ function Info({ title, children }: { title: string; children: React.ReactNode })
 
 type DialogProps = { reservation: AdminReservation; onClose: (message?: string) => void }
 
+/** Contrato v3.1: estado del aviso de check-in a Booking (outbox con reintentos). */
+function BookingCheckinCard({ reservation: r }: { reservation: AdminReservation }) {
+  const c = r.bookingCheckin
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-2 flex items-center gap-2 font-semibold text-asphalt-900"><Radio className="h-4 w-4 text-brand-600" /> Check-in en Booking</h2>
+      {!c ? (
+        <p className="text-sm text-slate-500">Al confirmar la entrega de llaves se avisa a Booking (estado CONFIRMADO_ASISTIDO).</p>
+      ) : c.status === 'SENT' ? (
+        <p className="text-sm text-slate-600"><Pill tone="green">{c.acknowledgedStatus ?? 'Recibido'}</Pill> Booking confirmó el check-in el {formatDateTime(c.sentAt!)}.</p>
+      ) : (
+        <div className="text-sm text-slate-600">
+          <p><Pill tone="amber">Pendiente</Pill> {c.attempts} intento(s); se reintenta automáticamente.</p>
+          {c.lastError && <p className="mt-1 break-words text-xs text-rose-700">Último error: {c.lastError}</p>}
+        </div>
+      )}
+      {c && <p className="mt-2 text-xs text-slate-400">Correlation ID <span className="font-mono">{c.correlationId}</span></p>}
+    </div>
+  )
+}
+
 /** El snapshot de la reserva guarda el tipo de motor del modelo. */
 const isElectric = (r: AdminReservation) => (r.vehicleSnapshot as { fuel_type?: string }).fuel_type === 'ELECTRIC'
 
@@ -162,11 +189,15 @@ function PickupDialog({ reservation, onClose }: DialogProps) {
 
   const submit = () => pickUp.mutate(
     { fleetUnitId: unitId, fuelEighths: fuel, mileage: mileage ? Number(mileage) : undefined, damages: completeDamages(damages), notes: notes || undefined },
-    { onSuccess: () => onClose(`Entregado: placa ${unit?.plate}.`) },
+    {
+      onSuccess: (updated) => onClose(`Entregado: placa ${unit?.plate}.${updated.bookingCheckin
+        ? updated.bookingCheckin.status === 'SENT' ? ` Booking confirmó el check-in (${updated.bookingCheckin.acknowledgedStatus}).` : ' El aviso a Booking quedó pendiente y se reintenta solo.'
+        : ''}`),
+    },
   )
 
   return (
-    <Modal title="Registrar entrega" onClose={() => onClose()} wide>
+    <Modal title="Confirmar entrega de llaves / Check-in" onClose={() => onClose()} wide>
       {reservation.freeUnits.length === 0 ? (
         <Alert tone="error">No hay unidades libres de este modelo en la agencia para todo el periodo. Revisa la flota o los bloqueos.</Alert>
       ) : (

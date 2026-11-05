@@ -104,6 +104,9 @@ export interface ReservationSummary {
   plate: string | null
   driver: string
   driverEmail: string
+  /** Cédula/licencia que mandó Booking (contrato v3.1). */
+  identification: string | null
+  fromBooking: boolean
   pickupDepot: string
   pickupAt: string
   dropoffAt: string
@@ -151,6 +154,13 @@ export interface AdminReservation {
   voucherPath: string
   invoices: InvoiceView[]
   inspections: Inspection[]
+  client: { id: string; fullName: string; identification: string; email: string } | null
+  fromBooking: boolean
+  /** Outbox del check-in hacia Booking (contrato v3.1); null si aún no se entrega o no vino de Booking. */
+  bookingCheckin: {
+    status: 'PENDING' | 'SENT'; attempts: number; lastError: string | null; acknowledgedStatus: string | null
+    correlationId: string; createdAt: string; sentAt: string | null
+  } | null
   actions: { pickUp: boolean; return: boolean; cancel: boolean }
 }
 

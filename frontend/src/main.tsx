@@ -15,6 +15,7 @@ import { InvoicesPage } from './features/admin/InvoicesPage'
 import { ModelsPage } from './features/admin/ModelsPage'
 import { ReservationAdminPage } from './features/admin/ReservationAdminPage'
 import { ReservationsPage } from './features/admin/ReservationsPage'
+import { CounterPage } from './features/admin/CounterPage'
 import { UsersPage } from './features/admin/UsersPage'
 import { AuthProvider } from './features/auth/AuthContext'
 import { LoginPage } from './features/auth/LoginPage'
@@ -67,6 +68,7 @@ const router = createBrowserRouter([
             element: <RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>,
             children: [
               { index: true, element: <DashboardPage /> },
+              { path: 'mostrador', element: <CounterPage /> },
               { path: 'reservas', element: <ReservationsPage /> },
               { path: 'reservas/:id', element: <ReservationAdminPage /> },
               { path: 'facturacion', element: <InvoicesPage /> },
