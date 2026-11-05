@@ -116,11 +116,12 @@ describe('inventory.proto — PushStockUpdate', () => {
       new Response(JSON.stringify({ success: true, acknowledged: true, message: 'ok', source: 'HTTP_REST' }), { status: 200 }));
     try {
       const message = { service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', date: '2026-11-15', time_slot: '10:00', available_units: 0, timestamp: 1, slot_id: 'slot-20261115-1000' };
-      const ack = await new HttpStockTransport('https://booking.test/api/v3/inventory/stock', 'clave').push(message);
+      const ack = await new HttpStockTransport('https://booking.test/api/v3/inventory/stock', 'clave').push(message, 'cid-aut-prueba');
       expect(ack.success).toBe(true);
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('https://booking.test/api/v3/inventory/stock');
       expect((init.headers as Record<string, string>)['X-API-Key']).toBe('clave');
+      expect((init.headers as Record<string, string>)['X-Correlation-Id']).toBe('cid-aut-prueba');
       expect(JSON.parse(init.body as string)).toEqual({ service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', available_units: 0, date: '2026-11-15', time_slot: 'DEFAULT' });
     } finally {
       fetchMock.mockRestore();

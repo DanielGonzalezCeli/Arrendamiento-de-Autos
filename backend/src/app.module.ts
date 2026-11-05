@@ -5,6 +5,7 @@ import { RouterModule } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
+import { stdTimeFunctions } from 'pino';
 
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
@@ -40,6 +41,8 @@ const REDACTED_PATHS = [
       useFactory: (config: ConfigService) => ({
         pinoHttp: {
           level: config.get('LOG_LEVEL') ?? 'info',
+          // Hora legible (ISO 8601) en cada línea, en lugar de milisegundos desde 1970.
+          timestamp: stdTimeFunctions.isoTime,
           redact: REDACTED_PATHS,
           // Correlación: se respeta el X-Request-Id entrante o se genera uno.
           genReqId: (req, res) => {

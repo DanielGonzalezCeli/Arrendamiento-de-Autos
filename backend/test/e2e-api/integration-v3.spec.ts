@@ -22,6 +22,8 @@ interface Pushed {
   available_units: number;
   slot_id: string;
   timestamp: number;
+  /** X-Correlation-Id que llegó en la metadata gRPC (no es campo del .proto). */
+  cid?: string;
 }
 
 /** Servidor gRPC que hace de Booking Prototipo: implementa PushStockUpdate del inventory.proto oficial. */
@@ -35,7 +37,7 @@ async function startFakeBooking(received: Pushed[]): Promise<grpc.Server> {
   const server = new grpc.Server();
   server.addService(proto.inventory.InventoryStockService.service, {
     PushStockUpdate: (call: grpc.ServerUnaryCall<Pushed, unknown>, callback: grpc.sendUnaryData<unknown>) => {
-      received.push(call.request);
+      received.push({ ...call.request, cid: String(call.metadata.get('x-correlation-id')[0] ?? '') });
       callback(null, { success: true, message: 'Stock actualizado', error_code: 'OK', current_available: call.request.available_units });
     },
   });
@@ -173,6 +175,8 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     // Booking recibe available_units = 0 con la fecha y hora de retiro
     const reservedPush = await waitFor(() => received.find((m) => m.item_id === car.vehicle_id && m.available_units === 0));
     expect(reservedPush).toMatchObject({ date: day(startDay), time_slot: '10:00', slot_id: `slot-${day(startDay).replace(/-/g, '')}-1000` });
+    // Trazabilidad: el aviso de stock viaja con el X-Correlation-Id de la reserva que lo causó
+    expect(reservedPush.cid).toBe('cid-test-reserva');
 
     // POST /autos/search (guía de socios): con fechas que se cruzan el auto no aparece; en otras fechas sí, con stock 1
     const search = (extra: Record<string, unknown>) => http().post('/api/v3/autos/search').send({ ciudad: car.ubicacion.ciudad, ...extra });

@@ -103,7 +103,7 @@ export class V3OrdersService {
     );
     if (!result.replayed) {
       this.logger.log(`Reserva v3 ${(result.body as { pnr: string }).pnr} → ${unit.vehicleId} cid=${correlationId}`);
-      void this.stockSync.syncVehicle(unit.vehicleId);
+      void this.stockSync.syncVehicle(unit.vehicleId, correlationId);
     }
     return result;
   }
@@ -154,7 +154,7 @@ export class V3OrdersService {
     }
     this.logger.log(`Cancelación v3 ${existing.locator} (${request.requester}) reembolso ${outcome.refundPercentage}% cid=${correlationId}`);
     const plate = outcome.reservation.vehicleSnapshot?.plate;
-    if (typeof plate === 'string') void this.stockSync.syncVehicle(vehicleIdForPlate(plate));
+    if (typeof plate === 'string') void this.stockSync.syncVehicle(vehicleIdForPlate(plate), correlationId);
     return toCancelResponse(outcome);
   }
 

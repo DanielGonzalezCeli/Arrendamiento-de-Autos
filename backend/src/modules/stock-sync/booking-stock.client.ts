@@ -6,7 +6,7 @@ import { StockUpdateAck, StockUpdateMessage } from './stock-message';
 /** Transporte hacia Booking: gRPC (Tailscale/local) o el respaldo REST en la nube con el mismo JSON. */
 export interface BookingStockTransport {
   readonly name: 'grpc' | 'http';
-  push(message: StockUpdateMessage): Promise<StockUpdateAck>;
+  push(message: StockUpdateMessage, correlationId: string): Promise<StockUpdateAck>;
   close(): void;
 }
 
@@ -17,7 +17,7 @@ export function resolveProtoPath(configuredPath?: string): string {
 }
 
 type PushFn = (
-  message: StockUpdateMessage, options: { deadline: Date }, callback: (error: grpc.ServiceError | null, ack: StockUpdateAck) => void,
+  message: StockUpdateMessage, metadata: grpc.Metadata, options: { deadline: Date }, callback: (error: grpc.ServiceError | null, ack: StockUpdateAck) => void,
 ) => void;
 
 /** Cliente de inventory.InventoryStockService/PushStockUpdate sin TLS (h2c), como indica la guía. */
@@ -33,9 +33,11 @@ export class GrpcStockTransport implements BookingStockTransport {
     this.client = new proto.inventory.InventoryStockService(target, grpc.credentials.createInsecure());
   }
 
-  push(message: StockUpdateMessage): Promise<StockUpdateAck> {
+  push(message: StockUpdateMessage, correlationId: string): Promise<StockUpdateAck> {
+    const metadata = new grpc.Metadata();
+    metadata.set('x-correlation-id', correlationId);
     return new Promise((resolvePromise, reject) => {
-      this.client.PushStockUpdate(message, { deadline: new Date(Date.now() + TIMEOUT_MS) }, (error, ack) =>
+      this.client.PushStockUpdate(message, metadata, { deadline: new Date(Date.now() + TIMEOUT_MS) }, (error, ack) =>
         error ? reject(new Error(`gRPC ${grpc.status[error.code] ?? error.code}: ${error.details || error.message}`)) : resolvePromise(ack));
     });
   }
@@ -72,10 +74,10 @@ export class HttpStockTransport implements BookingStockTransport {
 
   constructor(private readonly url: string, private readonly apiKey?: string) {}
 
-  async push(message: StockUpdateMessage): Promise<StockUpdateAck> {
+  async push(message: StockUpdateMessage, correlationId: string): Promise<StockUpdateAck> {
     const response = await fetch(this.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}) },
+      headers: { 'Content-Type': 'application/json', 'X-Correlation-Id': correlationId, ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}) },
       body: JSON.stringify(toBookingStockBody(message)),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

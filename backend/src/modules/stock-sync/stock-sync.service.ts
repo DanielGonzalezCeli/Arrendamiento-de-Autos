@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@ne
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { newCorrelationId } from '../../common/problem-details/problem-details-v3';
 import { FleetStatusService, FleetUnitView } from '../fleet-status/fleet-status.service';
 import { BookingStockTransport, GrpcStockTransport, HttpStockTransport, resolveProtoPath } from './booking-stock.client';
 import { StockSyncLog } from './entities/stock-sync-log.entity';
@@ -76,24 +77,27 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
   syncAll(now = new Date()): Promise<SyncSummary> {
     if (!this.transport) return Promise.resolve({ checked: 0, pushed: 0, failed: 0 });
     if (!this.running) {
-      this.running = this.reconcile(this.fleet.list(now), now).finally(() => (this.running = null));
+      this.running = this.reconcile(this.fleet.list(now), now, newCorrelationId()).finally(() => (this.running = null));
     }
     return this.running;
   }
 
-  /** Aviso inmediato tras reservar o cancelar (sin esperar a la siguiente vuelta). Nunca lanza. */
-  async syncVehicle(vehicleId: string): Promise<void> {
+  /**
+   * Aviso inmediato tras reservar o cancelar (sin esperar a la siguiente vuelta). Viaja con el X-Correlation-Id
+   * de la operación que lo causó, así la reserva de Booking y su aviso de stock se rastrean juntos. Nunca lanza.
+   */
+  async syncVehicle(vehicleId: string, correlationId = newCorrelationId()): Promise<void> {
     if (!this.transport) return;
     try {
       const now = new Date();
       const unit = await this.fleet.findByVehicleId(vehicleId, now);
-      if (unit) await this.reconcile(Promise.resolve([unit]), now);
+      if (unit) await this.reconcile(Promise.resolve([unit]), now, correlationId);
     } catch (error) {
       this.logger.warn(`Sincronización de ${vehicleId} pendiente: ${(error as Error).message}`);
     }
   }
 
-  private async reconcile(unitsPromise: Promise<FleetUnitView[]>, now: Date): Promise<SyncSummary> {
+  private async reconcile(unitsPromise: Promise<FleetUnitView[]>, now: Date, correlationId: string): Promise<SyncSummary> {
     const summary: SyncSummary = { checked: 0, pushed: 0, failed: 0 };
     this.lastFailure = null;
     let units: FleetUnitView[];
@@ -121,23 +125,24 @@ export class StockSyncService implements OnApplicationBootstrap, OnModuleDestroy
         available_units: desired.units,
         timestamp: nextTimestamp(Number(synced?.lastTimestamp ?? 0), Date.now()),
         slot_id: slotId(desired.date, desired.timeSlot),
-      }, synced);
+      }, synced, correlationId);
       if (ok) summary.pushed++;
       else summary.failed++;
     }
     if (summary.pushed || summary.failed) {
       const reason = summary.failed && this.lastFailure ? ` — último error: ${this.lastFailure}` : '';
-      this.logger.log(`Stock → Booking: ${summary.pushed} enviados, ${summary.failed} con error (de ${summary.checked} autos)${reason}`);
+      const scope = summary.checked === 1 ? units[0].vehicleId : `${summary.checked} autos`;
+      this.logger.log(`Stock → Booking: ${summary.pushed} enviados, ${summary.failed} con error (${scope})${reason} cid=${correlationId}`);
     }
     return summary;
   }
 
-  private async push(itemId: string, message: StockUpdateMessage, previous: StockSyncState | undefined): Promise<boolean> {
+  private async push(itemId: string, message: StockUpdateMessage, previous: StockSyncState | undefined, correlationId: string): Promise<boolean> {
     const transport = this.transport!;
     let ack: StockUpdateAck | null = null;
     let failure: string | null = null;
     try {
-      ack = await transport.push(message);
+      ack = await transport.push(message, correlationId);
     } catch (error) {
       failure = (error as Error).message.slice(0, 300);
     }
