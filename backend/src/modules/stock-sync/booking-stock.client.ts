@@ -62,8 +62,15 @@ export class HttpStockTransport implements BookingStockTransport {
       body: JSON.stringify({ ...message, reason }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    const body = (await response.json().catch(() => ({}))) as Partial<StockUpdateAck>;
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${body.message ?? response.statusText}`);
+    const raw = await response.text().catch(() => '');
+    let body: Partial<StockUpdateAck> = {};
+    try {
+      body = JSON.parse(raw) as Partial<StockUpdateAck>;
+    } catch {
+      // cuerpo vacío o no JSON: se reporta el texto tal cual
+    }
+    // Sin "message", el detalle del 400 suele venir en otros campos (error, errors, detail): se guarda el cuerpo completo.
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${body.message ?? (raw.slice(0, 250) || response.statusText)}`);
     return { success: body.success ?? true, ...body };
   }
 
