@@ -45,6 +45,24 @@ jobs:
       - run: npm run seed
       - run: npm test -- --reporters=default --reporters=github-actions
 
+  gateway:
+    name: API Gateway (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
   frontend:
     name: Frontend (build)
     runs-on: ubuntu-latest
@@ -63,9 +81,11 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # La web entra por el API Gateway (puerto 3000) y este reenvía a ms-reservas (el monolito, puerto 3001),
+  # igual que en producción.
   e2e:
-    name: E2E (Playwright, flujo de compra)
-    needs: [backend, frontend]
+    name: E2E (Playwright, flujo de compra vía gateway)
+    needs: [backend, gateway, frontend]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -90,14 +110,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Backend (migraciones, seed y arranque)
+      - name: ms-reservas (migraciones, seed y arranque en el 3001)
         working-directory: backend
         run: |
           npm ci
           npm run build
           npm run migration:run
           npm run seed
-          nohup node dist/main > ../api.log 2>&1 &
+          PORT=3001 TRUST_PROXY_HOPS=1 nohup node dist/main > ../api.log 2>&1 &
+      - name: API Gateway (puerto 3000 → ms-reservas)
+        working-directory: gateway
+        run: |
+          npm ci
+          npm run build
+          PORT=3000 MS_RESERVAS_URL=http://localhost:3001 nohup node dist/main > ../gateway.log 2>&1 &
       - name: Frontend (build y servidor de previsualización)
         working-directory: frontend
         run: |
@@ -105,7 +131,7 @@ jobs:
           npm run build
           nohup npx vite preview --port 5173 --strictPort > ../web.log 2>&1 &
       - name: Esperar a que ambos respondan
-        run: npx --yes wait-on@8 -t 60000 http://localhost:3000/health http://localhost:5173
+        run: npx --yes wait-on@8 -t 60000 http://localhost:3001/health http://localhost:3000/gateway/health http://localhost:5173
       - name: Playwright
         working-directory: e2e
         run: |
@@ -114,7 +140,7 @@ jobs:
           npx playwright test
       - name: Logs si falla
         if: failure()
-        run: tail -n 50 api.log web.log
+        run: tail -n 50 api.log gateway.log web.log
 
   # Despliegue del backend a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main.
   # El paquete va ya compilado (dist + dependencias de producción + contracts/); el comando de inicio

@@ -47,6 +47,16 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false })
   PUBLIC_BASE_URL?: string;
 
+  /**
+   * Proxies de confianza delante de esta API ("trust proxy" de Express), para que los límites por IP vean
+   * al cliente real. 0 = conexión directa. Detrás del API Gateway: 1 en local, 2 en Azure (front-end de
+   * Azure + gateway); el gateway reemplaza X-Forwarded-For por la IP real del cliente.
+   */
+  @IsInt()
+  @Min(0)
+  @Max(5)
+  TRUST_PROXY_HOPS: number = 0;
+
   /** Ruta al contrato oficial. Por defecto: ../contracts/autos-openapi.yaml respecto al backend. */
   @IsOptional()
   @IsString()

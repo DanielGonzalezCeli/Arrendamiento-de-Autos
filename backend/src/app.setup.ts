@@ -14,6 +14,10 @@ import { InternalApiModule } from './modules/internal-api/internal-api.module';
 export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
+  // Detrás del API Gateway: req.ip (límites por IP, logs) es la IP del cliente, no la del gateway.
+  const trustProxyHops = config.get<number>('TRUST_PROXY_HOPS') ?? 0;
+  if (trustProxyHops > 0) app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+
   app.use(
     helmet({
       contentSecurityPolicy: {
