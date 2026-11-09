@@ -142,18 +142,19 @@ jobs:
         if: failure()
         run: tail -n 50 api.log gateway.log web.log
 
-  # Despliegue del backend a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main.
-  # El paquete va ya compilado (dist + dependencias de producción + contracts/); el comando de inicio
-  # configurado en Azure corre migraciones → seed → API. Los secretos viven en la configuración de Azure.
-  deploy-azure:
-    name: Deploy backend (Azure App Service)
-    needs: [backend, frontend, e2e]
+  # Despliegue a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main. Dos Web Apps en el
+  # mismo plan B1: ms-reservas (rutalibre-ms-reservas) y el API Gateway, que conserva la URL pública
+  # rutalibre-autos-api (la que tiene registrada Booking). Los paquetes van ya compilados (dist + dependencias
+  # de producción); el comando de inicio de cada app está en Azure. Los secretos viven en la configuración de Azure.
+  deploy-ms-reservas:
+    name: Deploy ms-reservas (Azure App Service)
+    needs: [backend, gateway, frontend, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    concurrency: deploy-azure
+    concurrency: deploy-ms-reservas
     environment:
-      name: azure
-      url: https://rutalibre-autos-api.azurewebsites.net/api/v3/health
+      name: azure-ms-reservas
+      url: https://rutalibre-ms-reservas.azurewebsites.net/health
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -172,11 +173,45 @@ jobs:
           mkdir -p pkg/backend
           cp -r backend/dist backend/node_modules backend/package.json pkg/backend/
           cp -r contracts pkg/
-          (cd pkg && zip -qr ../api.zip .)
+          (cd pkg && zip -qr ../ms-reservas.zip .)
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: rutalibre-ms-reservas
+          publish-profile: ${{ secrets.AZURE_MSRESERVAS_PUBLISH_PROFILE }}
+          package: ms-reservas.zip
+      - name: Verificar /health
+        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-reservas.azurewebsites.net/health
+
+  deploy-gateway:
+    name: Deploy API Gateway (Azure App Service)
+    needs: [deploy-ms-reservas]
+    runs-on: ubuntu-latest
+    concurrency: deploy-gateway
+    environment:
+      name: azure
+      url: https://rutalibre-autos-api.azurewebsites.net/gateway/health
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+      - name: Build y dependencias de producción
+        working-directory: gateway
+        run: |
+          npm ci
+          npm run build
+          npm prune --omit=dev
+      - name: Armar el paquete
+        run: |
+          mkdir -p pkg/gateway
+          cp -r gateway/dist gateway/node_modules gateway/package.json pkg/gateway/
+          (cd pkg && zip -qr ../gateway.zip .)
       - uses: azure/webapps-deploy@v3
         with:
           app-name: rutalibre-autos-api
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: api.zip
-      - name: Verificar /api/v3/health
-        run: npx --yes wait-on@8 -t 300000 https://rutalibre-autos-api.azurewebsites.net/api/v3/health
+          package: gateway.zip
+      - name: Verificar la salud agregada y el contrato v3 a través del gateway
+        run: npx --yes wait-on@8 -t 300000 https://rutalibre-autos-api.azurewebsites.net/gateway/health https://rutalibre-autos-api.azurewebsites.net/api/v3/health

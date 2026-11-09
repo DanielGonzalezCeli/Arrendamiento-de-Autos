@@ -81,6 +81,13 @@ Booking Prototipo exige que `/health` responda en < 4 s; Render free se duerme a
 
 **Contrato v3.1 (clientes y check-in):** `GET/POST /api/v3/clientes` (con `X-API-Key`). Al confirmar la entrega de llaves en `/admin/mostrador` de una reserva de Booking, el aviso `POST {BOOKING_CHECKIN_URL}` (por defecto `https://booking-core-api.azurewebsites.net/api/v3/reservas/{external_order_id}/checkin`) se guarda en el outbox `booking_checkins` y se envía con `X-API-Key` y `X-Correlation-Id`. En Azure `BOOKING_NOTIFY_MODE=http`; en local queda `off` (los avisos se guardan pendientes).
 
-**Despliegue continuo:** el job `deploy-azure` de `.github/workflows/ci.yml` corre en cada push a `main` después de backend, frontend y E2E: compila, poda dependencias de desarrollo, empaqueta `backend/{dist,node_modules,package.json}` + `contracts/` y lo publica con `azure/webapps-deploy` usando el secreto de GitHub `AZURE_WEBAPP_PUBLISH_PROFILE` (perfil de publicación descargado del portal).
+**Microservicios (Reto 2, fase A, desde 2026-11-09):** el plan B1 aloja dos Web Apps. Booking y la web siguen usando la misma URL, que ahora atiende el API Gateway (ver [RETO2_MICROSERVICIOS.md](RETO2_MICROSERVICIOS.md)).
+
+| Web App | Rol | Comando de inicio | Health check | Variables propias |
+|---|---|---|---|---|
+| `rutalibre-autos-api` | **API Gateway** (URL pública) | `cd /home/site/wwwroot/gateway && node dist/main.js` | `/gateway/health` | `MS_RESERVAS_URL=https://rutalibre-ms-reservas.azurewebsites.net`, `TRUST_PROXY_HOPS=1` (sin secretos) |
+| `rutalibre-ms-reservas` | **ms-reservas** (el monolito) | el de arriba (migraciones → seed → API) | `/health` | las variables y secretos de la tabla anterior + `TRUST_PROXY_HOPS=2` |
+
+**Despliegue continuo:** en cada push a `main`, después de backend, gateway, frontend y E2E, el job `deploy-ms-reservas` publica `backend/{dist,node_modules,package.json}` + `contracts/` en `rutalibre-ms-reservas` (secreto `AZURE_MSRESERVAS_PUBLISH_PROFILE`). Luego `deploy-gateway` publica `gateway/{dist,node_modules,package.json}` en `rutalibre-autos-api` (secreto `AZURE_WEBAPP_PUBLISH_PROFILE`) y verifica `/gateway/health` y `/api/v3/health` a través del gateway.
 
 **Costo:** B1 ≈ 13 USD/mes contra los 100 USD de crédito; el mismo plan puede alojar el gateway y los microservicios de la fase C sin costo adicional.
