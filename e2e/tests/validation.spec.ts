@@ -31,7 +31,9 @@ test('registro: nombres sin números, correo con dominio y teléfono según el p
 })
 
 test('las ofertas muestran fotos reales de los modelos y hay página de créditos', async ({ page }) => {
-  await page.goto('/buscar?pickup=airport:UIO&from=2026-11-10&fromTime=10:00&to=2026-11-13&toTime=10:00&age=30&currency=USD')
+  // Fechas relativas a hoy: con una fecha fija el test empieza a fallar el día en que esa fecha queda en el pasado
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
+  await page.goto(`/buscar?pickup=airport:UIO&from=${day(20)}&fromTime=10:00&to=${day(23)}&toTime=10:00&age=30&currency=USD`)
   const photo = page.locator('img[src^="/cars/"]').first()
   await expect(photo).toBeVisible()
   expect(await photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
