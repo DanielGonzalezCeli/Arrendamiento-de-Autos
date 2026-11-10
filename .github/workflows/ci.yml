@@ -292,8 +292,13 @@ jobs:
       - name: Verificar la salud agregada, el contrato v3 y el login a través del gateway
         run: |
           npx --yes wait-on@8 -t 300000 https://rutalibre-autos-api.azurewebsites.net/gateway/health https://rutalibre-autos-api.azurewebsites.net/api/v3/health
-          # Credenciales inválidas a propósito: 401 de ms-identidad (y no 404) prueba que /api/auth ya llega al servicio nuevo
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://rutalibre-autos-api.azurewebsites.net/api/auth/login \
-            -H 'Content-Type: application/json' -d '{"email":"verificacion-ci@rutalibre.test","password":"no-es-la-clave"}')
-          echo "POST /api/auth/login → $code"
-          test "$code" = "401"
+          # Credenciales inválidas a propósito: 401 de ms-identidad (y no 404) prueba que /api/auth ya llega al servicio nuevo.
+          # Se reintenta: Azure tarda unos minutos en pasar el tráfico al contenedor nuevo aunque /gateway/health ya responda.
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://rutalibre-autos-api.azurewebsites.net/api/auth/login \
+              -H 'Content-Type: application/json' -d '{"email":"verificacion-ci@rutalibre.test","password":"no-es-la-clave"}')
+            echo "intento $i: POST /api/auth/login → $code"
+            [ "$code" = "401" ] && exit 0
+            sleep 15
+          done
+          exit 1
