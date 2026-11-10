@@ -106,7 +106,8 @@ export function UsersPage() {
                   })}
                 />
               </td>
-              <td className={`${TD} whitespace-nowrap text-right`}>
+              {/* Fija a la derecha: con tablas anchas las acciones (sobre todo Eliminar) quedaban fuera de la vista */}
+              <td className={`${TD} sticky right-0 whitespace-nowrap bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]`}>
                 <button type="button" title="Editar datos" aria-label={`Editar ${u.email}`} className="rounded-lg p-2 text-slate-500 hover:bg-stone-100"
                   onClick={() => { setNotice(null); setDialog({ kind: 'edit', user: u }) }}>
                   <Pencil className="h-4 w-4" />
