@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../domain/enums';
@@ -24,7 +24,8 @@ import { FleetAdminService } from './fleet-admin.service';
 import { IntegrationAdminService } from './integration-admin.service';
 import { InvoiceService } from '../invoices/invoice.service';
 import { sendDocument } from '../invoices/invoices.controller';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { adminCallContext } from '../clients/clients.client';
 import { ChargeSettingsService } from '../orders/charge-settings.service';
 import { ReturnInput } from '../orders/rental-operations.service';
 
@@ -61,30 +62,30 @@ export class AdminController {
 
   // ── Reservas ──────────────────────────────────────────────────────────────
   @Get('reservations')
-  listReservations(@Query() filters: ReservationFiltersDto) {
-    return this.operations.listReservations(filters);
+  listReservations(@Query() filters: ReservationFiltersDto, @Req() req: Request) {
+    return this.operations.listReservations(filters, adminCallContext(req));
   }
 
   @Get('reservations/:id')
-  reservation(@Param('id') id: string) {
-    return this.operations.reservationDetail(id);
+  reservation(@Param('id') id: string, @Req() req: Request) {
+    return this.operations.reservationDetail(id, adminCallContext(req));
   }
 
   @Post('reservations/:id/pickup')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Registrar la entrega (check-in de mostrador): asigna una placa libre y avisa a Booking si la reserva vino de allá' })
-  async pickUp(@Param('id') id: string, @Body() dto: PickupDto, @CurrentUser() user: AuthUser) {
+  async pickUp(@Param('id') id: string, @Body() dto: PickupDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
     await this.rentals.pickUp(id, dto, `admin:${user.id}`);
     await this.checkins.dispatch(id); // contrato v3.1: check-in a Booking (si falla, queda en el outbox y se reintenta)
-    return this.operations.reservationDetail(id);
+    return this.operations.reservationDetail(id, adminCallContext(req));
   }
 
   @Post('reservations/:id/return')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Registrar la devolución (la unidad queda en la agencia de devolución)' })
-  async return(@Param('id') id: string, @Body() dto: ReturnDto, @CurrentUser() user: AuthUser) {
+  async return(@Param('id') id: string, @Body() dto: ReturnDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
     await this.rentals.return(id, toReturnInput(dto), `admin:${user.id}`);
-    return this.operations.reservationDetail(id);
+    return this.operations.reservationDetail(id, adminCallContext(req));
   }
 
   @Post('reservations/:id/return/preview')

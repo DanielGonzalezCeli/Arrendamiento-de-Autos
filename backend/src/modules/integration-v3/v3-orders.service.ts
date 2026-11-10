@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomInt } from 'crypto';
-import { EntityManager } from 'typeorm';
 import { translateToV3, v3Error, V3Code } from '../../common/problem-details/problem-details-v3';
 import { DomainError } from '../../domain/domain-error';
 import { OrderStatus } from '../../domain/enums';
 import { BOOKING_PARTNER_SUB } from '../../domain/partners';
 import { zonedToUtc } from '../../domain/zoned-time';
-import { ClientsService, isValidIdentification, normalizeIdentification } from '../clients/clients.service';
+import { ClientsClient, isValidIdentification, normalizeIdentification } from '../clients/clients.client';
 import { FleetStatusService, vehicleIdForPlate } from '../fleet-status/fleet-status.service';
 import { IdempotencyService, IdempotentResult } from '../idempotency/idempotency.service';
 import { isUuid } from '../orders/uuid';
@@ -45,10 +44,11 @@ export class V3OrdersService {
     private readonly fleet: FleetStatusService,
     private readonly idempotency: IdempotencyService,
     private readonly stockSync: StockSyncService,
-    private readonly clients: ClientsService,
+    private readonly clients: ClientsClient,
   ) {}
 
-  async create(body: unknown, idempotencyKey: string | undefined, correlationId: string): Promise<IdempotentResult<unknown>> {
+  /** apiKey: la X-API-Key de Booking, que se reenvía a ms-clientes para vincular la reserva con su cliente. */
+  async create(body: unknown, idempotencyKey: string | undefined, correlationId: string, apiKey?: string): Promise<IdempotentResult<unknown>> {
     if (!idempotencyKey || !isUuid(idempotencyKey)) {
       throw v3Error(400, V3Code.MalformedRequest, 'Falta Idempotency-Key', 'La cabecera Idempotency-Key (UUID v4) es obligatoria',
         [{ name: 'Idempotency-Key', reason: 'UUID obligatorio' }]);
@@ -93,7 +93,7 @@ export class V3OrdersService {
               idempotency_key: idempotencyKey,
             },
           }, manager);
-          reservation.clientId = await this.resolveClient(request, manager);
+          reservation.clientId = await this.resolveClient(request, apiKey ?? '', correlationId);
           await manager.update(Reservation, reservation.id, { clientId: reservation.clientId });
           return toOrderResponse(reservation);
         } catch (error) {
@@ -109,22 +109,23 @@ export class V3OrdersService {
   }
 
   /**
-   * Contrato v3.1: la reserva queda ligada a un cliente único. Si Booking manda un client_id nuestro se usa;
-   * si no, se busca o registra por identificación (o la licencia) y correo. Una identificación que no
-   * cumple el formato no impide reservar: se omite el vínculo.
+   * Contrato v3.1: la reserva queda ligada a un cliente único de ms-clientes. Si Booking manda un client_id
+   * existente se usa; si no, se busca o registra por identificación (o la licencia) y correo. Ni una
+   * identificación con formato inválido ni una caída de ms-clientes impiden reservar: se omite el vínculo.
    */
-  private async resolveClient(request: CreateOrderRequest, manager: EntityManager): Promise<string | null> {
+  private async resolveClient(request: CreateOrderRequest, apiKey: string, correlationId: string): Promise<string | null> {
+    const credential = { apiKey };
     if (request.clientId && isUuid(request.clientId)) {
-      const known = await this.clients.findById(request.clientId, manager);
-      if (known) return known.id;
+      const known = await this.clients.findById(request.clientId, credential, correlationId);
+      if (known) return known.client_id;
     }
     const identification = normalizeIdentification(request.driver.identification ?? request.driver.licenseNumber);
     if (!isValidIdentification(identification)) return null;
-    const { client } = await this.clients.findOrCreate({
+    const client = await this.clients.findOrCreate({
       fullName: request.driver.fullName, email: request.driver.email, identification,
       phone: request.driver.phone, licenseNumber: request.driver.licenseNumber, source: 'BOOKING',
-    }, manager);
-    return client.id;
+    }, credential, correlationId);
+    return client?.client_id ?? null;
   }
 
   async get(idOrPnr: string) {

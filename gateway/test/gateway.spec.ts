@@ -156,6 +156,14 @@ describe('Gateway — utilidades', () => {
     expect(resolveRoute('/.well-known/jwks.json')?.service).toBe('ms-reservas');
   });
 
+  it('tabla real (fase C): clientes del contrato v3.1 → ms-clientes; el resto de /api/v3 sigue en ms-reservas', () => {
+    expect(resolveRoute('/api/v3/clientes')?.service).toBe('ms-clientes');
+    expect(resolveRoute('/api/v3/clientes/123')?.service).toBe('ms-clientes');
+    expect(resolveRoute('/api/v3/clientesx')?.service).toBe('ms-reservas');
+    expect(resolveRoute('/api/v3/reservas')?.service).toBe('ms-reservas');
+    expect(resolveRoute('/internal/clientes')?.service).toBe('ms-reservas'); // la API interna de ms-clientes no se publica
+  });
+
   it('normaliza IPs con puerto o IPv4 mapeada', () => {
     expect(normalizeIp('1.2.3.4:5678')).toBe('1.2.3.4');
     expect(normalizeIp('::ffff:10.0.0.1')).toBe('10.0.0.1');
@@ -176,6 +184,7 @@ describe('Gateway — utilidades', () => {
     expect(loadConfig({}).services['ms-reservas']).toBe('http://localhost:3000');
     expect(loadConfig({ MS_IDENTIDAD_URL: 'https://idn.example/' }).services['ms-identidad']).toBe('https://idn.example');
     expect(() => loadConfig({ MS_IDENTIDAD_URL: 'idn' })).toThrow('MS_IDENTIDAD_URL');
+    expect(loadConfig({}).services['ms-clientes']).toBe('http://localhost:3003');
   });
 });
 

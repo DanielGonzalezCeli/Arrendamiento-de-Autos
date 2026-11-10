@@ -1,4 +1,4 @@
-import { FAKE_BOOKING_GRPC_PORT, FAKE_BOOKING_HTTP_PORT, TEST_API_KEY } from './v3-env';
+import { FAKE_BOOKING_GRPC_PORT, FAKE_BOOKING_HTTP_PORT, FAKE_CLIENTS_PORT, TEST_API_KEY } from './v3-env';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { INestApplication } from '@nestjs/common';
@@ -68,6 +68,47 @@ async function startFakeBookingHttp(calls: CheckinCall[]): Promise<Server> {
   return server;
 }
 
+interface FakeClient {
+  client_id: string;
+  nombre: string;
+  email: string;
+  identificacion: string;
+  licencia: string | null;
+  origen: string;
+}
+
+/**
+ * ms-clientes simulado: la API interna que usa ms-reservas (buscar o crear, por id y búsqueda parcial). Guarda las
+ * cabeceras recibidas para comprobar que se reenvían la credencial y el X-Correlation-Id. status ≠ 200 simula una falla.
+ */
+function startFakeClients(store: Map<string, FakeClient>, calls: { method: string; url: string; headers: IncomingHttpHeaders }[], fail: { status: number }) {
+  const server = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (chunk) => (raw += chunk));
+    req.on('end', () => {
+      calls.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers });
+      const send = (status: number, body: unknown) => res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
+      if (fail.status !== 200) return send(fail.status, {});
+      const url = new URL(req.url ?? '/', 'http://x');
+      if (req.method === 'POST' && url.pathname === '/internal/clientes') {
+        const body = JSON.parse(raw);
+        const existing = [...store.values()].find((c) => c.identificacion === body.identificacion);
+        if (existing) return send(200, { ...existing, existente: true });
+        const client = { client_id: randomUUID(), nombre: body.nombre, email: body.email, identificacion: body.identificacion, licencia: body.licencia, origen: body.origen };
+        store.set(client.client_id, client);
+        return send(201, { ...client, existente: false });
+      }
+      if (req.method === 'GET' && url.pathname === '/internal/clientes') {
+        const term = url.searchParams.get('identificacion') ?? '';
+        return send(200, [...store.values()].filter((c) => c.identificacion.includes(term)));
+      }
+      const byId = store.get(url.pathname.split('/').pop() ?? '');
+      return byId ? send(200, byId) : send(404, {});
+    });
+  });
+  return new Promise<Server>((ok) => server.listen(FAKE_CLIENTS_PORT, '127.0.0.1', () => ok(server)));
+}
+
 async function waitFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise<T> {
   const started = Date.now();
   for (;;) {
@@ -82,6 +123,10 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
   let app: INestApplication;
   let grpcServer: grpc.Server;
   let httpServer: Server;
+  let clientsServer: Server;
+  const clientStore = new Map<string, FakeClient>();
+  const clientCalls: { method: string; url: string; headers: IncomingHttpHeaders }[] = [];
+  const clientsFail = { status: 200 };
   const checkins: CheckinCall[] = [];
   const received: Pushed[] = [];
   const pnrs: string[] = [];
@@ -92,6 +137,7 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
   beforeAll(async () => {
     grpcServer = await startFakeBooking(received);
     httpServer = await startFakeBookingHttp(checkins);
+    clientsServer = await startFakeClients(clientStore, clientCalls, clientsFail);
     app = await createApp();
   });
 
@@ -101,13 +147,13 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT id FROM outbox_events WHERE resource_id = ANY($1))`, [ids]);
     await db.query(`DELETE FROM outbox_events WHERE resource_id = ANY($1)`, [ids]);
     await db.query(`DELETE FROM reservations WHERE locator = ANY($1)`, [pnrs]);
-    await db.query(`DELETE FROM clients WHERE identification = ANY($1) OR email_canonical = $2`, [identifications, driver.email]);
     await db.query(`DELETE FROM idempotency_records WHERE idempotency_key = ANY($1)`, [keys]);
     // El servidor gRPC era simulado: se olvida lo "sincronizado" para que la próxima sincronización real envíe todo.
     await db.query(`DELETE FROM stock_sync_state`);
     await db.query(`DELETE FROM stock_sync_log`);
     await app?.close();
     grpcServer?.forceShutdown();
+    await new Promise((ok) => clientsServer?.close(ok));
     httpServer?.close();
   });
 
@@ -247,48 +293,49 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     expect(mine[0]).toMatchObject({ specversion: '1.0', correlation_id: 'cid-test-reserva', data: { auto_id: car.vehicle_id } });
   });
 
-  it('clientes v3.1: consulta, alta sin duplicados y vínculo con la reserva de Booking', async () => {
+  it('clientes v3.1 (ms-clientes): la reserva de Booking se vincula a su cliente con la X-API-Key y el cid reenviados', async () => {
     const id = `09${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
     identifications.push(id);
     const email = `cliente.${id}@example.com`;
     const auth = (r: request.Test) => r.set('X-API-Key', TEST_API_KEY);
+    // /api/v3/clientes ya no lo atiende ms-reservas (el gateway lo enruta a ms-clientes)
+    await auth(http().get('/api/v3/clientes').query({ email })).expect(404);
 
-    await http().get('/api/v3/clientes').query({ email }).expect(401);
-    await auth(http().get('/api/v3/clientes')).expect(400);
-    await auth(http().get('/api/v3/clientes').query({ email })).expect(404)
-      .expect((res) => expect(res.body.code).toBe('NOT_FOUND'));
-
-    const body = { nombre: 'Lucía Paredes', email, identificacion: id, telefono: '+593987001122', licencia: id };
-    const created = await auth(http().post('/api/v3/clientes')).send(body).expect(201);
-    expect(created.body).toMatchObject({ nombre: 'Lucía Paredes', email, identificacion: id, origen: 'BOOKING', existente: false });
-    const clientId: string = created.body.client_id;
-
-    // La misma persona otra vez (cédula con puntos y guion, correo en mayúsculas) → 200 con el mismo client_id
-    const again = await auth(http().post('/api/v3/clientes'))
-      .send({ ...body, email: email.toUpperCase(), identificacion: `${id.slice(0, 2)}.${id.slice(2, 9)}-${id.slice(9)}` }).expect(200);
-    expect(again.body).toMatchObject({ client_id: clientId, existente: true });
-    expect((await auth(http().get('/api/v3/clientes').query({ identificacion: id })).expect(200)).body.client_id).toBe(clientId);
-    expect((await auth(http().get('/api/v3/clientes').query({ email })).expect(200)).body.client_id).toBe(clientId);
-    await auth(http().post('/api/v3/clientes')).send({ nombre: 'X', email: 'no-es-correo', identificacion: '1' }).expect(422)
-      .expect((res) => expect(res.body.invalid_params.map((p: { name: string }) => p.name)).toEqual(['nombre', 'email', 'identificacion']));
-
-    // Booking reserva con ese client_id → la reserva queda vinculada; sin client_id se vincula por la licencia
+    // Booking registró antes al cliente en ms-clientes y reserva con su client_id → la reserva queda vinculada
+    const known: FakeClient = { client_id: randomUUID(), nombre: 'Lucía Paredes', email, identificacion: id, licencia: id, origen: 'BOOKING' };
+    clientStore.set(known.client_id, known);
     const catalog = await http().get('/api/v3/autos').query({ limit: 100 }).expect(200);
     const car = catalog.body.data[catalog.body.data.length - 1];
     const order = {
-      vehicle_id: car.vehicle_id, client_id: clientId, pickup_date: day(startDay + 30), dropoff_date: day(startDay + 31),
+      vehicle_id: car.vehicle_id, client_id: known.client_id, pickup_date: day(startDay + 30), dropoff_date: day(startDay + 31),
       pickup_time: '10:00:00', dropoff_time: '12:00:00', coverage_type: 'BASIC',
       driver: { full_name: 'Lucía Paredes', email, phone: '+593987001122', license_number: id, age: 31 },
     };
-    const reserved = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key()).send(order).expect(201);
+    clientCalls.length = 0;
+    const reserved = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key()).set('X-Correlation-Id', 'cid-v3-clientes-1')
+      .send(order).expect(201);
     pnrs.push(reserved.body.pnr);
-    expect(reserved.body.client_id).toBe(clientId);
+    expect(reserved.body.client_id).toBe(known.client_id);
+    expect(clientCalls[0]).toMatchObject({ method: 'GET', url: `/internal/clientes/${known.client_id}` });
+    expect(clientCalls[0].headers).toMatchObject({ 'x-api-key': TEST_API_KEY, 'x-correlation-id': 'cid-v3-clientes-1' });
+
+    // Sin client_id se busca o registra por la licencia: mismo cliente, sin duplicarlo
     const second = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key())
       .send({ ...order, client_id: undefined, pickup_date: day(startDay + 40), dropoff_date: day(startDay + 41) }).expect(201);
     pnrs.push(second.body.pnr);
-    expect(second.body.client_id).toBe(clientId);
-    const [{ count }] = await app.get(DataSource).query(`SELECT count(*)::int AS count FROM clients WHERE identification = $1`, [id]);
-    expect(count).toBe(1);
+    expect(second.body.client_id).toBe(known.client_id);
+    expect([...clientStore.values()].filter((c) => c.identificacion === id)).toHaveLength(1);
+
+    // Si ms-clientes falla, la reserva se crea igual (sin vínculo): la Saga de Booking no depende de ms-clientes
+    clientsFail.status = 500;
+    try {
+      const third = await auth(http().post('/api/v3/autos/orders')).set('Idempotency-Key', key())
+        .send({ ...order, client_id: undefined, pickup_date: day(startDay + 45), dropoff_date: day(startDay + 46) }).expect(201);
+      pnrs.push(third.body.pnr);
+      expect(third.body.client_id).toBeNull();
+    } finally {
+      clientsFail.status = 200;
+    }
   });
 
   it('mostrador v3.1: buscar por cédula, confirmar la entrega y avisar el check-in a Booking (outbox)', async () => {

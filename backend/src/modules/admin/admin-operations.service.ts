@@ -11,8 +11,7 @@ import { ReservationFiltersDto } from './dto/admin.dto';
 import { VoucherService } from '../vouchers/voucher.service';
 import { InvoiceService } from '../invoices/invoice.service';
 import { toInvoiceView } from '../invoices/invoice.mapper';
-import { Client } from '../clients/client.entity';
-import { normalizeIdentification } from '../clients/clients.service';
+import { AdminCallContext, ClientsClient, toAdminClient } from '../clients/clients.client';
 import { BOOKING_PARTNER_SUB } from '../../domain/partners';
 import { BookingCheckin } from '../orders/entities/booking-checkin.entity';
 
@@ -27,6 +26,7 @@ export class AdminOperationsService {
     private readonly rentals: RentalOperationsService,
     private readonly vouchers: VoucherService,
     private readonly invoices: InvoiceService,
+    private readonly clients: ClientsClient,
   ) {}
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -68,7 +68,8 @@ export class AdminOperationsService {
   }
 
   // ── Reservas ──────────────────────────────────────────────────────────────
-  async listReservations(filters: ReservationFiltersDto) {
+  /** ctx: credencial del administrador, para buscar en ms-clientes por cédula/pasaporte (mostrador). */
+  async listReservations(filters: ReservationFiltersDto, ctx?: AdminCallContext) {
     const qb = this.dataSource.getRepository(Reservation).createQueryBuilder('r')
       .leftJoinAndSelect('r.pickupDepot', 'pickupDepot')
       .orderBy('r.pickupAt', 'DESC')
@@ -80,18 +81,19 @@ export class AdminOperationsService {
     if (filters.to) qb.andWhere(`(r.pickupAt AT TIME ZONE '${TZ}')::date <= :to`, { to: filters.to });
     if (filters.q) {
       const term = `%${filters.q.toLowerCase()}%`;
+      // Mostrador (v3.1): también por cédula/pasaporte del cliente (ms-clientes) o la licencia que mandó Booking
+      const clientIds = ctx ? await this.clients.searchIds(filters.q, ctx.credential, ctx.correlationId) : [];
       qb.andWhere(new Brackets((w) => w
         .where('lower(r.locator) LIKE :term', { term })
         .orWhere('lower(r.driverEmail) LIKE :term', { term })
         .orWhere('lower(r.driverLastName) LIKE :term', { term })
-        // Mostrador (v3.1): también por cédula/pasaporte del cliente o la licencia que mandó Booking
-        .orWhere('r.clientId IN (SELECT c.id FROM clients c WHERE c.identification LIKE :idTerm)', { idTerm: `%${normalizeIdentification(filters.q!)}%` })
+        .orWhere(clientIds.length ? 'r.clientId IN (:...clientIds)' : 'false', { clientIds })
         .orWhere(`r.partnerData ->> 'license_number' LIKE :term`, { term })));
     }
     return (await qb.getMany()).map((r) => this.summary(r));
   }
 
-  async reservationDetail(id: string) {
+  async reservationDetail(id: string, ctx?: AdminCallContext) {
     const reservation = isUuid(id)
       ? await this.dataSource.getRepository(Reservation).findOne({ where: { id }, relations: { extras: true, pickupDepot: true, dropoffDepot: true } })
       : null;
@@ -105,7 +107,7 @@ export class AdminOperationsService {
       voucherPath: this.vouchers.linkFor(reservation).path,
       invoices: (await this.invoices.listForReservation(reservation.id)).map(toInvoiceView),
       inspections: await this.rentals.inspections(reservation.id),
-      client: reservation.clientId ? await this.dataSource.getRepository(Client).findOneBy({ id: reservation.clientId }) : null,
+      client: await this.clientOf(reservation, ctx),
       fromBooking: reservation.ownerSub === BOOKING_PARTNER_SUB,
       bookingCheckin: await this.dataSource.getRepository(BookingCheckin).findOneBy({ reservationId: reservation.id }),
       actions: {
@@ -128,6 +130,13 @@ export class AdminOperationsService {
               UNION ALL SELECT user_id, 0, 1, 0 FROM depot_reviews WHERE user_id IS NOT NULL
               UNION ALL SELECT created_by, 0, 0, 1 FROM vehicle_blocks WHERE created_by IS NOT NULL) h
        GROUP BY user_id`);
+  }
+
+  /** Datos del cliente desde ms-clientes; null si la reserva no tiene cliente o ms-clientes no respondió. */
+  private async clientOf(reservation: Reservation, ctx?: AdminCallContext) {
+    if (!reservation.clientId || !ctx) return null;
+    const client = await this.clients.findById(reservation.clientId, ctx.credential, ctx.correlationId);
+    return client ? toAdminClient(client) : null;
   }
 
   private summary(r: Reservation) {

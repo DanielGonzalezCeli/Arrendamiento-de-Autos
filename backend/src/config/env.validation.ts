@@ -42,6 +42,11 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false, require_protocol: true })
   IDENTITY_URL?: string;
 
+  /** ms-clientes (fase C): clientes cross-platform; las reservas guardan solo su client_id. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, require_protocol: true })
+  CLIENTS_URL?: string;
+
   /** Clave pública RSA (PEM) de ms-identidad en lugar del JWKS. Solo para tests sin ms-identidad. */
   @IsOptional()
   @IsString()

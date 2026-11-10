@@ -26,3 +26,4 @@ const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 20
 process.env.IDENTITY_JWT_PUBLIC_KEY = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 process.env.TEST_IDENTITY_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 process.env.IDENTITY_URL = ''; // sin consulta de estado a ms-identidad (se prueba aparte, con un servidor falso)
+process.env.CLIENTS_URL = ''; // sin ms-clientes: las reservas quedan sin cliente (integration-v3 usa uno simulado)

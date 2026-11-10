@@ -9,13 +9,13 @@ No se reescribe el sistema de golpe. Se pone un **API Gateway** delante del mono
 | Fase | Contenido | Estado |
 |---|---|---|
 | A | API Gateway delante del monolito (que pasa a ser `ms-reservas`) | Hecha (local, CI y Azure) |
-| B | `ms-identidad` (usuarios, login, roles, JWT RS256 + JWKS) | Hecha en local y CI; falta el despliegue en Azure |
-| C | `ms-clientes` (clientes cross-platform, contrato v3.1) | Pendiente |
+| B | `ms-identidad` (usuarios, login, roles, JWT RS256 + JWKS) | Hecha (local, CI y Azure) |
+| C | `ms-clientes` (clientes cross-platform, contrato v3.1) | Hecha en local y CI; falta el despliegue en Azure |
 | D | RabbitMQ + `ms-inventario-stock` (estado de flota y stock hacia Booking por eventos) | Pendiente |
 | E | Métricas, traza distribuida y pruebas entre servicios | Pendiente |
 | F | Documento técnico final y guía de defensa | Pendiente |
 
-## 2. Arquitectura actual (fase B)
+## 2. Arquitectura actual (fase C)
 
 ```
 Booking (Paúl) ─┐                         /api/auth/*, /api/admin/users/*
@@ -25,13 +25,18 @@ Web / panel  ───┼─► API Gateway ────────────
                 │                           JWKS + estado de cuenta│        │ historial de usuarios
                 │                                                  │        ▼ (token del admin)
                 │                 todo lo demás                    │
-                └────────────────────────────────────────────► ms-reservas ──► PostgreSQL, schema "public"
-                                                                 (backend/)     (reservas, flota, catálogo…)
-                                                                   ├─HTTP/gRPC─► Booking (stock)
-                                                                   └─HTTP──────► Booking (check-in)
+                ├────────────────────────────────────────────► ms-reservas ──► PostgreSQL, schema "public"
+                │                                                (backend/)     (reservas, flota, catálogo…)
+                │                                                  │ ├─HTTP/gRPC─► Booking (stock)
+                │                                                  │ └─HTTP──────► Booking (check-in)
+                │                                                  │ cliente de la reserva / búsqueda del mostrador
+                │                                                  ▼ (X-API-Key de Booking o token del admin)
+                │                 /api/v3/clientes
+                └────────────────────────────────────────────► ms-clientes ──► PostgreSQL, schema "clientes"
+                                                                 (ms-clientes/)  (tabla clients)
 ```
 
-Ambos servicios usan la misma instancia de PostgreSQL (Supabase), pero cada uno tiene su **schema** y ninguno lee las tablas del otro: los datos del otro servicio se piden por API. Entre los dos schemas no hay claves foráneas; `reservations.user_id`, `depot_reviews.user_id`, `vehicle_blocks.created_by` y `media_images.uploaded_by` quedan como referencias lógicas al id del usuario.
+Los tres servicios usan la misma instancia de PostgreSQL (Supabase), pero cada uno tiene su **schema** y ninguno lee las tablas de otro: los datos de otro servicio se piden por API. Entre schemas no hay claves foráneas; `reservations.user_id`, `depot_reviews.user_id`, `vehicle_blocks.created_by` y `media_images.uploaded_by` quedan como referencias lógicas al id del usuario, y `reservations.client_id` al del cliente.
 
 ## 3. API Gateway (`gateway/`)
 
@@ -39,7 +44,7 @@ NestJS 10 + `http-proxy-middleware`. No tiene base de datos ni secretos.
 
 | Responsabilidad | Cómo |
 |---|---|
-| Punto de entrada único | Toda petición pública pasa por el gateway. La tabla `src/routes.ts` asigna prefijo → servicio (gana el más largo): `/api/auth` y `/api/admin/users` → `ms-identidad`; el resto → `ms-reservas` |
+| Punto de entrada único | Toda petición pública pasa por el gateway. La tabla `src/routes.ts` asigna prefijo → servicio (gana el más largo): `/api/auth` y `/api/admin/users` → `ms-identidad`; `/api/v3/clientes` → `ms-clientes`; el resto → `ms-reservas` |
 | Trazabilidad | Respeta el `X-Correlation-Id` entrante o genera `cid-gw-xxxxxxxx`; lo reenvía al servicio y lo devuelve. Los servicios lo propagan en sus llamadas entre sí, así que el mismo `cid` aparece en los logs de los tres |
 | Límite de peticiones | 300 por minuto y por IP del cliente (`RATE_LIMIT_PER_MINUTE`), con cabeceras `RateLimit`; al pasarse responde 429 `RATE_LIMITED` |
 | IP real del cliente | Solo confía en `X-Forwarded-For` hasta `TRUST_PROXY_HOPS` saltos (el front-end de Azure). Reenvía al servicio esa IP limpia, y el servicio la lee con su propio `TRUST_PROXY_HOPS` |
@@ -97,25 +102,50 @@ El orden de producción (identidad → reservas) se ensayó sobre una base tempo
 | Tras desplegar `ms-identidad` | todos en `identidad`; el registro por la vista funciona | 4 |
 | Tras desplegar `ms-reservas` | todos en `identidad`; la vista ya no existe | 0 |
 
-## 5. Pruebas
+## 5. ms-clientes (`ms-clientes/`)
+
+NestJS 10 + TypeORM. Dueño único de los clientes cross-platform del contrato v3.1 (identificación y correo canónico únicos: un mismo conductor nunca se duplica entre Booking, la web y el mostrador).
+
+| Ruta | Quién la usa | Autenticación |
+|---|---|---|
+| `GET /api/v3/clientes?email=…&identificacion=…` | Booking (por el gateway) | `X-API-Key` |
+| `POST /api/v3/clientes` | Booking | `X-API-Key`; 201 si es nuevo, 200 con el mismo `client_id` si ya existía |
+| `GET /internal/clientes/{id}`, `POST /internal/clientes` | ms-reservas al crear una reserva de Booking | La `X-API-Key` de Booking, reenviada por ms-reservas |
+| `GET /internal/clientes?identificacion=…` | ms-reservas en el panel y el mostrador | El token del administrador, reenviado (ms-clientes lo verifica con el JWKS de ms-identidad y exige rol ADMIN) |
+| `GET /health` | Gateway y Azure | — |
+
+Las rutas y respuestas de `/api/v3/clientes` son las mismas que tenía el monolito: Booking no tuvo que cambiar nada. `/internal/*` no se publica en el gateway.
+
+| Llamada | Si ms-clientes no responde |
+|---|---|
+| ms-reservas → crear/buscar el cliente de una reserva de Booking | La reserva se crea igual, sin `client_id` (la Saga de Booking no depende de ms-clientes) |
+| ms-reservas → búsqueda por cédula en el mostrador | Se busca solo por localizador, correo, apellido y licencia |
+| ms-reservas → detalle de la reserva en el panel | La reserva se muestra sin los datos del cliente |
+
+La migración `ClientsSchema` mueve `public.clients` a `clientes.clients` (conserva los `client_id` que Booking ya guardó) y deja una vista de transición; `ClientsToClientsService` de ms-reservas quita la vista y la clave foránea `reservations.client_id`. Se ensayó con el estado actual de producción, incluido el `INSERT … ON CONFLICT` de la versión anterior a través de la vista.
+
+## 6. Pruebas
 
 | Proyecto | Pruebas | Qué cubren |
 |---|---|---|
-| `gateway/` | 15 | Reenvío, correlación, IP real, 502/504, salud agregada, 429, tabla de rutas real de la fase B y enrutamiento a dos servicios |
+| `gateway/` | 16 | Reenvío, correlación, IP real, 502/504, salud agregada, 429, tablas de rutas reales de las fases B y C y enrutamiento a dos servicios |
 | `ms-identidad/` | 19 (con BD) | Registro, reglas de correo/nombre/teléfono, Gmail, login, límite de 10 intentos/min por IP, JWKS y verificación RS256, rechazo de HS256, gestión de usuarios, llamada a ms-reservas (token y `cid` propagados; degradación si no responde), cambios de estado y rol al instante, schema `identidad` |
-| `backend/` (ms-reservas) | 320 | Todo lo anterior del monolito, más: tokens RS256 de ms-identidad (válido, alterado, expirado, otro emisor, HS256 heredado), rol del token y del estado actual, llamada a ms-identidad con un servidor falso (rol actual, cuenta desactivada, servicio caído), `/api/admin/user-usage` |
-| `e2e/` (Playwright) | 7 | La web entra por el gateway: registro y login en ms-identidad, compra y panel en ms-reservas |
+| `ms-clientes/` | 6 (con BD) | Contrato v3.1 (consulta, alta sin duplicados, 422 con el formato v3), correlation id, X-API-Key frente a tokens, API interna con la clave reenviada o un token de ADMIN (cliente → 403), schema `clientes` |
+| `backend/` (ms-reservas) | 320 | Todo lo anterior del monolito, más: tokens RS256 de ms-identidad (válido, alterado, expirado, otro emisor, HS256 heredado), rol del token y del estado actual, llamada a ms-identidad con un servidor falso (rol actual, cuenta desactivada, servicio caído), `/api/admin/user-usage`, y vínculo reserva ↔ cliente con un ms-clientes falso (clave y cid reenviados; ms-clientes caído → la reserva se crea igual) |
+| `e2e/` (Playwright) | 8 | La web entra por el gateway: registro y login en ms-identidad, compra y panel en ms-reservas; y el flujo de Booking entre servicios: alta del cliente en ms-clientes y reserva vinculada en ms-reservas, con el mismo correlation id |
 
 Los tests de `ms-reservas` no levantan ms-identidad: `test/setup-env.ts` genera un par de claves RSA por archivo y `test/identity-tokens.ts` firma tokens iguales a los de ms-identidad.
 
-## 6. Variables
+## 7. Variables
 
 | Servicio | Variable | Local | Azure |
 |---|---|---|---|
 | gateway | `MS_RESERVAS_URL` | `http://localhost:3001` | URL de `rutalibre-ms-reservas` |
 | gateway | `MS_IDENTIDAD_URL` | `http://localhost:3002` | URL de `rutalibre-ms-identidad` |
 | gateway | `TRUST_PROXY_HOPS` | `0` | `1` |
+| gateway | `MS_CLIENTES_URL` | `http://localhost:3003` | URL de `rutalibre-ms-clientes` |
 | ms-reservas | `IDENTITY_URL` | `http://localhost:3002` | URL de `rutalibre-ms-identidad` |
+| ms-reservas | `CLIENTS_URL` | `http://localhost:3003` | URL de `rutalibre-ms-clientes` |
 | ms-reservas | `TRUST_PROXY_HOPS` | `0` directo, `1` detrás del gateway | `2` (front-end de Azure + gateway) |
 | ms-reservas | `PUBLIC_BASE_URL` | URL del gateway | URL del gateway (los enlaces HATEOAS apuntan a la entrada pública) |
 | ms-identidad | `DATABASE_URL` | la misma BD local | la misma de Supabase (usa solo el schema `identidad`) |
@@ -123,3 +153,7 @@ Los tests de `ms-reservas` no levantan ms-identidad: `test/setup-env.ts` genera 
 | ms-identidad | `MS_RESERVAS_URL` | `http://localhost:3001` | URL de `rutalibre-ms-reservas` |
 | ms-identidad | `TRUST_PROXY_HOPS` | `1` detrás del gateway | `2` |
 | ms-identidad | `CORS_ORIGINS` | `http://localhost:5173` | la URL de la web (igual que ms-reservas) |
+| ms-clientes | `DATABASE_URL` | la misma BD local | la misma de Supabase (usa solo el schema `clientes`) |
+| ms-clientes | `BOOKING_API_KEY` | vacía (abierto en desarrollo) | la misma de ms-reservas (secreta) |
+| ms-clientes | `IDENTITY_URL` | `http://localhost:3002` | URL de `rutalibre-ms-identidad` |
+| ms-clientes | `TRUST_PROXY_HOPS` | `1` detrás del gateway | `2` |
