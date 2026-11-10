@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { generateKeyPair, SignJWT } from 'jose';
 import request from 'supertest';
+import { UserRole } from '../../src/domain/enums';
 import { createApp } from '../contract/contract-app';
+import { testUser } from '../identity-tokens';
 
 /**
  * Seguridad ENTRE SISTEMAS: emisor OAuth2 local (client_credentials), verificación RS256 y scopes.
@@ -108,9 +110,8 @@ describe('API de integración — OAuth2 y scopes', () => {
     });
 
     it('el token web de usuario NO sirve en la API de integración', async () => {
-      const login = await http().post('/api/auth/login').send({ email: 'cliente@rutalibre.ec', password: 'Cliente12345!' });
-      if (login.status !== 200) return; // solo con el seed de desarrollo
-      await http().get('/autos/v1/webhooks').set('Authorization', `Bearer ${login.body.accessToken}`).expect(401);
+      const { headers } = await testUser(UserRole.Admin);
+      await http().get('/autos/v1/webhooks').set(headers).expect(401);
     });
   });
 });

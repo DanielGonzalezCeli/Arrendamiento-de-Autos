@@ -29,14 +29,23 @@ export class EnvironmentVariables {
   @IsString()
   DATABASE_URL: string;
 
-  /** Secreto HS256 de los JWT de usuarios web (≥ 32 caracteres). Distinto de las claves de integración. */
+  /**
+   * Secreto (≥ 32 caracteres) del que se derivan la firma de los enlaces de vouchers y la clave de los secretos
+   * de webhooks. Desde la fase B ya no firma los tokens de usuario: eso lo hace ms-identidad con RS256.
+   */
   @IsString()
   @MinLength(32)
   USER_JWT_SECRET: string;
 
+  /** ms-identidad: su JWKS verifica los tokens de usuario y /api/auth/me da el estado actual de la cuenta. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, require_protocol: true })
+  IDENTITY_URL?: string;
+
+  /** Clave pública RSA (PEM) de ms-identidad en lugar del JWKS. Solo para tests sin ms-identidad. */
   @IsOptional()
   @IsString()
-  USER_JWT_EXPIRES_IN?: string;
+  IDENTITY_JWT_PUBLIC_KEY?: string;
 
   /** Orígenes permitidos para la API interna, separados por coma. */
   @IsString()

@@ -146,6 +146,16 @@ describe('Gateway — utilidades', () => {
     expect(resolveRoute('/api/v3/autos', routes)?.service).toBe('ms-reservas');
   });
 
+  it('tabla real (fase B): auth y usuarios → ms-identidad; el resto del panel y Booking → ms-reservas', () => {
+    expect(resolveRoute('/api/auth/me')?.service).toBe('ms-identidad');
+    expect(resolveRoute('/api/admin/users')?.service).toBe('ms-identidad');
+    expect(resolveRoute('/api/admin/users/123/password')?.service).toBe('ms-identidad');
+    expect(resolveRoute('/api/admin/user-usage')?.service).toBe('ms-reservas');
+    expect(resolveRoute('/api/admin/dashboard')?.service).toBe('ms-reservas');
+    expect(resolveRoute('/api/v3/autos/reservas')?.service).toBe('ms-reservas');
+    expect(resolveRoute('/.well-known/jwks.json')?.service).toBe('ms-reservas');
+  });
+
   it('normaliza IPs con puerto o IPv4 mapeada', () => {
     expect(normalizeIp('1.2.3.4:5678')).toBe('1.2.3.4');
     expect(normalizeIp('::ffff:10.0.0.1')).toBe('10.0.0.1');
@@ -164,5 +174,41 @@ describe('Gateway — utilidades', () => {
     expect(() => loadConfig({ MS_RESERVAS_URL: 'ftp://x' })).toThrow('MS_RESERVAS_URL');
     expect(() => loadConfig({ RATE_LIMIT_PER_MINUTE: '-1' })).toThrow('RATE_LIMIT_PER_MINUTE');
     expect(loadConfig({}).services['ms-reservas']).toBe('http://localhost:3000');
+    expect(loadConfig({ MS_IDENTIDAD_URL: 'https://idn.example/' }).services['ms-identidad']).toBe('https://idn.example');
+    expect(() => loadConfig({ MS_IDENTIDAD_URL: 'idn' })).toThrow('MS_IDENTIDAD_URL');
+  });
+});
+
+describe('API Gateway — dos microservicios', () => {
+  let reservas: Server;
+  let identidad: Server;
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    [reservas, identidad] = await Promise.all([startEchoService(), startEchoService()]);
+    app = await createGateway(configFor(urlOf(reservas), {
+      services: { 'ms-reservas': urlOf(reservas), 'ms-identidad': urlOf(identidad) },
+    }));
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await Promise.all([reservas, identidad].map((s) => new Promise((resolve) => s.close(resolve))));
+  });
+
+  it('enruta cada petición a su servicio con la misma ruta y el mismo correlation id', async () => {
+    const login = await request(app.getHttpServer()).post('/api/auth/login').set('X-Correlation-Id', 'cid-fase-b').send({ email: 'a@b.ec' }).expect(200);
+    expect(login.headers['x-upstream-service']).toBe('ms-identidad');
+    expect(login.body).toMatchObject({ url: '/api/auth/login', body: '{"email":"a@b.ec"}' });
+    expect(login.body.headers['x-correlation-id']).toBe('cid-fase-b');
+
+    const search = await request(app.getHttpServer()).get('/api/admin/dashboard').expect(200);
+    expect(search.headers['x-upstream-service']).toBe('ms-reservas');
+  });
+
+  it('la salud agregada incluye a ms-identidad', async () => {
+    const res = await request(app.getHttpServer()).get('/gateway/health').expect(200);
+    expect(res.body.services).toMatchObject({ 'ms-reservas': { status: 'UP' }, 'ms-identidad': { status: 'UP' } });
   });
 });

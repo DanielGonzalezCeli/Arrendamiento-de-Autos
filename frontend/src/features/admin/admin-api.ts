@@ -187,7 +187,8 @@ export interface AdminUser {
   role: 'ADMIN' | 'CUSTOMER'
   active: boolean
   createdAt: string
-  reservations: number
+  /** null si ms-reservas no respondió al consultar el historial */
+  reservations: number | null
 }
 
 export interface IntegrationOverview {

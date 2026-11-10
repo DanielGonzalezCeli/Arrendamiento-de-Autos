@@ -1,10 +1,9 @@
-import { canonicalEmail } from '../../domain/contact-rules';
 import 'reflect-metadata';
 import * as bcrypt from 'bcryptjs';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { buildTypeOrmOptions } from '../../config/typeorm.config';
-import { FuelType, UserRole } from '../../domain/enums';
+import { FuelType } from '../../domain/enums';
 import { FuelGrade } from '../../domain/return-charges';
 import { City } from '../../modules/catalog/entities/city.entity';
 import { CurrencyRate } from '../../modules/catalog/entities/currency-rate.entity';
@@ -19,22 +18,18 @@ import { VehicleModel } from '../../modules/catalog/entities/vehicle-model.entit
 import { Affiliate } from '../../modules/integration-auth/entities/affiliate.entity';
 import { ApiClient } from '../../modules/integration-auth/entities/api-client.entity';
 import { DepotReview } from '../../modules/reviews/depot-review.entity';
-import { User } from '../../modules/users/user.entity';
 import {
   AFFILIATES, CATEGORIES, CITIES, COLORS, CURRENCY_RATES, DAILY_RATES, DEMO_API_CLIENT, DEPOTS, EXTRAS, RATE_VALIDITY, SAMPLE_REVIEWS,
   SUPPLIERS, VEHICLE_MODELS,
 } from './seed-data';
 
 const BCRYPT_COST = 12;
-const DEV_ADMIN_PASSWORD = 'Admin12345!';
-const DEV_CUSTOMER_PASSWORD = 'Cliente12345!';
 const DEV_HUB_CLIENT_SECRET = 'hub-demo-secret-2026';
 
 /**
  * Seed idempotente, ejecutado en cada arranque del contenedor (Dockerfile):
  * - Catálogo: solo si la BD no tiene proveedores.
- * - Usuarios de demo: cada uno se crea si falta y su contraseña está configurada. Es independiente
- *   del catálogo, para que un arranque sin SEED_ADMIN_PASSWORD no impida crear el admin después.
+ * - Los usuarios de demostración los crea ms-identidad (fase B: los usuarios ya no viven en esta BD).
  * Nunca modifica datos existentes (no cambia contraseñas ya creadas).
  */
 async function main() {
@@ -50,7 +45,6 @@ async function main() {
       } else {
         console.log('[seed] El catálogo ya existe; no se modifica.');
       }
-      await seedUsers(manager, isProduction);
       await seedApiClient(manager, isProduction);
       await seedReviews(manager);
     });
@@ -123,32 +117,6 @@ async function seedCatalog(manager: EntityManager) {
   await manager.save(Extra, EXTRAS);
   await manager.save(CurrencyRate, CURRENCY_RATES);
   await manager.save(Affiliate, AFFILIATES);
-}
-
-const DEMO_USERS = [
-  {
-    email: 'admin@rutalibre.ec', firstName: 'Admin', lastName: 'RutaLibre', phone: null, role: UserRole.Admin,
-    passwordEnv: 'SEED_ADMIN_PASSWORD', devPassword: DEV_ADMIN_PASSWORD,
-  },
-  {
-    email: 'cliente@rutalibre.ec', firstName: 'Camila', lastName: 'Torres', phone: '+593991234567', role: UserRole.Customer,
-    passwordEnv: 'SEED_CUSTOMER_PASSWORD', devPassword: DEV_CUSTOMER_PASSWORD,
-  },
-];
-
-async function seedUsers(manager: EntityManager, isProduction: boolean) {
-  for (const { passwordEnv, devPassword, ...user } of DEMO_USERS) {
-    if (await manager.exists(User, { where: { emailCanonical: canonicalEmail(user.email) } })) continue;
-
-    // En producción la contraseña es obligatoria (nunca se usa la de desarrollo).
-    const password = process.env[passwordEnv] || (isProduction ? undefined : devPassword);
-    if (!password) {
-      console.warn(`[seed] ${passwordEnv} no definida: no se crea ${user.email}.`);
-      continue;
-    }
-    await manager.save(User, { ...user, emailCanonical: canonicalEmail(user.email), passwordHash: await bcrypt.hash(password, BCRYPT_COST) });
-    console.log(`[seed] Usuario ${user.email} creado.`);
-  }
 }
 
 /** Cliente OAuth2 del Hub para el emisor local (RDA1). El secreto se guarda con hash. */

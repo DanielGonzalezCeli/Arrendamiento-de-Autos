@@ -81,13 +81,19 @@ Booking Prototipo exige que `/health` responda en < 4 s; Render free se duerme a
 
 **Contrato v3.1 (clientes y check-in):** `GET/POST /api/v3/clientes` (con `X-API-Key`). Al confirmar la entrega de llaves en `/admin/mostrador` de una reserva de Booking, el aviso `POST {BOOKING_CHECKIN_URL}` (por defecto `https://booking-core-api.azurewebsites.net/api/v3/reservas/{external_order_id}/checkin`) se guarda en el outbox `booking_checkins` y se envía con `X-API-Key` y `X-Correlation-Id`. En Azure `BOOKING_NOTIFY_MODE=http`; en local queda `off` (los avisos se guardan pendientes).
 
-**Microservicios (Reto 2, fase A, desde 2026-11-09):** el plan B1 aloja dos Web Apps. Booking y la web siguen usando la misma URL, que ahora atiende el API Gateway (ver [RETO2_MICROSERVICIOS.md](RETO2_MICROSERVICIOS.md)).
+**Microservicios (Reto 2, fase A, desde 2026-11-09):** el plan B1 aloja dos Web Apps. Booking sigue usando la misma URL, que ahora atiende el API Gateway; la web de Render también entra por él (`VITE_API_BASE_URL=https://rutalibre-autos-api.azurewebsites.net`, desde 2026-11-09; antes apuntaba al backend de Render) (ver [RETO2_MICROSERVICIOS.md](RETO2_MICROSERVICIOS.md)).
 
 | Web App | Rol | Comando de inicio | Health check | Variables propias |
 |---|---|---|---|---|
 | `rutalibre-autos-api` | **API Gateway** (URL pública) | `cd /home/site/wwwroot/gateway && node dist/main.js` | `/gateway/health` | `MS_RESERVAS_URL=https://rutalibre-ms-reservas.azurewebsites.net`, `TRUST_PROXY_HOPS=1` (sin secretos) |
-| `rutalibre-ms-reservas` | **ms-reservas** (el monolito) | el de arriba (migraciones → seed → API) | `/health` | las variables y secretos de la tabla anterior + `TRUST_PROXY_HOPS=2` |
+| `rutalibre-ms-reservas` | **ms-reservas** (el monolito) | el de arriba (migraciones → seed → API) | `/health` | las variables y secretos de la tabla anterior + `TRUST_PROXY_HOPS=2` + `IDENTITY_URL` (fase B) |
+| `rutalibre-ms-identidad` | **ms-identidad** (fase B) | `cd /home/site/wwwroot/ms-identidad && node dist/database/prepare-db.js && node dist/main.js` | `/health` | `DATABASE_URL` (la misma), `IDENTITY_JWT_PRIVATE_KEY` (secreta), `CORS_ORIGINS`, `MS_RESERVAS_URL`, `TRUST_PROXY_HOPS=2`, `USER_JWT_EXPIRES_IN=2h` |
 
-**Despliegue continuo:** en cada push a `main`, después de backend, gateway, frontend y E2E, el job `deploy-ms-reservas` publica `backend/{dist,node_modules,package.json}` + `contracts/` en `rutalibre-ms-reservas` (secreto `AZURE_MSRESERVAS_PUBLISH_PROFILE`). Luego `deploy-gateway` publica `gateway/{dist,node_modules,package.json}` en `rutalibre-autos-api` (secreto `AZURE_WEBAPP_PUBLISH_PROFILE`) y verifica `/gateway/health` y `/api/v3/health` a través del gateway.
+El gateway también lleva `MS_IDENTIDAD_URL`. Desde la fase B, `USER_JWT_SECRET` de ms-reservas ya no firma tokens: solo deriva la firma de los vouchers y la clave de los secretos de webhooks.
 
-**Costo:** B1 ≈ 13 USD/mes contra los 100 USD de crédito; el mismo plan puede alojar el gateway y los microservicios de la fase C sin costo adicional.
+**Despliegue continuo:** en cada push a `main`, después de backend, gateway, ms-identidad, frontend y E2E:
+1. `deploy-ms-identidad` publica `ms-identidad/{dist,node_modules,package.json}` (secreto `AZURE_MSIDENTIDAD_PUBLISH_PROFILE`) y verifica `/health` y el JWKS.
+2. `deploy-ms-reservas` publica `backend/{dist,node_modules,package.json}` + `contracts/` en `rutalibre-ms-reservas` (secreto `AZURE_MSRESERVAS_PUBLISH_PROFILE`).
+3. `deploy-gateway` publica `gateway/{dist,node_modules,package.json}` en `rutalibre-autos-api` (secreto `AZURE_WEBAPP_PUBLISH_PROFILE`) y verifica `/gateway/health`, `/api/v3/health` y que `/api/auth/login` responda 401 desde ms-identidad.
+
+**Costo:** B1 ≈ 13 USD/mes contra los 100 USD de crédito; el plan aloja las tres Web Apps (gateway, ms-reservas, ms-identidad) sin costo adicional, y también puede alojar los microservicios de las fases siguientes.

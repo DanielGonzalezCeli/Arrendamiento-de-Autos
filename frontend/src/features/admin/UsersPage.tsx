@@ -82,7 +82,7 @@ export function UsersPage() {
               </td>
               <td className={`${TD} whitespace-nowrap`}>{u.phone ?? '—'}</td>
               <td className={`${TD} whitespace-nowrap`}>{formatDate(u.createdAt)}</td>
-              <td className={TD}>{u.reservations}</td>
+              <td className={TD} title={u.reservations === null ? 'No se pudo consultar ms-reservas' : undefined}>{u.reservations ?? '—'}</td>
               <td className={TD}>
                 <select
                   aria-label={`Rol de ${u.email}`}
@@ -182,7 +182,7 @@ export function UsersPage() {
               ¿Eliminar definitivamente la cuenta de <strong>{dialog.user.email}</strong>? Solo se pueden eliminar cuentas sin historial
               (reservas, reseñas o bloqueos). Si tiene historial, desactívala para conservarlo.
             </p>
-            {dialog.user.reservations > 0 && (
+            {(dialog.user.reservations ?? 0) > 0 && (
               <Alert tone="info">Esta cuenta tiene {dialog.user.reservations} reserva(s): no se podrá eliminar, pero puedes desactivarla.</Alert>
             )}
             {remove.error && <ErrorAlert error={remove.error} />}

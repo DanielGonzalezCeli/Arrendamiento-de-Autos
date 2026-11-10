@@ -3,19 +3,21 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AvailabilityService } from '../../src/modules/availability/availability.service';
+import { UserRole } from '../../src/domain/enums';
 import { createApp, futureDate } from '../contract/contract-app';
+import { TestUser, testUser } from '../identity-tokens';
 
 /** Panel de administración: protección por rol, consultas y operación de entrega/devolución/cancelación. */
 describe('API interna — administración', () => {
   let app: INestApplication;
   let adminToken: string;
   let customerToken: string;
+  let customerUser: TestUser;
   const suffix = Date.now();
   const customerEmail = `test+admincust${suffix}@rutalibre.test`;
   const plate = `ZZT-${String(suffix).slice(-4)}`;
   const diagModel = `Modelo ${suffix}`;
   const uploadedImages: string[] = [];
-  const managedEmail = `test+gestion${suffix}@rutalibre.test`;
   const startDay = 30 + Math.floor(Math.random() * 200);
 
   const http = () => request(app.getHttpServer());
@@ -24,30 +26,23 @@ describe('API interna — administración', () => {
 
   beforeAll(async () => {
     app = await createApp();
-    const login = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(200);
-    adminToken = login.body.accessToken;
-    const reg = await http().post('/api/auth/register')
-      .send({ email: customerEmail, password: 'Prueba2026', firstName: 'Luis', lastName: 'Mora' }).expect(201);
-    customerToken = reg.body.accessToken;
+    adminToken = (await testUser(UserRole.Admin)).token;
+    customerUser = await testUser(UserRole.Customer, { email: customerEmail });
+    customerToken = customerUser.token;
   });
 
   afterAll(async () => {
     const db = app.get(DataSource);
-    const [user] = await db.query(`SELECT id FROM users WHERE email = $1`, [customerEmail]);
-    if (user) {
-      const sub = `user:${user.id}`;
-      await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT e.id FROM outbox_events e JOIN reservations r ON r.id::text = e.resource_id WHERE r.owner_sub = $1)`, [sub]);
-      await db.query(`DELETE FROM outbox_events WHERE resource_id IN (SELECT id::text FROM reservations WHERE owner_sub = $1)`, [sub]);
-      for (const table of ['reservations', 'order_previews', 'holds', 'idempotency_records']) {
-        await db.query(`DELETE FROM ${table} WHERE owner_sub = $1`, [sub]);
-      }
-      await db.query(`DELETE FROM users WHERE id = $1`, [user.id]);
+    const sub = `user:${customerUser.id}`;
+    await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT e.id FROM outbox_events e JOIN reservations r ON r.id::text = e.resource_id WHERE r.owner_sub = $1)`, [sub]);
+    await db.query(`DELETE FROM outbox_events WHERE resource_id IN (SELECT id::text FROM reservations WHERE owner_sub = $1)`, [sub]);
+    for (const table of ['reservations', 'order_previews', 'holds', 'idempotency_records']) {
+      await db.query(`DELETE FROM ${table} WHERE owner_sub = $1`, [sub]);
     }
     await db.query(`DELETE FROM vehicle_blocks WHERE fleet_unit_id IN (SELECT id FROM fleet_units WHERE plate = $1)`, [plate]);
     await db.query(`DELETE FROM fleet_units WHERE plate = $1`, [plate]);
     await db.query(`DELETE FROM fleet_units WHERE vehicle_model_id IN (SELECT id FROM vehicle_models WHERE make = 'Diagnóstico' AND model = $1)`, [diagModel]);
     await db.query(`DELETE FROM vehicle_models WHERE make = 'Diagnóstico' AND model = $1`, [diagModel]);
-    await db.query(`DELETE FROM users WHERE email LIKE $1`, [`test+gestion${suffix}%`]);
     if (uploadedImages.length) await db.query(`DELETE FROM media_images WHERE id = ANY($1)`, [uploadedImages]);
     await app?.close();
   });
@@ -74,7 +69,7 @@ describe('API interna — administración', () => {
     expect(res.body).toMatchObject({ status: 403, code: 'VALIDATION_FAILED' });
   });
 
-  it.each(['dashboard', 'reservations', 'models', 'fleet', 'depots', 'cities', 'categories', 'suppliers', 'extras', 'rates', 'users', 'integration'])(
+  it.each(['dashboard', 'reservations', 'models', 'fleet', 'depots', 'cities', 'categories', 'suppliers', 'extras', 'rates', 'user-usage', 'integration'])(
     'GET /api/admin/%s responde 200', async (path) => {
       await http().get(`/api/admin/${path}`).set(admin()).expect(200);
     },
@@ -271,63 +266,12 @@ describe('API interna — administración', () => {
     await http().get('/api/images/no-existe').expect(404);
   });
 
-  it('usuarios: el admin crea, edita, restablece la contraseña y elimina una cuenta sin historial', async () => {
-    const created = await http().post('/api/admin/users').set(admin()).send({
-      email: managedEmail, firstName: 'Sofía', lastName: 'Ramos', phone: '+593 99 765 4321', role: 'CUSTOMER', password: 'Inicial2026',
-    }).expect(201);
-    expect(created.body).toMatchObject({ email: managedEmail, phone: '+593997654321', role: 'CUSTOMER', active: true });
-    expect(created.body.passwordHash).toBeUndefined();
-
-    // Mismo correo → 409; contraseña débil → 400
-    await http().post('/api/admin/users').set(admin()).send({
-      email: managedEmail, firstName: 'Otra', lastName: 'Persona', role: 'CUSTOMER', password: 'Inicial2026',
-    }).expect(409);
-    await http().post('/api/admin/users').set(admin()).send({
-      email: `test+gestion${suffix}b@rutalibre.test`, firstName: 'Otra', lastName: 'Persona', role: 'CUSTOMER', password: 'corta',
-    }).expect(400);
-
-    // La cuenta creada puede iniciar sesión con la contraseña inicial
-    await http().post('/api/auth/login').send({ email: managedEmail, password: 'Inicial2026' }).expect(200);
-
-    const edited = await http().patch(`/api/admin/users/${created.body.id}`).set(admin())
-      .send({ firstName: 'Sofía Isabel', phone: null }).expect(200);
-    expect(edited.body).toMatchObject({ firstName: 'Sofía Isabel', phone: null });
-
-    await http().post(`/api/admin/users/${created.body.id}/password`).set(admin()).send({ password: 'Nueva2026x' }).expect(200);
-    await http().post('/api/auth/login').send({ email: managedEmail, password: 'Inicial2026' }).expect(401);
-    await http().post('/api/auth/login').send({ email: managedEmail, password: 'Nueva2026x' }).expect(200);
-
-    await http().delete(`/api/admin/users/${created.body.id}`).set(admin()).expect(204);
-    await http().post('/api/auth/login').send({ email: managedEmail, password: 'Nueva2026x' }).expect(401);
-  });
-
-  it('usuarios: una cuenta con reservas no se elimina (se desactiva) y los cambios se aplican al instante', async () => {
-    const [customerRow] = await app.get(DataSource).query(`SELECT id FROM users WHERE email = $1`, [customerEmail]);
+  it('historial por usuario (lo consulta ms-identidad): reservas del cliente; solo ADMIN', async () => {
     await book(startDay + 90);
-    const res = await http().delete(`/api/admin/users/${customerRow.id}`).set(admin()).expect(409);
-    expect(res.body.detail).toMatch(/desactiva la cuenta/);
-
-    // Desactivar: el token que ya tenía deja de servir de inmediato
-    await http().get('/api/me/reservations').set(customer()).expect(200);
-    await http().patch(`/api/admin/users/${customerRow.id}`).set(admin()).send({ active: false }).expect(200);
-    await http().get('/api/me/reservations').set(customer()).expect(401);
-    await http().patch(`/api/admin/users/${customerRow.id}`).set(admin()).send({ active: true }).expect(200);
-    await http().get('/api/me/reservations').set(customer()).expect(200);
-
-    // Ascender a ADMIN da acceso al panel con el mismo token; volver a CUSTOMER lo quita al instante
-    await http().patch(`/api/admin/users/${customerRow.id}`).set(admin()).send({ role: 'ADMIN' }).expect(200);
-    await http().get('/api/admin/dashboard').set(customer()).expect(200);
-    await http().patch(`/api/admin/users/${customerRow.id}`).set(admin()).send({ role: 'CUSTOMER' }).expect(200);
-    await http().get('/api/admin/dashboard').set(customer()).expect(403);
-
-    // El admin no puede eliminarse a sí mismo
-    const me = await http().get('/api/auth/me').set(admin()).expect(200);
-    await http().delete(`/api/admin/users/${me.body.id}`).set(admin()).expect(409);
-  });
-
-  it('el administrador no puede quitarse su propio rol', async () => {
-    const me = await http().get('/api/auth/me').set(admin()).expect(200);
-    await http().patch(`/api/admin/users/${me.body.id}`).set(admin()).send({ role: 'CUSTOMER' }).expect(409);
-    await http().patch(`/api/admin/users/${me.body.id}`).set(admin()).send({ role: 'ROOT' }).expect(400);
+    await http().get('/api/admin/user-usage').set(customer()).expect(403);
+    const res = await http().get('/api/admin/user-usage').set(admin()).expect(200);
+    const mine = res.body.find((u: { userId: string }) => u.userId === customerUser.id);
+    expect(mine).toMatchObject({ reservations: expect.any(Number), reviews: 0, blocks: 0 });
+    expect(mine.reservations).toBeGreaterThanOrEqual(1);
   });
 });

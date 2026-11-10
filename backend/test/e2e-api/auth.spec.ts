@@ -1,133 +1,61 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import * as bcrypt from 'bcryptjs';
+import { SignJWT } from 'jose';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
 
-import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/app.setup';
+import { UserRole } from '../../src/domain/enums';
+import { createApp } from '../contract/contract-app';
+import { testUser } from '../identity-tokens';
 
-/** API interna /api/auth/*: registro, login, token y errores ProblemDetails. Requiere BD. */
-describe('API interna — autenticación', () => {
+/**
+ * Fase B: ms-reservas ya no registra usuarios ni firma tokens (eso es ms-identidad). Aquí se prueba que acepta
+ * solo tokens RS256 de ms-identidad y que respeta el rol que traen.
+ */
+describe('API interna — tokens de ms-identidad', () => {
   let app: INestApplication;
-  // Prefijo propio de esta corrida: la limpieza no debe tocar usuarios de otras suites que corren en paralelo
-  const runPrefix = `test+auth${Date.now()}`;
-  const email = `${runPrefix}@rutalibre.test`;
-  const password = 'Prueba2026';
+  const http = () => request(app.getHttpServer());
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createApp();
   });
 
-  // Usuario de Gmail único por corrida: solo letras (las reglas de Google exigen al menos una letra)
-  const gmailUser = `rutalibretest${Date.now().toString(36).replace(/\d/g, '')}`;
-
   afterAll(async () => {
-    await app.get(DataSource).query(`DELETE FROM users WHERE email LIKE $1`, [`${runPrefix}%@rutalibre.test`]);
-    await app.get(DataSource).query(`DELETE FROM users WHERE email_canonical = $1`, [`${gmailUser}@gmail.com`]);
     await app?.close();
   });
 
-  const http = () => request(app.getHttpServer());
-
-  it('POST /api/auth/register crea un CLIENTE y devuelve token (sin passwordHash)', async () => {
-    const res = await http()
-      .post('/api/auth/register')
-      .send({ email, password, firstName: 'Ana', lastName: 'Pérez', role: 'ADMIN' }) // role se ignora (RN27)
-      .expect(201);
-
-    expect(res.body.accessToken).toEqual(expect.any(String));
-    expect(res.body.user).toMatchObject({ email, role: 'CUSTOMER' });
-    expect(JSON.stringify(res.body)).not.toContain('passwordHash');
+  it('un token válido de ms-identidad da acceso a las rutas del cliente', async () => {
+    const customer = await testUser();
+    await http().get('/api/me/reservations').set(customer.headers).expect(200);
   });
 
-  it('registrar el mismo correo → 409 ProblemDetails', async () => {
-    const res = await http()
-      .post('/api/auth/register')
-      .send({ email: email.toUpperCase(), password, firstName: 'Ana', lastName: 'Pérez' })
-      .expect(409);
+  it('sin token, alterado, expirado o de otro emisor → 401 ProblemDetails', async () => {
+    await http().get('/api/me/reservations').expect(401);
+    const res = await http().get('/api/me/reservations').set('Authorization', 'Bearer abc.def.ghi').expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
-    expect(res.body).toMatchObject({ status: 409, code: 'VALIDATION_FAILED' });
-  });
-
-  it('body inválido → 400 con invalidParams', async () => {
-    const res = await http().post('/api/auth/register').send({ email: 'no-es-correo', password: '123' }).expect(400);
-    expect(res.body.code).toBe('VALIDATION_FAILED');
-    const names = res.body.invalidParams.map((p: { name: string }) => p.name);
-    expect(names).toEqual(expect.arrayContaining(['email', 'password', 'firstName', 'lastName']));
-    // additionalProperties: false en el contrato → solo campos permitidos
-    expect(Object.keys(res.body).sort()).toEqual(['code', 'detail', 'invalidParams', 'status', 'title', 'type']);
-  });
-
-  it('rechaza nombres con números, correos sin dominio y teléfonos inválidos para su país', async () => {
-    const res = await http().post('/api/auth/register')
-      .send({ email: 'ana@correo', password, firstName: 'Ana2', lastName: 'P3rez', phone: '+59399123' }).expect(400);
-    expect(res.body.invalidParams.map((p: { name: string }) => p.name).sort()).toEqual(['email', 'firstName', 'lastName', 'phone']);
-  });
-
-  it('aplica las reglas de Gmail y no permite dos cuentas para el mismo buzón', async () => {
-    const res = await http().post('/api/auth/register')
-      .send({ email: '167236125362167@gmail.com', password, firstName: 'Ana', lastName: 'Pérez' }).expect(400);
-    expect(res.body.invalidParams).toEqual([expect.objectContaining({ name: 'email', reason: expect.stringMatching(/al menos una letra/) })]);
-
-    await http().post('/api/auth/register').send({ email: `${gmailUser}@gmail.com`, password, firstName: 'Ana', lastName: 'Pérez' }).expect(201);
-    // Con puntos o "+etiqueta" es el mismo buzón de Gmail → 409
-    const dotted = `${gmailUser.slice(0, 3)}.${gmailUser.slice(3)}@gmail.com`;
-    const dup = await http().post('/api/auth/register').send({ email: dotted, password, firstName: 'Ana', lastName: 'Pérez' }).expect(409);
-    expect(dup.body.detail).toMatch(/los puntos/);
-    await http().post('/api/auth/register').send({ email: `${gmailUser}+viajes@googlemail.com`, password, firstName: 'Ana', lastName: 'Pérez' }).expect(409);
-    // Y se puede iniciar sesión con cualquiera de las variantes
-    await http().post('/api/auth/login').send({ email: dotted, password }).expect(200);
-  });
-
-  it('una cuenta creada antes de la regla de Gmail (solo números) puede seguir iniciando sesión', async () => {
-    const legacy = `9${Date.now()}@gmail.com`;
-    const hash = await bcrypt.hash(password, 4);
-    await app.get(DataSource).query(
-      `INSERT INTO users (email, email_canonical, password_hash, first_name, last_name) VALUES ($1, $2, $3, 'Ana', 'Pérez')`, [legacy, legacy, hash]);
-    try {
-      await http().post('/api/auth/login').send({ email: legacy, password }).expect(200);
-    } finally {
-      await app.get(DataSource).query(`DELETE FROM users WHERE email = $1`, [legacy]);
-    }
-  });
-
-  it('acepta un turista con teléfono de otro país y lo guarda en formato internacional', async () => {
-    const res = await http().post('/api/auth/register').send({
-      email: `${runPrefix}tourist@rutalibre.test`, password, firstName: 'John', lastName: "O'Brien", phone: '+1 202 555 0143',
-    }).expect(201);
-    expect(res.body.user.phone).toBe('+12025550143');
-  });
-
-  it('login correcto → token que sirve para /api/auth/me', async () => {
-    const login = await http().post('/api/auth/login').send({ email, password }).expect(200);
-    const me = await http().get('/api/auth/me').set('Authorization', `Bearer ${login.body.accessToken}`).expect(200);
-    expect(me.body).toMatchObject({ email, firstName: 'Ana', role: 'CUSTOMER' });
-  });
-
-  it('login con contraseña incorrecta o correo inexistente → mismo 401', async () => {
-    const wrong = await http().post('/api/auth/login').send({ email, password: 'Otra2026x' }).expect(401);
-    const unknown = await http().post('/api/auth/login').send({ email: 'nadie@rutalibre.test', password }).expect(401);
-    expect(wrong.body.detail).toBe(unknown.body.detail);
-  });
-
-  it('/api/auth/me sin token o con token alterado → 401 ProblemDetails', async () => {
-    await http().get('/api/auth/me').expect(401);
-    const res = await http().get('/api/auth/me').set('Authorization', 'Bearer abc.def.ghi').expect(401);
     expect(res.body).toMatchObject({ status: 401, code: 'VALIDATION_FAILED' });
+
+    const expired = await testUser(UserRole.Customer, { expiresIn: '-1m' });
+    await http().get('/api/me/reservations').set(expired.headers).expect(401);
+    const foreign = await testUser(UserRole.Customer, { issuer: 'otro-emisor' });
+    await http().get('/api/me/reservations').set(foreign.headers).expect(401);
   });
 
-  it('el seed crea el administrador con rol ADMIN', async () => {
-    const res = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' });
-    // Solo aplica en BD local con el seed de desarrollo.
-    if (res.status === 200) expect(res.body.user.role).toBe('ADMIN');
+  it('rechaza los tokens HS256 del monolito anterior (aunque usen el mismo secreto)', async () => {
+    const legacy = await new SignJWT({ email: 'admin@rutalibre.ec', role: 'ADMIN' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer('rutalibre-identidad').setAudience('rutalibre-internal-api').setSubject('00000000-0000-0000-0000-000000000001')
+      .setExpirationTime('1h')
+      .sign(new TextEncoder().encode(process.env.USER_JWT_SECRET!));
+    await http().get('/api/admin/dashboard').set('Authorization', `Bearer ${legacy}`).expect(401);
   });
 
-  it('/api/docs publica el OpenAPI de la API interna', async () => {
-    const res = await http().get('/api/docs-json').expect(200);
-    expect(Object.keys(res.body.paths)).toEqual(expect.arrayContaining(['/api/auth/register', '/api/auth/login', '/api/auth/me']));
+  it('el rol del token decide el acceso al panel: cliente → 403, ADMIN → 200', async () => {
+    await http().get('/api/admin/dashboard').set((await testUser()).headers).expect(403);
+    await http().get('/api/admin/dashboard').set((await testUser(UserRole.Admin)).headers).expect(200);
+  });
+
+  it('el registro, el login y la gestión de usuarios ya no están aquí (los atiende ms-identidad)', async () => {
+    await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(404);
+    await http().post('/api/auth/register').send({}).expect(404);
+    await http().get('/api/admin/users').set((await testUser(UserRole.Admin)).headers).expect(404);
   });
 });

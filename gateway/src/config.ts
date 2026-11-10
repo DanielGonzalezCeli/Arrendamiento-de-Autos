@@ -34,6 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     port: intFrom(env, 'PORT', 8080),
     services: {
       'ms-reservas': urlFrom(env, 'MS_RESERVAS_URL', 'http://localhost:3000'),
+      'ms-identidad': urlFrom(env, 'MS_IDENTIDAD_URL', 'http://localhost:3002'),
     },
     rateLimitPerMinute: intFrom(env, 'RATE_LIMIT_PER_MINUTE', 300),
     proxyTimeoutMs: intFrom(env, 'PROXY_TIMEOUT_MS', 30_000),

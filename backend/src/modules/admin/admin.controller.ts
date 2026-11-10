@@ -16,8 +16,8 @@ import { BookingAdminService } from './booking-admin.service';
 import { CatalogAdminService } from './catalog-admin.service';
 import { DepotAdminService } from './depot-admin.service';
 import {
-  CategoryDto, ChargeSettingsDto, CityDto, CreateUserDto, DepotDto, ResetPasswordDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
-  UpdateCategoryDto, UpdateDepotDto, UpdateExtraDto, UpdateFleetUnitDto, UpdateRateDto, UpdateSupplierDto, UpdateUserDto,
+  CategoryDto, ChargeSettingsDto, CityDto, DepotDto, ExtraDto, FleetUnitDto, PickupDto, RateDto, ReservationFiltersDto, ReturnDto, SupplierDto,
+  UpdateCategoryDto, UpdateDepotDto, UpdateExtraDto, UpdateFleetUnitDto, UpdateRateDto, UpdateSupplierDto,
   UpdateVehicleModelDto, VehicleBlockDto, VehicleModelDto,
 } from './dto/admin.dto';
 import { FleetAdminService } from './fleet-admin.service';
@@ -167,20 +167,10 @@ export class AdminController {
   @Delete('rates/:id') @HttpCode(HttpStatus.NO_CONTENT) async deleteRate(@Param('id') id: string) { await this.catalog.deleteRate(id); }
 
   // ── Usuarios ──────────────────────────────────────────────────────────────
-  @Get('users') listUsers() { return this.operations.listUsers(); }
-  @Post('users')
-  @ApiOperation({ summary: 'Crear un usuario (cliente o administrador) con una contraseña inicial' })
-  createUser(@Body() dto: CreateUserDto) { return this.operations.createUser(dto); }
-  @Post('users/:id/password') @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Restablecer la contraseña de un usuario' })
-  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) { return this.operations.resetPassword(id, dto); }
-  @Delete('users/:id') @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar un usuario sin historial (si tiene reservas, se desactiva en su lugar)' })
-  async deleteUser(@Param('id') id: string, @CurrentUser() user: AuthUser) { await this.operations.deleteUser(id, user.id); }
-  @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: AuthUser) {
-    return this.operations.updateUser(id, dto, user.id);
-  }
+  // Las cuentas (/api/admin/users) las gestiona ms-identidad; ms-reservas solo informa el historial de cada una.
+  @Get('user-usage')
+  @ApiOperation({ summary: 'Reservas, reseñas y bloqueos de flota por usuario (lo consulta ms-identidad)' })
+  userUsage() { return this.operations.userUsage(); }
 
   // ── Integración (Booking Hub) ─────────────────────────────────────────────
   @Get('integration') integrationOverview() { return this.integration.overview(); }

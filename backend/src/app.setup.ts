@@ -5,7 +5,6 @@ import helmet from 'helmet';
 import { validationExceptionFactory } from './common/problem-details/problem-details';
 import { ProblemDetailsFilter } from './common/problem-details/problem-details.filter';
 import { AdminModule } from './modules/admin/admin.module';
-import { AuthModule } from './modules/auth/auth.module';
 import { resolveContractPath, setupContractDocs } from './modules/docs/contract-docs';
 import { setupInternalDocs } from './modules/docs/internal-docs';
 import { InternalApiModule } from './modules/internal-api/internal-api.module';
@@ -48,5 +47,5 @@ export function configureApp(app: INestApplication): void {
   app.useGlobalFilters(new ProblemDetailsFilter());
 
   setupContractDocs(app, resolveContractPath(config.get('CONTRACT_PATH')), config.get('PUBLIC_BASE_URL'));
-  setupInternalDocs(app, [AuthModule, InternalApiModule, AdminModule]);
+  setupInternalDocs(app, [InternalApiModule, AdminModule]);
 }

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { canonicalJson } from '../../src/modules/idempotency/idempotency.service';
 import { createApp, futureDate } from '../contract/contract-app';
+import { TestUser, testUser } from '../identity-tokens';
 
 /** Flujo de venta del marketplace por la API interna (mismos servicios que la API de integración). */
 describe('API interna — checkout y mis reservas', () => {
@@ -11,26 +12,27 @@ describe('API interna — checkout y mis reservas', () => {
   const suffix = Date.now();
   const users = [`test+buyer${suffix}@rutalibre.test`, `test+other${suffix}@rutalibre.test`];
   const tokens: string[] = [];
+  const buyers: TestUser[] = [];
   const startDay = 30 + Math.floor(Math.random() * 200);
 
   beforeAll(async () => {
     app = await createApp();
+    // Los usuarios los emite ms-identidad: aquí basta un token válido para cada comprador.
     for (const email of users) {
-      const res = await request(app.getHttpServer()).post('/api/auth/register')
-        .send({ email, password: 'Prueba2026', firstName: 'Ana', lastName: 'Pérez' }).expect(201);
-      tokens.push(res.body.accessToken);
+      const buyer = await testUser(undefined, { email });
+      buyers.push(buyer);
+      tokens.push(buyer.token);
     }
   });
 
   afterAll(async () => {
     const db = app.get(DataSource);
-    const ids = (await db.query(`SELECT id FROM users WHERE email = ANY($1)`, [users])).map((u: { id: string }) => `user:${u.id}`);
+    const ids = buyers.map((b) => `user:${b.id}`);
     await db.query(`DELETE FROM webhook_deliveries WHERE event_id IN (SELECT e.id FROM outbox_events e JOIN reservations r ON r.id::text = e.resource_id WHERE r.owner_sub = ANY($1))`, [ids]);
     await db.query(`DELETE FROM outbox_events WHERE resource_id IN (SELECT id::text FROM reservations WHERE owner_sub = ANY($1))`, [ids]);
     for (const table of ['reservations', 'order_previews', 'holds', 'idempotency_records']) {
       await db.query(`DELETE FROM ${table} WHERE owner_sub = ANY($1)`, [ids]);
     }
-    await db.query(`DELETE FROM users WHERE email = ANY($1)`, [users]);
     await app?.close();
   });
 

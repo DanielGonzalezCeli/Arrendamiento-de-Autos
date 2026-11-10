@@ -7,7 +7,9 @@ import { createServer, IncomingHttpHeaders, Server } from 'http';
 import { resolve } from 'path';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { UserRole } from '../../src/domain/enums';
 import { createApp } from '../contract/contract-app';
+import { testUser } from '../identity-tokens';
 
 /** Fecha local "YYYY-MM-DD" dentro de `days` días. */
 function day(days: number): string {
@@ -302,8 +304,7 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     const pnr: string = order.body.pnr;
     pnrs.push(pnr);
 
-    const login = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(200);
-    const admin = { Authorization: `Bearer ${login.body.accessToken}` };
+    const admin = (await testUser(UserRole.Admin)).headers;
     const found = await http().get('/api/admin/reservations').query({ q: id }).set(admin).expect(200);
     expect(found.body).toHaveLength(1);
     expect(found.body[0]).toMatchObject({ locator: pnr, rentalStatus: 'NOT_STARTED', fromBooking: true, identification: id });
@@ -325,8 +326,7 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
 
   it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {
     await http().get('/api/admin/booking').expect(401);
-    const login = await http().post('/api/auth/login').send({ email: 'admin@rutalibre.ec', password: 'Admin12345!' }).expect(200);
-    const admin = { Authorization: `Bearer ${login.body.accessToken}` };
+    const admin = (await testUser(UserRole.Admin)).headers;
 
     const res = await http().get('/api/admin/booking').set(admin).expect(200);
     expect(res.body.config).toMatchObject({ nodeId: 'NODE_AUT_RUTALIBRE', stockMode: 'grpc', stockClientActive: true, apiKeyConfigured: true });

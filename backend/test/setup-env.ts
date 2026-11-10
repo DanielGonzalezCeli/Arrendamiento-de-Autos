@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -18,3 +19,10 @@ if (!process.env.DATABASE_URL && existsSync(envFile)) {
     if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2].replace(/^"|"$/g, '');
   }
 }
+
+// Fase B: los tokens de usuario los emite ms-identidad. En los tests no corre: cada archivo genera su propio par
+// de claves RSA, ms-reservas verifica con la pública y test/identity-tokens.ts firma con la privada.
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+process.env.IDENTITY_JWT_PUBLIC_KEY = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+process.env.TEST_IDENTITY_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+process.env.IDENTITY_URL = ''; // sin consulta de estado a ms-identidad (se prueba aparte, con un servidor falso)

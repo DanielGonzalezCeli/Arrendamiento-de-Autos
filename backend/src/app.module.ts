@@ -44,9 +44,10 @@ const REDACTED_PATHS = [
           // Hora legible (ISO 8601) en cada línea, en lugar de milisegundos desde 1970.
           timestamp: stdTimeFunctions.isoTime,
           redact: REDACTED_PATHS,
-          // Correlación: se respeta el X-Request-Id entrante o se genera uno.
+          // Correlación: se respeta el X-Request-Id entrante; si no, el X-Correlation-Id que pone el gateway (o que
+          // reenvía otro microservicio), para seguir una misma petición en los logs de todos los servicios.
           genReqId: (req, res) => {
-            const id = (req.headers['x-request-id'] as string) || randomUUID();
+            const id = (req.headers['x-request-id'] as string) || (req.headers['x-correlation-id'] as string) || randomUUID();
             res.setHeader('X-Request-Id', id);
             return id;
           },
@@ -82,7 +83,6 @@ const REDACTED_PATHS = [
     IntegrationV3Module,
     // /api/*       → API interna (frontend)       · /autos/v1/* → API de integración (Booking Hub)
     RouterModule.register([
-      { path: INTERNAL_BASE_PATH, module: AuthModule },
       { path: INTERNAL_BASE_PATH, module: InternalApiModule },
       { path: INTERNAL_BASE_PATH, module: VouchersModule },
       { path: INTERNAL_BASE_PATH, module: InvoicesModule },

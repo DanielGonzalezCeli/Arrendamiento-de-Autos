@@ -14,8 +14,11 @@ export interface UserJwtPayload {
   role: UserRole;
 }
 
-/** Emisor y audiencia propios: un token web no es válido en la API de integración, ni al revés. */
-export const USER_JWT_ISSUER = 'rutalibre-web';
+/**
+ * Emisor (ms-identidad) y audiencia de los tokens web: distintos de los de la API de integración, así un token web
+ * no sirve allí, ni al revés.
+ */
+export const USER_JWT_ISSUER = 'rutalibre-identidad';
 export const USER_JWT_AUDIENCE = 'rutalibre-internal-api';
 
 /** Dueño de una reserva creada desde la web (el contrato usa el claim sub como ownerId). */
