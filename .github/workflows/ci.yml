@@ -372,17 +372,16 @@ jobs:
       - name: Verificar la salud agregada, el contrato v3 y el login a través del gateway
         run: |
           npx --yes wait-on@8 -t 300000 https://rutalibre-autos-api.azurewebsites.net/gateway/health https://rutalibre-autos-api.azurewebsites.net/api/v3/health
-          # Credenciales inválidas a propósito: 401 de ms-identidad (y no 404) prueba que /api/auth ya llega al servicio nuevo.
-          # Se reintenta: Azure tarda unos minutos en pasar el tráfico al contenedor nuevo aunque /gateway/health ya responda.
-          for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://rutalibre-autos-api.azurewebsites.net/api/auth/login \
+          # Credenciales inválidas a propósito: el 401 y el servicio que responde prueban que cada ruta ya llega a su
+          # microservicio (login → ms-identidad; clientes sin X-API-Key → ms-clientes). Se reintenta porque Azure tarda
+          # unos minutos en pasar el tráfico al contenedor nuevo del gateway aunque /gateway/health ya responda.
+          G=https://rutalibre-autos-api.azurewebsites.net
+          for i in $(seq 1 30); do
+            login=$(curl -s -o /dev/null -w '%{http_code} %header{x-upstream-service}' -X POST $G/api/auth/login \
               -H 'Content-Type: application/json' -d '{"email":"verificacion-ci@rutalibre.test","password":"no-es-la-clave"}')
-            echo "intento $i: POST /api/auth/login → $code"
-            [ "$code" = "401" ] && break
-            [ "$i" = "20" ] && exit 1
+            clientes=$(curl -s -o /dev/null -w '%{http_code} %header{x-upstream-service}' "$G/api/v3/clientes?email=ci@rutalibre.test")
+            echo "intento $i: login → $login · clientes → $clientes"
+            [ "$login" = "401 ms-identidad" ] && [ "$clientes" = "401 ms-clientes" ] && exit 0
             sleep 15
           done
-          # Sin X-API-Key: 401 de ms-clientes prueba que /api/v3/clientes ya llega al servicio nuevo
-          upstream=$(curl -s -o /dev/null -w '%{http_code} %header{x-upstream-service}' 'https://rutalibre-autos-api.azurewebsites.net/api/v3/clientes?email=ci@rutalibre.test')
-          echo "GET /api/v3/clientes → $upstream"
-          test "$upstream" = "401 ms-clientes"
+          exit 1
