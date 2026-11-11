@@ -1,5 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { generateKeyPairSync } from 'crypto';
 import { createServer, IncomingMessage, Server } from 'http';
+import { SignJWT } from 'jose';
 import { AddressInfo } from 'net';
 import request from 'supertest';
 
@@ -222,5 +224,65 @@ describe('API Gateway — dos microservicios', () => {
   it('la salud agregada incluye a ms-identidad', async () => {
     const res = await request(app.getHttpServer()).get('/gateway/health').expect(200);
     expect(res.body.services).toMatchObject({ 'ms-reservas': { status: 'UP' }, 'ms-identidad': { status: 'UP' } });
+  });
+});
+
+describe('API Gateway — fase E: métricas y rutas internas', () => {
+  let upstream: Server;
+  let app: INestApplication;
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const token = (role: string) => new SignJWT({ role })
+    .setProtectedHeader({ alg: 'RS256' }).setIssuer('rutalibre-identidad').setAudience('rutalibre-internal-api')
+    .setSubject('u1').setExpirationTime('5m').sign(privateKey);
+
+  beforeAll(async () => {
+    upstream = await startEchoService();
+    app = await createGateway(configFor(urlOf(upstream), {
+      services: { 'ms-reservas': urlOf(upstream), 'ms-identidad': urlOf(upstream) },
+      identityPublicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      corsOrigins: ['https://web.example'],
+    }));
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+
+  it('las rutas internas y /metrics de los microservicios no se publican (404, no llegan al microservicio)', async () => {
+    for (const path of ['/internal/clientes', '/internal/stock', '/internal', '/metrics']) {
+      const res = await request(app.getHttpServer()).get(path).expect(404);
+      expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
+      expect(res.headers['x-upstream-service']).toBeUndefined();
+    }
+    // Una ruta que solo empieza parecido sí se reenvía
+    await request(app.getHttpServer()).get('/internalidad').expect(200);
+  });
+
+  it('/gateway/metrics: sin token → 401; cliente → 403; ADMIN → Prometheus con las métricas del gateway', async () => {
+    await request(app.getHttpServer()).get('/gateway/metrics').expect(401);
+    await request(app.getHttpServer()).get('/gateway/metrics').set('Authorization', `Bearer ${await token('CUSTOMER')}`).expect(403);
+    await request(app.getHttpServer()).get('/api/v3/autos').expect(200);
+    const res = await request(app.getHttpServer()).get('/gateway/metrics').set('Authorization', `Bearer ${await token('ADMIN')}`).expect(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.text).toMatch(/gateway_requests_total\{[^}]*upstream="ms-reservas"[^}]*status="200"[^}]*service="gateway"\} \d+/);
+    expect(res.text).toMatch(/gateway_requests_total\{[^}]*upstream="bloqueada"[^}]*status="404"/);
+    expect(res.text).toContain('gateway_request_duration_seconds_bucket');
+  });
+
+  it('/gateway/metrics/{servicio} trae el /metrics del microservicio; un servicio desconocido → 404', async () => {
+    const admin = { Authorization: `Bearer ${await token('ADMIN')}` };
+    const res = await request(app.getHttpServer()).get('/gateway/metrics/ms-reservas').set(admin).expect(200);
+    expect(JSON.parse(res.text)).toMatchObject({ method: 'GET', url: '/metrics' }); // el servicio falso devuelve lo que recibió
+    await request(app.getHttpServer()).get('/gateway/metrics/ms-inexistente').set(admin).expect(404);
+  });
+
+  it('CORS de /gateway/* solo para los orígenes configurados (panel de observabilidad)', async () => {
+    const ok = await request(app.getHttpServer()).options('/gateway/metrics/ms-reservas').set('Origin', 'https://web.example').expect(204);
+    expect(ok.headers['access-control-allow-origin']).toBe('https://web.example');
+    expect(ok.headers['access-control-allow-headers']).toContain('Authorization');
+    const other = await request(app.getHttpServer()).options('/gateway/metrics').set('Origin', 'https://malicioso.example').expect(204);
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
   });
 });

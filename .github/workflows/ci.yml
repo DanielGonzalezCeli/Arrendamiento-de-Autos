@@ -324,8 +324,15 @@ jobs:
           app-name: rutalibre-ms-identidad
           publish-profile: ${{ secrets.AZURE_MSIDENTIDAD_PUBLISH_PROFILE }}
           package: ms-identidad.zip
-      - name: Verificar /health y el JWKS
-        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-identidad.azurewebsites.net/health https://rutalibre-ms-identidad.azurewebsites.net/.well-known/jwks.json
+      - name: Verificar ms-identidad a través del gateway (desde Internet responde 403 por las restricciones de acceso)
+        run: |
+          for i in $(seq 1 40); do
+            status=$(curl -s --max-time 10 https://rutalibre-autos-api.azurewebsites.net/gateway/health | jq -r '.services["ms-identidad"].status // "?"')
+            echo "intento $i: ms-identidad → $status"
+            [ "$status" = "UP" ] && exit 0
+            sleep 15
+          done
+          exit 1
 
   deploy-ms-clientes:
     name: Deploy ms-clientes (Azure App Service)
@@ -358,8 +365,15 @@ jobs:
           app-name: rutalibre-ms-clientes
           publish-profile: ${{ secrets.AZURE_MSCLIENTES_PUBLISH_PROFILE }}
           package: ms-clientes.zip
-      - name: Verificar /health
-        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-clientes.azurewebsites.net/health
+      - name: Verificar ms-clientes a través del gateway (desde Internet responde 403 por las restricciones de acceso)
+        run: |
+          for i in $(seq 1 40); do
+            status=$(curl -s --max-time 10 https://rutalibre-autos-api.azurewebsites.net/gateway/health | jq -r '.services["ms-clientes"].status // "?"')
+            echo "intento $i: ms-clientes → $status"
+            [ "$status" = "UP" ] && exit 0
+            sleep 15
+          done
+          exit 1
 
   deploy-ms-inventario:
     name: Deploy ms-inventario (Azure App Service)
@@ -393,8 +407,15 @@ jobs:
           app-name: rutalibre-ms-inventario
           publish-profile: ${{ secrets.AZURE_MSINVENTARIO_PUBLISH_PROFILE }}
           package: ms-inventario.zip
-      - name: Verificar /health
-        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-inventario.azurewebsites.net/health
+      - name: Verificar ms-inventario a través del gateway (desde Internet responde 403 por las restricciones de acceso)
+        run: |
+          for i in $(seq 1 40); do
+            status=$(curl -s --max-time 10 https://rutalibre-autos-api.azurewebsites.net/gateway/health | jq -r '.services["ms-inventario"].status // "?"')
+            echo "intento $i: ms-inventario → $status"
+            [ "$status" = "UP" ] && exit 0
+            sleep 15
+          done
+          exit 1
 
   deploy-ms-reservas:
     name: Deploy ms-reservas (Azure App Service)
@@ -428,8 +449,15 @@ jobs:
           app-name: rutalibre-ms-reservas
           publish-profile: ${{ secrets.AZURE_MSRESERVAS_PUBLISH_PROFILE }}
           package: ms-reservas.zip
-      - name: Verificar /health
-        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-reservas.azurewebsites.net/health
+      - name: Verificar ms-reservas a través del gateway (desde Internet responde 403 por las restricciones de acceso)
+        run: |
+          for i in $(seq 1 40); do
+            status=$(curl -s --max-time 10 https://rutalibre-autos-api.azurewebsites.net/gateway/health | jq -r '.services["ms-reservas"].status // "?"')
+            echo "intento $i: ms-reservas → $status"
+            [ "$status" = "UP" ] && exit 0
+            sleep 15
+          done
+          exit 1
 
   deploy-gateway:
     name: Deploy API Gateway (Azure App Service)
@@ -474,7 +502,9 @@ jobs:
               -H 'Content-Type: application/json' -d '{"email":"verificacion-ci@rutalibre.test","password":"no-es-la-clave"}')
             clientes=$(curl -s -o /dev/null -w '%{http_code} %header{x-upstream-service}' "$G/api/v3/clientes?email=ci@rutalibre.test")
             echo "intento $i: login → $login · clientes → $clientes"
-            [ "$login" = "401 ms-identidad" ] && [ "$clientes" = "401 ms-clientes" ] && exit 0
+            internal=$(curl -s -o /dev/null -w '%{http_code}' "$G/internal/stock")
+            echo "          /internal/stock desde Internet → $internal (debe ser 404)"
+            [ "$login" = "401 ms-identidad" ] && [ "$clientes" = "401 ms-clientes" ] && [ "$internal" = "404" ] && exit 0
             sleep 15
           done
           exit 1

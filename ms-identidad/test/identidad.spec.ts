@@ -256,4 +256,11 @@ describe('ms-identidad', () => {
     const [{ schema }] = await db().query(`SELECT table_schema AS schema FROM information_schema.tables WHERE table_name = 'users' AND table_type = 'BASE TABLE'`);
     expect(schema).toBe('identidad');
   });
+
+  it('fase E: /metrics cuenta los inicios de sesión por resultado', async () => {
+    const res = await http().get('/metrics').expect(200);
+    expect(res.text).toMatch(/auth_logins_total\{result="ok",service="ms-identidad"\} [1-9]/);
+    expect(res.text).toMatch(/auth_logins_total\{result="rechazado",service="ms-identidad"\} [1-9]/);
+    expect(res.text).toMatch(/http_requests_total\{[^}]*route="\/api\/auth\/login"/);
+  });
 });

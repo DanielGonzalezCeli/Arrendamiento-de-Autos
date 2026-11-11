@@ -65,6 +65,17 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   return body as T
 }
 
+/** GET que devuelve texto plano (p. ej. las métricas Prometheus del gateway). */
+export async function apiFetchText(path: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} })
+  const text = await response.text()
+  if (!response.ok) {
+    if (response.status === 401 && accessToken) onUnauthorized?.()
+    throw new ApiError(response.status, text.startsWith('#') ? text.slice(1).trim() : `Error ${response.status}`)
+  }
+  return text
+}
+
 /** Subida de archivos (multipart). El navegador pone el Content-Type con el boundary. */
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

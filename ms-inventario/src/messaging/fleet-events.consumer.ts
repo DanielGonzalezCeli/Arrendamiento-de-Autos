@@ -1,8 +1,17 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
+import { Counter, Gauge } from 'prom-client';
+import { metrics } from '../common/metrics';
 import { StockSyncService } from '../stock/stock-sync.service';
 import { parseFleetEvent } from './fleet-event';
+
+const consumed = new Counter({
+  name: 'fleet_events_consumed_total',
+  help: 'Eventos de flota recibidos de RabbitMQ, por routing key y resultado (ok, invalido → DLQ, error → reintento)',
+  labelNames: ['routing_key', 'result'],
+  registers: [metrics],
+});
 
 const RECONNECT_MS = 5_000;
 /** Si aplicar un evento falla por un error transitorio (p. ej. la BD), se devuelve a la cola tras esta espera. */
@@ -33,6 +42,11 @@ export class FleetEventsConsumer implements OnApplicationBootstrap, OnModuleDest
   ) {
     this.exchange = config.get<string>('AMQP_EXCHANGE')!;
     this.queue = config.get<string>('AMQP_QUEUE')!;
+    const consumer = this;
+    new Gauge({
+      name: 'rabbitmq_connected', help: '1 si el servicio está conectado a RabbitMQ', registers: [metrics],
+      collect() { this.set(consumer.connected ? 1 : 0); },
+    });
   }
 
   get connected(): boolean {
@@ -92,6 +106,7 @@ export class FleetEventsConsumer implements OnApplicationBootstrap, OnModuleDest
     const parsed = parseFleetEvent(message.content.toString('utf8'));
     if ('error' in parsed) {
       this.logger.warn(`Evento inválido enviado a ${this.queue}.dlq: ${parsed.error}`);
+      consumed.inc({ routing_key: message.fields.routingKey, result: 'invalido' });
       channel.nack(message, false, false);
       return;
     }
@@ -102,9 +117,11 @@ export class FleetEventsConsumer implements OnApplicationBootstrap, OnModuleDest
       if (event.type.endsWith('estado_cambiado')) {
         this.logger.log(`${message.fields.routingKey} ${event.data.vehicles.map((v) => `${v.vehicle_id}=${v.state}`).join(', ')} → ${summary.pushed} enviados cid=${event.correlationid}`);
       }
+      consumed.inc({ routing_key: message.fields.routingKey, result: 'ok' });
       channel.ack(message);
     } catch (error) {
       this.logger.error(`No se pudo aplicar ${event.type} ${event.id}: ${(error as Error).message}; vuelve a la cola`);
+      consumed.inc({ routing_key: message.fields.routingKey, result: 'error' });
       setTimeout(() => channel.nack(message, false, true), RETRY_DELAY_MS).unref();
     }
   }

@@ -100,6 +100,8 @@ test('el administrador entrega y recibe un vehículo y recorre el panel', async 
     ['Catálogo y tarifas', 'Catálogo y tarifas'],
     ['Usuarios', 'Usuarios'],
     ['Integración', 'Integración con el Booking Hub'],
+    // Fase E: salud y métricas de cada microservicio, leídas a través del gateway
+    ['Observabilidad', 'Observabilidad'],
   ]
   for (const [link, heading] of sections) {
     await nav.getByRole('link', { name: link }).click()
@@ -107,6 +109,14 @@ test('el administrador entrega y recibe un vehículo y recorre el panel', async 
     await expect(page.locator('table').first()).toBeVisible()
     await snap(page, `admin-05-${link.split(' ')[0].toLowerCase()}`)
   }
+
+  // Observabilidad: una tarjeta por microservicio, con sus métricas (el gateway exige el token de admin)
+  await nav.getByRole('link', { name: 'Observabilidad' }).click()
+  for (const service of ['API Gateway', 'ms-reservas', 'ms-identidad', 'ms-clientes', 'ms-inventario']) {
+    await expect(page.getByRole('heading', { level: 2, name: service, exact: true })).toBeVisible()
+  }
+  await expect(page.getByText('Peticiones').first()).toBeVisible()
+  await expect(page.getByText('No respondió /metrics.')).toHaveCount(0)
 
   // Validación en el formulario de flota: placa con formato inválido
   await nav.getByRole('link', { name: 'Flota' }).click()

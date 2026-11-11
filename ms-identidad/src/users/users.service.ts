@@ -1,7 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
+import { Counter } from 'prom-client';
 import { Not, Repository } from 'typeorm';
+import { metrics } from '../common/metrics';
 import { ReservasClient } from '../admin/reservas.client';
 import { CreateUserDto, LoginDto, RegisterDto, ResetPasswordDto, UpdateUserDto } from '../auth/auth.dto';
 import { TokenService } from '../auth/token.service';
@@ -13,6 +15,13 @@ import { PublicUser, toPublicUser, User, UserRole } from './user.entity';
 /** Se compara cuando el correo no existe, para que la respuesta tarde lo mismo y no revele qué correos están registrados. */
 const DUMMY_HASH = bcrypt.hashSync('dummy-password-never-used', BCRYPT_COST);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const logins = new Counter({
+  name: 'auth_logins_total',
+  help: 'Intentos de inicio de sesión, por resultado (ok o rechazado)',
+  labelNames: ['result'],
+  registers: [metrics],
+});
 
 export interface AuthResult {
   accessToken: string;
@@ -64,7 +73,11 @@ export class UsersService {
   async login(dto: LoginDto): Promise<AuthResult> {
     const user = await this.findByEmail(dto.email);
     const passwordOk = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
-    if (!user || !passwordOk || !user.active) throw new UnauthorizedException('Correo o contraseña incorrectos');
+    if (!user || !passwordOk || !user.active) {
+      logins.inc({ result: 'rechazado' });
+      throw new UnauthorizedException('Correo o contraseña incorrectos');
+    }
+    logins.inc({ result: 'ok' });
     return this.issueToken(user);
   }
 

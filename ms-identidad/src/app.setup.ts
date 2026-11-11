@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import { httpMetricsMiddleware } from './common/metrics';
 import { ProblemDetailsFilter, validationExceptionFactory } from './common/problem-details';
 
 /** Configuración HTTP común a main.ts y a los tests. */
@@ -11,6 +12,7 @@ export function configureApp(app: INestApplication): void {
   const trustProxyHops = config.get<number>('TRUST_PROXY_HOPS') ?? 0;
   if (trustProxyHops > 0) app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
 
+  app.use(httpMetricsMiddleware);
   app.use(helmet());
   // El gateway reenvía tal cual las peticiones del navegador (incluido el preflight): CORS lo responde cada servicio.
   app.enableCors({

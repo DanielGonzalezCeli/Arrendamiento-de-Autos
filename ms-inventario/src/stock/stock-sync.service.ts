@@ -1,7 +1,9 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { Counter } from 'prom-client';
 import { DataSource } from 'typeorm';
+import { metrics } from '../common/metrics';
 import { BookingStockTransport, GrpcStockTransport, HttpStockTransport, resolveProtoPath } from './booking-stock.client';
 import { StockSyncLog } from './entities/stock-sync-log.entity';
 import { StockSyncState } from './entities/stock-sync-state.entity';
@@ -17,6 +19,13 @@ export interface ApplySummary {
 /** Acuses que significan "Booking ya tiene este estado o uno más nuevo": no se reintenta. */
 const SETTLED_CODES = new Set(['OK', 'STALE_TIMESTAMP_IGNORED']);
 const RECENT_PUSHES = 50;
+
+const pushes = new Counter({
+  name: 'booking_stock_push_total',
+  help: 'PushStockUpdate enviados a Booking, por transporte y resultado (confirmado o fallido)',
+  labelNames: ['transport', 'result'],
+  registers: [metrics],
+});
 
 /**
  * Envío de stock a Booking (inventory.proto · PushStockUpdate) a partir de los eventos de flota de ms-reservas.
@@ -155,6 +164,7 @@ export class StockSyncService implements OnModuleInit, OnModuleDestroy {
         ? { syncedUnits: message.available_units, syncedDate: message.date, syncedTimeSlot: message.time_slot, syncedAt: new Date() }
         : {}),
     });
+    pushes.inc({ transport: transport.name, result: settled ? 'confirmado' : 'fallido' });
     if (!settled) this.lastFailure = `${errorCode}${text ? `: ${text}` : ''}`;
     if (!settled && (previous?.attempts ?? 0) === 0) {
       this.logger.warn(`PushStockUpdate ${message.item_id} falló (${errorCode}): ${text ?? ''} — se reintentará con el siguiente snapshot`);

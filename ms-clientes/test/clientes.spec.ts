@@ -116,4 +116,10 @@ describe('ms-clientes', () => {
       `SELECT table_schema AS schema FROM information_schema.tables WHERE table_name = 'clients' AND table_type = 'BASE TABLE'`);
     expect(schema).toBe('clientes');
   });
+
+  it('fase E: /metrics cuenta las altas de clientes por origen y resultado', async () => {
+    const res = await http().get('/metrics').expect(200);
+    expect(res.text).toMatch(/clients_registrations_total\{source="BOOKING",result="creado",service="ms-clientes"\} [1-9]/);
+    expect(res.text).toMatch(/clients_registrations_total\{source="BOOKING",result="ya_existia",service="ms-clientes"\} [1-9]/);
+  });
 });

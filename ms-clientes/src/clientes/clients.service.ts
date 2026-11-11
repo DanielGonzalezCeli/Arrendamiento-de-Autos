@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { Counter } from 'prom-client';
 import { DataSource, Like } from 'typeorm';
+import { metrics } from '../common/metrics';
 import { Client, ClientSource } from './client.entity';
 
 export interface ClientInput {
@@ -34,6 +36,13 @@ export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
   return domain ? `${local.slice(0, 1)}***@${domain}` : '***';
 }
+
+const registrations = new Counter({
+  name: 'clients_registrations_total',
+  help: 'Altas de clientes (buscar o crear), por origen y resultado (creado o ya existía)',
+  labelNames: ['source', 'result'],
+  registers: [metrics],
+});
 
 /** Máximo de resultados de una búsqueda parcial (mostrador). */
 const SEARCH_LIMIT = 50;
@@ -83,6 +92,7 @@ export class ClientsService {
       if (!existing.phone && input.phone) patch.phone = input.phone;
       if (!existing.licenseNumber && input.licenseNumber) patch.licenseNumber = input.licenseNumber;
       if (Object.keys(patch).length) await this.repo.update(existing.id, patch);
+      registrations.inc({ source: input.source, result: 'ya_existia' });
       return { client: { ...existing, ...patch }, created: false };
     }
 
@@ -97,6 +107,7 @@ export class ClientsService {
       : await this.find({ email: input.email, identification });
     if (!client) throw new Error('No se pudo registrar ni recuperar el cliente');
     if (inserted.length) this.logger.log(`Cliente creado ${client.id} (${input.source}) ${maskEmail(client.email)}`);
+    registrations.inc({ source: input.source, result: inserted.length ? 'creado' : 'ya_existia' });
     return { client, created: inserted.length > 0 };
   }
 }

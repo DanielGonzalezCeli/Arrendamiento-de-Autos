@@ -93,6 +93,8 @@ Booking Prototipo exige que `/health` responda en < 4 s; Render free se duerme a
 
 El gateway también lleva `MS_IDENTIDAD_URL`, `MS_CLIENTES_URL` y `MS_INVENTARIO_URL`; ms-reservas, `IDENTITY_URL`, `CLIENTS_URL`, `INVENTORY_URL` y `AMQP_URL`. Desde la fase D, `STOCK_SYNC_MODE` de ms-reservas ya no se usa: el stock lo envía ms-inventario.
 
+**Restricciones de acceso (fase E):** los cuatro microservicios solo aceptan tráfico de las IPs de salida del plan (`az webapp config access-restriction`, reglas `plan-rutalibre-1…6`, 8 IPs cada una); el resto recibe 403. El sitio SCM no usa esas reglas (`--use-same-restrictions-for-scm-site false`) para que los despliegues sigan funcionando. Solo `rutalibre-autos-api` (el gateway) es público; lleva `CORS_ORIGINS` con la URL de la web para la página de Observabilidad.
+
 **RabbitMQ:** CloudAMQP, plan gratuito Little Lemur, AWS us-east-1 (cerca de Azure Canada Central). La URL `amqps://` solo vive en la configuración de Azure. Desde la fase B, `USER_JWT_SECRET` de ms-reservas ya no firma tokens: solo deriva la firma de los vouchers y la clave de los secretos de webhooks.
 
 **Despliegue continuo:** en cada push a `main`, después de backend, gateway, ms-identidad, ms-clientes, ms-inventario, frontend y E2E:

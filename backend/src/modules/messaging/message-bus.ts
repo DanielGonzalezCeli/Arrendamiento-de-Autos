@@ -2,10 +2,19 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
 import { randomUUID } from 'crypto';
+import { Counter, Gauge } from 'prom-client';
+import { metrics } from '../../common/metrics/metrics';
 
 const RECONNECT_MS = 5_000;
 /** Eventos que se guardan en memoria cuando no hay broker (desarrollo y tests). */
 const MEMORY_LIMIT = 500;
+
+const published = new Counter({
+  name: 'fleet_events_published_total',
+  help: 'Eventos publicados en RabbitMQ, por routing key y resultado (ok = confirmado por el broker)',
+  labelNames: ['routing_key', 'result'],
+  registers: [metrics],
+});
 
 /** Sobre CloudEvents 1.0 (mismo formato que los eventos del contrato v3). */
 export interface BusEvent<T = unknown> {
@@ -46,6 +55,11 @@ export class MessageBus implements OnModuleInit, OnModuleDestroy {
   constructor(config: ConfigService) {
     this.url = config.get<string>('AMQP_URL');
     this.exchange = config.get<string>('AMQP_EXCHANGE') ?? 'rutalibre.eventos';
+    const bus = this;
+    new Gauge({
+      name: 'rabbitmq_connected', help: '1 si el servicio está conectado a RabbitMQ (o usa eventos en memoria)', registers: [metrics],
+      collect() { this.set(bus.connected ? 1 : 0); },
+    });
   }
 
   get mode(): 'rabbitmq' | 'memoria' {
@@ -78,12 +92,14 @@ export class MessageBus implements OnModuleInit, OnModuleDestroy {
     };
     if (this.mode === 'memoria') {
       this.published.push({ routingKey, event });
+      published.inc({ routing_key: routingKey, result: 'memoria' });
       if (this.published.length > MEMORY_LIMIT) this.published.shift();
       return true;
     }
     const channel = this.channel;
     if (!channel) {
       this.logger.warn(`RabbitMQ no disponible: ${routingKey} no se publicó (lo cubre el próximo snapshot) cid=${correlationId}`);
+      published.inc({ routing_key: routingKey, result: 'sin_conexion' });
       return false;
     }
     try {
@@ -91,9 +107,11 @@ export class MessageBus implements OnModuleInit, OnModuleDestroy {
         persistent: true, contentType: 'application/json', messageId: event.id, correlationId, type, timestamp: Math.floor(Date.now() / 1000),
       });
       await channel.waitForConfirms();
+      published.inc({ routing_key: routingKey, result: 'ok' });
       return true;
     } catch (error) {
       this.logger.warn(`No se pudo publicar ${routingKey}: ${(error as Error).message} cid=${correlationId}`);
+      published.inc({ routing_key: routingKey, result: 'error' });
       return false;
     }
   }

@@ -17,6 +17,13 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v3/clientes', service: 'ms-clientes' },
 ];
 
+/**
+ * Rutas que los microservicios exponen solo entre sí (API interna) y sus métricas: el gateway nunca las reenvía.
+ */
+export function isInternalPath(path: string): boolean {
+  return path === '/metrics' || path.startsWith('/metrics/') || path === '/internal' || path.startsWith('/internal/');
+}
+
 /** Rutas propias del gateway; nunca se reenvían. */
 export const GATEWAY_PREFIX = '/gateway';
 

@@ -58,4 +58,15 @@ describe('API interna — tokens de ms-identidad', () => {
     await http().post('/api/auth/register').send({}).expect(404);
     await http().get('/api/admin/users').set((await testUser(UserRole.Admin)).headers).expect(404);
   });
+
+  it('fase E: /metrics en formato Prometheus, con la plantilla de la ruta (no la URL concreta) y service="ms-reservas"', async () => {
+    await http().get('/api/me/reservations').set((await testUser()).headers).expect(200);
+    await http().get('/api/v3/autos/auto-zzz-0000').expect(404);
+    const res = await http().get('/metrics').expect(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.text).toMatch(/http_requests_total\{[^}]*route="\/api\/me\/reservations"[^}]*status="200"[^}]*service="ms-reservas"\}/);
+    expect(res.text).toMatch(/http_request_duration_seconds_bucket\{/);
+    expect(res.text).toContain('rabbitmq_connected');
+    expect(res.text).not.toContain('auto-zzz-0000');
+  });
 });

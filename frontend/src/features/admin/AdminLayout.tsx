@@ -1,4 +1,4 @@
-import { Building2, CalendarCheck, Car, Gauge, KeyRound, Network, Radio, ReceiptText, Tags, Users, Warehouse } from 'lucide-react'
+import { Activity, Building2, CalendarCheck, Car, Gauge, KeyRound, Network, Radio, ReceiptText, Tags, Users, Warehouse } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const LINKS = [
@@ -12,6 +12,7 @@ const LINKS = [
   { to: '/admin/catalogo', label: 'Catálogo y tarifas', icon: Tags },
   { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { to: '/admin/booking', label: 'Booking (v3)', icon: Radio },
+  { to: '/admin/observabilidad', label: 'Observabilidad', icon: Activity },
   { to: '/admin/integracion', label: 'Integración (v1)', icon: Network },
 ]
 

@@ -13,6 +13,13 @@ export interface GatewayConfig {
    */
   trustProxyHops: number;
   logLevel: string;
+  /** Orígenes del navegador que pueden llamar a /gateway/* (página de observabilidad del panel). */
+  corsOrigins: string[];
+  /**
+   * Clave pública de ms-identidad (PEM) para verificar el token del administrador en /gateway/metrics. Sin ella
+   * se usa el JWKS de ms-identidad; esta variable existe para los tests.
+   */
+  identityPublicKey?: string;
 }
 
 function intFrom(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
@@ -43,5 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     proxyTimeoutMs: intFrom(env, 'PROXY_TIMEOUT_MS', 30_000),
     trustProxyHops: intFrom(env, 'TRUST_PROXY_HOPS', 0),
     logLevel: env.LOG_LEVEL ?? 'info',
+    corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((o) => o.trim()).filter(Boolean),
+    identityPublicKey: env.IDENTITY_JWT_PUBLIC_KEY || undefined,
   };
 }

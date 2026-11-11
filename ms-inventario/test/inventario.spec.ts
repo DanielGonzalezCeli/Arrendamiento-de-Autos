@@ -180,4 +180,11 @@ describe('ms-inventario', () => {
       await connection.close();
     }
   }, 30_000);
+
+  it('fase E: /metrics cuenta los envíos a Booking (confirmados y fallidos) y el estado de RabbitMQ', async () => {
+    const res = await request(app.getHttpServer()).get('/metrics').expect(200);
+    expect(res.text).toMatch(/booking_stock_push_total\{transport="grpc",result="confirmado",service="ms-inventario"\} [1-9]/);
+    expect(res.text).toMatch(/booking_stock_push_total\{transport="grpc",result="fallido",service="ms-inventario"\} [1-9]/);
+    expect(res.text).toMatch(/rabbitmq_connected\{service="ms-inventario"\} [01]/);
+  });
 });

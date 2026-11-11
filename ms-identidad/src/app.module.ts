@@ -12,6 +12,7 @@ import { AuthController, JwksController } from './auth/auth.controller';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { UserJwtGuard } from './auth/guards/user-jwt.guard';
 import { TokenService } from './auth/token.service';
+import { MetricsController } from './common/metrics';
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { HealthController } from './health/health.controller';
@@ -48,7 +49,7 @@ const REDACTED_PATHS = ['req.headers.authorization', 'req.headers.cookie', 'req.
     TypeOrmModule.forFeature([User]),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
   ],
-  controllers: [AuthController, JwksController, UsersAdminController, HealthController],
+  controllers: [AuthController, JwksController, UsersAdminController, HealthController, MetricsController],
   providers: [TokenService, UsersService, ReservasClient, UserJwtGuard, RolesGuard],
 })
 export class AppModule {}

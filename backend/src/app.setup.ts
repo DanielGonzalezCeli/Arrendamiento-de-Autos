@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 
+import { httpMetricsMiddleware } from './common/metrics/metrics';
 import { validationExceptionFactory } from './common/problem-details/problem-details';
 import { ProblemDetailsFilter } from './common/problem-details/problem-details.filter';
 import { AdminModule } from './modules/admin/admin.module';
@@ -16,6 +17,9 @@ export function configureApp(app: INestApplication): void {
   // Detrás del API Gateway: req.ip (límites por IP, logs) es la IP del cliente, no la del gateway.
   const trustProxyHops = config.get<number>('TRUST_PROXY_HOPS') ?? 0;
   if (trustProxyHops > 0) app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+
+  // Métricas Prometheus (fase E): primero, para medir también las peticiones que terminan en error.
+  app.use(httpMetricsMiddleware);
 
   app.use(
     helmet({

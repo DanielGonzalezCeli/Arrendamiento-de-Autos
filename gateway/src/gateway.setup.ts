@@ -8,7 +8,8 @@ import pinoHttp from 'pino-http';
 
 import { GatewayConfig } from './config';
 import { clientIp, resolveCorrelationId, sendProblem } from './http-helpers';
-import { GATEWAY_PREFIX, resolveRoute } from './routes';
+import { gatewayDuration, gatewayRequests, rateLimited, upstreamErrors } from './metrics';
+import { GATEWAY_PREFIX, isInternalPath, resolveRoute } from './routes';
 
 /** Datos que el gateway calcula una vez por petición y comparten los middlewares. */
 interface GatewayRequest extends Request {
@@ -23,8 +24,9 @@ const REDACTED_PATHS = ['req.headers.authorization', 'req.headers.cookie', 'req.
 
 /**
  * Cadena de middlewares del gateway (el orden importa):
- *  1. correlación e IP del cliente → 2. log de acceso → 3. límite por IP → 4. proxy al microservicio.
- * Las rutas `/gateway/*` (salud agregada) no se reenvían: las atiende Nest después de esta cadena.
+ *  1. correlación e IP del cliente → 2. métricas → 3. log de acceso → 4. rutas internas bloqueadas →
+ *  5. CORS de /gateway/* → 6. límite por IP → 7. proxy al microservicio.
+ * Las rutas `/gateway/*` (salud agregada, métricas) no se reenvían: las atiende Nest después de esta cadena.
  */
 export function configureGateway(app: INestApplication, config: GatewayConfig): void {
   const server = app.getHttpAdapter().getInstance();
@@ -35,6 +37,17 @@ export function configureGateway(app: INestApplication, config: GatewayConfig): 
     req.clientIp = clientIp(req, config.trustProxyHops);
     req.upstream = req.path.startsWith(`${GATEWAY_PREFIX}/`) ? null : resolveRoute(req.path)?.service ?? null;
     res.setHeader('X-Correlation-Id', req.correlationId);
+    next();
+  });
+
+  // Métricas: cada petición, con su destino (el microservicio, "gateway" para /gateway/* o "bloqueada").
+  server.use((req: GatewayRequest, res: Response, next: NextFunction) => {
+    const stop = gatewayDuration.startTimer();
+    res.on('finish', () => {
+      const upstream = isInternalPath(req.path) ? 'bloqueada' : req.upstream ?? 'gateway';
+      gatewayRequests.inc({ upstream, status: String(res.statusCode) });
+      stop({ upstream });
+    });
     next();
   });
 
@@ -51,6 +64,28 @@ export function configureGateway(app: INestApplication, config: GatewayConfig): 
     }),
   );
 
+  // Seguridad (fase E): las rutas que los microservicios exponen solo entre sí (/internal/*) y sus /metrics no se
+  // publican. Desde Internet responden 404, como si no existieran.
+  server.use((req: GatewayRequest, res: Response, next: NextFunction) => {
+    if (!isInternalPath(req.path)) return next();
+    sendProblem(req, res, 404, 'NOT_FOUND', 'Recurso no encontrado', 'La ruta no existe', req.correlationId);
+  });
+
+  // CORS solo para /gateway/* (la página de observabilidad del panel lo llama desde el navegador). Las demás
+  // rutas devuelven el CORS de cada microservicio.
+  server.use((req: GatewayRequest, res: Response, next: NextFunction) => {
+    if (!req.path.startsWith(`${GATEWAY_PREFIX}/`)) return next();
+    const origin = req.headers.origin;
+    if (origin && config.corsOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, X-Correlation-Id');
+      res.setHeader('Access-Control-Expose-Headers', 'X-Correlation-Id');
+    }
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    next();
+  });
+
   if (config.rateLimitPerMinute > 0) {
     server.use(
       rateLimit({
@@ -64,6 +99,7 @@ export function configureGateway(app: INestApplication, config: GatewayConfig): 
         skip: (req) => req.path.startsWith(`${GATEWAY_PREFIX}/`),
         handler: (req, res) => {
           const r = req as GatewayRequest;
+          rateLimited.inc();
           sendProblem(r, res, 429, 'RATE_LIMITED', 'Demasiadas peticiones',
             `Se superó el límite de ${config.rateLimitPerMinute} peticiones por minuto; intenta de nuevo en unos segundos`, r.correlationId);
         },
@@ -93,6 +129,7 @@ export function configureGateway(app: INestApplication, config: GatewayConfig): 
           if (!('setHeader' in res)) return;
           const r = req as GatewayRequest;
           const service = r.upstream ?? 'desconocido';
+          upstreamErrors.inc({ upstream: service, type: r.timedOut ? 'timeout' : 'no_disponible' });
           if (r.timedOut) {
             sendProblem(r, res, 504, 'UPSTREAM_TIMEOUT', 'El servicio no respondió a tiempo',
               `${service} no respondió en ${config.proxyTimeoutMs} ms`, r.correlationId);

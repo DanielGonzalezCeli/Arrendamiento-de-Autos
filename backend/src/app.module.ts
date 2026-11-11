@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 import { stdTimeFunctions } from 'pino';
 
+import { MetricsController } from './common/metrics/metrics';
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { AdminModule } from './modules/admin/admin.module';
@@ -34,6 +35,7 @@ const REDACTED_PATHS = [
 ];
 
 @Module({
+  controllers: [MetricsController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', validate: validateEnv }),
 

@@ -7,6 +7,7 @@ import { stdTimeFunctions } from 'pino';
 import { ClientsInternalController, ClientsV3Controller } from './clientes/clients.controller';
 import { ClientsService } from './clientes/clients.service';
 import { ApiKeyGuard, Credentials, ServiceGuard } from './common/auth.guards';
+import { MetricsController } from './common/metrics';
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { HealthController } from './health/health.controller';
@@ -35,7 +36,7 @@ const REDACTED_PATHS = ['req.headers.authorization', 'req.headers.cookie', 'req.
       useFactory: (config: ConfigService) => ({ ...buildTypeOrmOptions(config.getOrThrow<string>('DATABASE_URL')), autoLoadEntities: true }),
     }),
   ],
-  controllers: [ClientsV3Controller, ClientsInternalController, HealthController],
+  controllers: [ClientsV3Controller, ClientsInternalController, HealthController, MetricsController],
   providers: [ClientsService, Credentials, ApiKeyGuard, ServiceGuard],
 })
 export class AppModule {}

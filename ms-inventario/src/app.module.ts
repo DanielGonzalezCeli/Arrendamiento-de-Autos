@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { stdTimeFunctions } from 'pino';
 
 import { AdminGuard } from './common/admin.guard';
+import { MetricsController } from './common/metrics';
 import { validateEnv } from './config/env.validation';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { HealthController } from './health/health.controller';
@@ -37,7 +38,7 @@ import { StockSyncService } from './stock/stock-sync.service';
       useFactory: (config: ConfigService) => ({ ...buildTypeOrmOptions(config.getOrThrow<string>('DATABASE_URL')), autoLoadEntities: true }),
     }),
   ],
-  controllers: [StockController, HealthController],
+  controllers: [StockController, HealthController, MetricsController],
   providers: [StockSyncService, FleetEventsConsumer, AdminGuard],
 })
 export class AppModule {}
