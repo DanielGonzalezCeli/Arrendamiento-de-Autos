@@ -280,7 +280,10 @@ jobs:
         working-directory: e2e
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
+          # Las dependencias del sistema vienen de los espejos de Ubuntu, que a veces fallan (DNS) en los runners de
+          # GitHub: se reintenta; si igual no se instalan, la imagen del runner suele traer las necesarias.
+          for i in 1 2 3; do sudo npx playwright install-deps chromium && break; echo "install-deps falló (intento $i)"; sleep 60; done
           npx playwright test
       - name: Logs si falla
         if: failure()
