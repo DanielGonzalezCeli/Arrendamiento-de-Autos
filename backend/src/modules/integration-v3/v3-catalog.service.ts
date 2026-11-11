@@ -8,7 +8,7 @@ import { VehicleState } from '../../domain/fleet-state';
 import { zonedToUtc } from '../../domain/zoned-time';
 import { occupiedPeriodSql } from '../availability/availability.service';
 import { FleetStatusService, FleetUnitView } from '../fleet-status/fleet-status.service';
-import { StockSyncService } from '../stock-sync/stock-sync.service';
+import { MessageBus } from '../messaging/message-bus';
 import { photoResolver, PhotoUrlResolver, toVehicleCard, v3Category, v3Transmission } from './v3-mapper';
 
 export interface CatalogQuery {
@@ -63,7 +63,7 @@ export class V3CatalogService {
   constructor(
     private readonly config: ConfigService,
     private readonly fleet: FleetStatusService,
-    private readonly stockSync: StockSyncService,
+    private readonly bus: MessageBus,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {
     const webUrl = config.get<string>('PUBLIC_WEB_URL') ?? config.get<string>('CORS_ORIGINS')?.split(',')[0]?.trim();
@@ -178,7 +178,8 @@ export class V3CatalogService {
       circuit_breaker_estado: 'CLOSED',
       cooldown_activo_count: Number(row.cooldown),
       total_vehiculos: Number(row.total),
-      sincronizacion_stock: this.stockSync.enabled ? this.config.get<string>('STOCK_SYNC_MODE') : 'off',
+      // Fase D: el stock lo envía ms-inventario a partir de los eventos de flota (rabbitmq; "memoria" sin broker)
+      sincronizacion_stock: this.bus.connected ? `eventos-${this.bus.mode}` : 'eventos-desconectado',
       timestamp: new Date().toISOString(),
     };
   }

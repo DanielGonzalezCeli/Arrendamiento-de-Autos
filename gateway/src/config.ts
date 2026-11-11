@@ -36,6 +36,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
       'ms-reservas': urlFrom(env, 'MS_RESERVAS_URL', 'http://localhost:3000'),
       'ms-identidad': urlFrom(env, 'MS_IDENTIDAD_URL', 'http://localhost:3002'),
       'ms-clientes': urlFrom(env, 'MS_CLIENTES_URL', 'http://localhost:3003'),
+      // Sin rutas públicas (solo consume eventos de RabbitMQ): está aquí para la salud agregada.
+      'ms-inventario': urlFrom(env, 'MS_INVENTARIO_URL', 'http://localhost:3004'),
     },
     rateLimitPerMinute: intFrom(env, 'RATE_LIMIT_PER_MINUTE', 300),
     proxyTimeoutMs: intFrom(env, 'PROXY_TIMEOUT_MS', 30_000),

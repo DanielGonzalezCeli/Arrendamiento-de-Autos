@@ -4,37 +4,44 @@ import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 @Entity('stock_sync_state')
 export class StockSyncState {
   @PrimaryColumn({ type: 'varchar', length: 40 })
-  itemId: string;
+  itemId!: string;
 
   /** available_units confirmado (null = nunca se envió con éxito). */
   @Column({ type: 'smallint', nullable: true })
-  syncedUnits: number | null;
+  syncedUnits!: number | null;
 
   @Column({ type: 'char', length: 10, nullable: true })
-  syncedDate: string | null;
+  syncedDate!: string | null;
 
   @Column({ type: 'char', length: 5, nullable: true })
-  syncedTimeSlot: string | null;
+  syncedTimeSlot!: string | null;
 
   /** Último timestamp enviado: Booking descarta los menores (STALE_TIMESTAMP_IGNORED). */
   @Column({ type: 'bigint', default: 0 })
-  lastTimestamp: string;
+  lastTimestamp!: string;
 
   @Column({ type: 'boolean', nullable: true })
-  lastSuccess: boolean | null;
+  lastSuccess!: boolean | null;
 
   @Column({ type: 'varchar', length: 60, nullable: true })
-  lastErrorCode: string | null;
+  lastErrorCode!: string | null;
 
   @Column({ type: 'varchar', length: 300, nullable: true })
-  lastMessage: string | null;
+  lastMessage!: string | null;
 
   @Column({ type: 'integer', default: 0 })
-  attempts: number;
+  attempts!: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  syncedAt: Date | null;
+  syncedAt!: Date | null;
+
+  /**
+   * Hora del último evento de flota aplicado a este auto. Un evento más viejo que este (p. ej. un snapshot calculado
+   * antes de una reserva pero entregado después) se ignora para ese auto: el orden de llegada no se garantiza.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  lastEventAt!: Date | null;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

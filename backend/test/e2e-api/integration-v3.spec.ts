@@ -1,51 +1,36 @@
-import { FAKE_BOOKING_GRPC_PORT, FAKE_BOOKING_HTTP_PORT, FAKE_CLIENTS_PORT, TEST_API_KEY } from './v3-env';
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
+import { FAKE_BOOKING_HTTP_PORT, FAKE_CLIENTS_PORT, FAKE_INVENTORY_PORT, TEST_API_KEY } from './v3-env';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { createServer, IncomingHttpHeaders, Server } from 'http';
-import { resolve } from 'path';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { UserRole } from '../../src/domain/enums';
 import { createApp } from '../contract/contract-app';
 import { testUser } from '../identity-tokens';
+import { MessageBus } from '../../src/modules/messaging/message-bus';
+import { VehicleStock } from '../../src/modules/fleet-events/fleet-stock';
 
 /** Fecha local "YYYY-MM-DD" dentro de `days` días. */
 function day(days: number): string {
   return new Date(Date.now() + days * 24 * 3600_000).toISOString().slice(0, 10);
 }
 
-interface Pushed {
-  service_id: string;
-  item_id: string;
-  date: string;
-  time_slot: string;
-  available_units: number;
-  slot_id: string;
-  timestamp: number;
-  /** X-Correlation-Id que llegó en la metadata gRPC (no es campo del .proto). */
-  cid?: string;
-}
+const inventoryCalls: IncomingHttpHeaders[] = [];
+const inventoryDown = { value: false };
 
-/** Servidor gRPC que hace de Booking Prototipo: implementa PushStockUpdate del inventory.proto oficial. */
-async function startFakeBooking(received: Pushed[]): Promise<grpc.Server> {
-  const definition = protoLoader.loadSync(resolve(__dirname, '..', '..', '..', 'contracts', 'inventory.proto'), {
-    keepCase: true, longs: Number, enums: String, defaults: true, oneofs: true,
+/** ms-inventario simulado: responde /internal/stock como el real (estado del envío de stock a Booking). */
+function startFakeInventory(): Promise<Server> {
+  const server = createServer((req, res) => {
+    inventoryCalls.push(req.headers);
+    if (inventoryDown.value || req.url !== '/internal/stock') return res.writeHead(503).end();
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({
+      mode: 'http', target: 'https://booking.test/api/v3/inventory/stock', active: true,
+      sync: { tracked: 3, ok: 3, failing: 0, lastSyncedAt: new Date().toISOString() },
+      pushes: [{ id: '1', itemId: 'auto-pan-1001', transport: 'http', success: true, errorCode: 'OK', availableUnits: '1', date: '2026-11-11', timeSlot: '10:00' }],
+      broker: { connected: true, exchange: 'rutalibre.eventos', queue: 'ms-inventario.flota', processed: 7 },
+    }));
   });
-  const proto = grpc.loadPackageDefinition(definition) as unknown as {
-    inventory: { InventoryStockService: { service: grpc.ServiceDefinition } };
-  };
-  const server = new grpc.Server();
-  server.addService(proto.inventory.InventoryStockService.service, {
-    PushStockUpdate: (call: grpc.ServerUnaryCall<Pushed, unknown>, callback: grpc.sendUnaryData<unknown>) => {
-      received.push({ ...call.request, cid: String(call.metadata.get('x-correlation-id')[0] ?? '') });
-      callback(null, { success: true, message: 'Stock actualizado', error_code: 'OK', current_available: call.request.available_units });
-    },
-  });
-  await new Promise<void>((ok, fail) =>
-    server.bindAsync(`127.0.0.1:${FAKE_BOOKING_GRPC_PORT}`, grpc.ServerCredentials.createInsecure(), (error) => (error ? fail(error) : ok())));
-  return server;
+  return new Promise((ok) => server.listen(FAKE_INVENTORY_PORT, '127.0.0.1', () => ok(server)));
 }
 
 interface CheckinCall {
@@ -119,23 +104,22 @@ async function waitFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise
   }
 }
 
-describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC', () => {
+describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (RabbitMQ)', () => {
   let app: INestApplication;
-  let grpcServer: grpc.Server;
+  let inventoryServer: Server;
   let httpServer: Server;
   let clientsServer: Server;
   const clientStore = new Map<string, FakeClient>();
   const clientCalls: { method: string; url: string; headers: IncomingHttpHeaders }[] = [];
   const clientsFail = { status: 200 };
   const checkins: CheckinCall[] = [];
-  const received: Pushed[] = [];
   const pnrs: string[] = [];
   const keys: string[] = [];
   const startDay = 40 + Math.floor(Math.random() * 200);
   const identifications: string[] = ['1710034065'];
 
   beforeAll(async () => {
-    grpcServer = await startFakeBooking(received);
+    inventoryServer = await startFakeInventory();
     httpServer = await startFakeBookingHttp(checkins);
     clientsServer = await startFakeClients(clientStore, clientCalls, clientsFail);
     app = await createApp();
@@ -148,16 +132,15 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     await db.query(`DELETE FROM outbox_events WHERE resource_id = ANY($1)`, [ids]);
     await db.query(`DELETE FROM reservations WHERE locator = ANY($1)`, [pnrs]);
     await db.query(`DELETE FROM idempotency_records WHERE idempotency_key = ANY($1)`, [keys]);
-    // El servidor gRPC era simulado: se olvida lo "sincronizado" para que la próxima sincronización real envíe todo.
-    await db.query(`DELETE FROM stock_sync_state`);
-    await db.query(`DELETE FROM stock_sync_log`);
     await app?.close();
-    grpcServer?.forceShutdown();
+    await new Promise((ok) => inventoryServer?.close(ok));
     await new Promise((ok) => clientsServer?.close(ok));
     httpServer?.close();
   });
 
   const http = () => request(app.getHttpServer());
+  const events = () => app.get(MessageBus).published;
+  const vehiclesOf = (e: { event: { data: unknown } }) => (e.event.data as { vehicles: VehicleStock[] }).vehicles;
   const key = () => {
     const k = randomUUID();
     keys.push(k);
@@ -168,17 +151,18 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
   it('semáforo: GET /health y /autos/health responden HEALTHY sin credenciales', async () => {
     for (const path of ['/api/v3/health', '/api/v3/autos/health']) {
       const res = await http().get(path).expect(200);
-      expect(res.body).toMatchObject({ status: 'HEALTHY', nodo_id: 'NODE_AUT_RUTALIBRE', vertical: 'AUTOS', sincronizacion_stock: 'grpc' });
+      expect(res.body).toMatchObject({ status: 'HEALTHY', nodo_id: 'NODE_AUT_RUTALIBRE', vertical: 'AUTOS', sincronizacion_stock: 'eventos-memoria' });
       expect(res.headers['x-correlation-id']).toMatch(/^cid-aut-/);
     }
   });
 
-  it('al arrancar envía el stock de toda la flota a Booking por gRPC', async () => {
-    const first = await waitFor(() => received[0]);
-    expect(first).toMatchObject({ service_id: 'NODE_AUT_RUTALIBRE' });
-    expect(first.item_id).toMatch(/^auto-[a-z]{3}-\d{3,4}$/);
+  it('al arrancar publica el estado de toda la flota (flota.snapshot, CloudEvents)', async () => {
+    const snapshot = await waitFor(() => events().find((e) => e.routingKey === 'flota.snapshot'));
+    expect(snapshot.event).toMatchObject({ specversion: '1.0', type: 'ec.rutalibre.flota.snapshot', source: 'ms-reservas', correlationid: expect.stringMatching(/^cid-aut-/) });
+    const [first] = vehiclesOf(snapshot);
+    expect(first.vehicle_id).toMatch(/^auto-[a-z]{3}-\d{3,4}$/);
     expect(first.time_slot).toMatch(/^\d{2}:(00|30)$/);
-    expect(first.slot_id).toBe(`slot-${first.date.replace(/-/g, '')}-${first.time_slot.replace(':', '')}`);
+    expect([0, 1]).toContain(first.available_units);
   });
 
   it('flujo completo: catálogo → reserva → reintento → 409 de la Saga → cancelación con reembolso 100 % → eventos', async () => {
@@ -220,11 +204,11 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     expect(created.body.voucher_qr_data).toBe(`BOOKING-CAR-${pnr}-${car.vehicle_id}-CONFIRMED`);
     expect(created.body.total_price.desglose.CDW).toBeGreaterThan(0);
 
-    // Booking recibe available_units = 0 con la fecha y hora de retiro
-    const reservedPush = await waitFor(() => received.find((m) => m.item_id === car.vehicle_id && m.available_units === 0));
-    expect(reservedPush).toMatchObject({ date: day(startDay), time_slot: '10:00', slot_id: `slot-${day(startDay).replace(/-/g, '')}-1000` });
-    // Trazabilidad: el aviso de stock viaja con el X-Correlation-Id de la reserva que lo causó
-    expect(reservedPush.cid).toBe('cid-test-reserva');
+    // Evento flota.estado_cambiado: el auto pasa a 0 unidades con la fecha y hora de retiro (ms-inventario lo envía a Booking)
+    const reservedEvent = await waitFor(() => events().find((e) => e.routingKey === 'flota.estado_cambiado' && vehiclesOf(e)[0].vehicle_id === car.vehicle_id));
+    expect(vehiclesOf(reservedEvent)[0]).toEqual({ vehicle_id: car.vehicle_id, state: 'RESERVADO', available_units: 0, date: day(startDay), time_slot: '10:00' });
+    // Trazabilidad: el evento viaja con el X-Correlation-Id de la reserva que lo causó
+    expect(reservedEvent.event.correlationid).toBe('cid-test-reserva');
 
     // POST /autos/search (guía de socios): con fechas que se cruzan el auto no aparece; en otras fechas sí, con stock 1
     const search = (extra: Record<string, unknown>) => http().post('/api/v3/autos/search').send({ ciudad: car.ubicacion.ciudad, ...extra });
@@ -280,8 +264,9 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     const again = await http().post(`/api/v3/reservas/${pnr}/cancel`).set('X-API-Key', TEST_API_KEY).expect(200);
     expect(again.body.refund).toEqual(cancelled.body.refund);
 
-    // Booking recibe available_units = 1 cuando el auto vuelve a estar disponible
-    await waitFor(() => received.find((m) => m.item_id === car.vehicle_id && m.available_units === 1 && m.timestamp > reservedPush.timestamp));
+    // Al cancelar, otro evento: el auto vuelve a estar disponible (1 unidad)
+    await waitFor(() => events().slice(events().indexOf(reservedEvent) + 1)
+      .find((e) => e.routingKey === 'flota.estado_cambiado' && vehiclesOf(e)[0].vehicle_id === car.vehicle_id && vehiclesOf(e)[0].available_units === 1));
 
     // Feed de eventos (CloudEvents) con X-API-Key
     await http().get('/api/v3/autos/eventos').expect(401);
@@ -375,18 +360,35 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + PushStockUpdate por gRPC
     await http().get('/api/admin/booking').expect(401);
     const admin = (await testUser(UserRole.Admin)).headers;
 
-    const res = await http().get('/api/admin/booking').set(admin).expect(200);
-    expect(res.body.config).toMatchObject({ nodeId: 'NODE_AUT_RUTALIBRE', stockMode: 'grpc', stockClientActive: true, apiKeyConfigured: true });
+    const res = await http().get('/api/admin/booking').set(admin).set('X-Correlation-Id', 'cid-panel-1').expect(200);
+    expect(res.body.config).toMatchObject({
+      nodeId: 'NODE_AUT_RUTALIBRE', stockMode: 'http', stockClientActive: true, apiKeyConfigured: true, inventoryReachable: true,
+      eventBus: { mode: 'memoria', connected: true, consumerConnected: true },
+    });
+    // El panel le pide el estado del envío a ms-inventario con el token del admin y el mismo correlation id
+    expect(inventoryCalls[0]).toMatchObject({ authorization: admin.Authorization, 'x-correlation-id': 'cid-panel-1' });
     expect(JSON.stringify(res.body)).not.toContain(TEST_API_KEY);
     const states = Object.values(res.body.fleet.states as Record<string, number>).reduce((a, b) => a + b, 0);
     expect(states).toBe(res.body.fleet.total);
-    expect(res.body.sync.ok).toBeGreaterThan(0);
-    expect(res.body.pushes[0]).toMatchObject({ transport: 'grpc', success: true });
+    expect(res.body.sync.ok).toBe(3);
+    expect(res.body.pushes[0]).toMatchObject({ transport: 'http', success: true });
     expect(res.body.orders.map((o: { locator: string }) => o.locator)).toEqual(expect.arrayContaining(pnrs));
 
+    // "Sincronizar ahora" publica un snapshot de toda la flota
+    const before = events().filter((e) => e.routingKey === 'flota.snapshot').length;
     const sync = await http().post('/api/admin/booking/sync').set(admin).expect(200);
-    expect(sync.body).toMatchObject({ failed: 0 });
-    expect(sync.body.checked).toBe(res.body.fleet.total);
+    expect(sync.body).toEqual({ checked: res.body.fleet.total, published: true });
+    expect(events().filter((e) => e.routingKey === 'flota.snapshot')).toHaveLength(before + 1);
+
+    // Si ms-inventario no responde, el panel sale igual (sin el detalle del envío)
+    inventoryDown.value = true;
+    try {
+      const degraded = await http().get('/api/admin/booking').set(admin).expect(200);
+      expect(degraded.body.config).toMatchObject({ inventoryReachable: false, stockMode: 'desconocido' });
+      expect(degraded.body.pushes).toEqual([]);
+    } finally {
+      inventoryDown.value = false;
+    }
   });
 
   it('promociones B2B: GET público, PUT con X-API-Key y validación', async () => {

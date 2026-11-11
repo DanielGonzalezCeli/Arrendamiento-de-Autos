@@ -185,6 +185,9 @@ describe('Gateway — utilidades', () => {
     expect(loadConfig({ MS_IDENTIDAD_URL: 'https://idn.example/' }).services['ms-identidad']).toBe('https://idn.example');
     expect(() => loadConfig({ MS_IDENTIDAD_URL: 'idn' })).toThrow('MS_IDENTIDAD_URL');
     expect(loadConfig({}).services['ms-clientes']).toBe('http://localhost:3003');
+    expect(loadConfig({}).services['ms-inventario']).toBe('http://localhost:3004');
+    // ms-inventario no tiene rutas públicas: ningún prefijo lo apunta
+    expect(['/internal/stock', '/api/v3/inventory/stock', '/api/admin/booking'].map((p) => resolveRoute(p)?.service)).not.toContain('ms-inventario');
   });
 });
 

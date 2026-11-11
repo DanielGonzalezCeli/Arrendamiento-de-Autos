@@ -11,7 +11,7 @@ import { IdempotencyService, IdempotentResult } from '../idempotency/idempotency
 import { isUuid } from '../orders/uuid';
 import { Reservation } from '../orders/entities/reservation.entity';
 import { cancellationOutcome, ReservationService } from '../orders/reservation.service';
-import { StockSyncService } from '../stock-sync/stock-sync.service';
+import { FleetEventsService } from '../fleet-events/fleet-events.service';
 import { CreateOrderRequest, parseCancel, parseCreateOrder, splitFullName } from './v3-request';
 import { toCancelResponse, toOrderResponse } from './v3-mapper';
 
@@ -43,7 +43,7 @@ export class V3OrdersService {
     private readonly reservations: ReservationService,
     private readonly fleet: FleetStatusService,
     private readonly idempotency: IdempotencyService,
-    private readonly stockSync: StockSyncService,
+    private readonly fleetEvents: FleetEventsService,
     private readonly clients: ClientsClient,
   ) {}
 
@@ -103,7 +103,7 @@ export class V3OrdersService {
     );
     if (!result.replayed) {
       this.logger.log(`Reserva v3 ${(result.body as { pnr: string }).pnr} → ${unit.vehicleId} cid=${correlationId}`);
-      void this.stockSync.syncVehicle(unit.vehicleId, correlationId);
+      void this.fleetEvents.vehicleChanged(unit.vehicleId, correlationId);
     }
     return result;
   }
@@ -155,7 +155,7 @@ export class V3OrdersService {
     }
     this.logger.log(`Cancelación v3 ${existing.locator} (${request.requester}) reembolso ${outcome.refundPercentage}% cid=${correlationId}`);
     const plate = outcome.reservation.vehicleSnapshot?.plate;
-    if (typeof plate === 'string') void this.stockSync.syncVehicle(vehicleIdForPlate(plate), correlationId);
+    if (typeof plate === 'string') void this.fleetEvents.vehicleChanged(vehicleIdForPlate(plate), correlationId);
     return toCancelResponse(outcome);
   }
 

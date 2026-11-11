@@ -214,11 +214,15 @@ export interface BookingOverview {
   config: {
     nodeId: string
     partnerName: string
-    stockMode: 'off' | 'grpc' | 'http'
+    /** Lo informa ms-inventario; 'desconocido' si no respondió */
+    stockMode: 'off' | 'grpc' | 'http' | 'desconocido'
     stockTarget: string | null
     stockIntervalMs: number
     stockClientActive: boolean
     apiKeyConfigured: boolean
+    inventoryReachable: boolean
+    /** RabbitMQ: ms-reservas publica los eventos de flota y ms-inventario los consume */
+    eventBus: { mode: 'rabbitmq' | 'memoria'; connected: boolean; exchange: string; consumerConnected: boolean; processed: number }
   }
   fleet: { total: number; states: Record<string, number> }
   sync: { tracked: number; ok: number; failing: number; lastSyncedAt: string | null; total: number }

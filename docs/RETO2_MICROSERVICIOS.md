@@ -10,12 +10,12 @@ No se reescribe el sistema de golpe. Se pone un **API Gateway** delante del mono
 |---|---|---|
 | A | API Gateway delante del monolito (que pasa a ser `ms-reservas`) | Hecha (local, CI y Azure) |
 | B | `ms-identidad` (usuarios, login, roles, JWT RS256 + JWKS) | Hecha (local, CI y Azure) |
-| C | `ms-clientes` (clientes cross-platform, contrato v3.1) | Hecha en local y CI; falta el despliegue en Azure |
-| D | RabbitMQ + `ms-inventario-stock` (estado de flota y stock hacia Booking por eventos) | Pendiente |
+| C | `ms-clientes` (clientes cross-platform, contrato v3.1) | Hecha (local, CI y Azure) |
+| D | RabbitMQ + `ms-inventario` (stock hacia Booking a partir de eventos de flota) | Hecha en local y CI; falta el despliegue en Azure |
 | E | Métricas, traza distribuida y pruebas entre servicios | Pendiente |
 | F | Documento técnico final y guía de defensa | Pendiente |
 
-## 2. Arquitectura actual (fase C)
+## 2. Arquitectura actual (fase D)
 
 ```
 Booking (Paúl) ─┐                         /api/auth/*, /api/admin/users/*
@@ -27,8 +27,9 @@ Web / panel  ───┼─► API Gateway ────────────
                 │                 todo lo demás                    │
                 ├────────────────────────────────────────────► ms-reservas ──► PostgreSQL, schema "public"
                 │                                                (backend/)     (reservas, flota, catálogo…)
-                │                                                  │ ├─HTTP/gRPC─► Booking (stock)
-                │                                                  │ └─HTTP──────► Booking (check-in)
+                │                                                  │ ├─HTTP──────► Booking (check-in)
+                │                                                  │ └─evento flota.*─► RabbitMQ ─► ms-inventario ─HTTP/gRPC─► Booking (stock)
+                │                                                  │                  (CloudAMQP)   (schema "inventario")
                 │                                                  │ cliente de la reserva / búsqueda del mostrador
                 │                                                  ▼ (X-API-Key de Booking o token del admin)
                 │                 /api/v3/clientes
@@ -36,7 +37,7 @@ Web / panel  ───┼─► API Gateway ────────────
                                                                  (ms-clientes/)  (tabla clients)
 ```
 
-Los tres servicios usan la misma instancia de PostgreSQL (Supabase), pero cada uno tiene su **schema** y ninguno lee las tablas de otro: los datos de otro servicio se piden por API. Entre schemas no hay claves foráneas; `reservations.user_id`, `depot_reviews.user_id`, `vehicle_blocks.created_by` y `media_images.uploaded_by` quedan como referencias lógicas al id del usuario, y `reservations.client_id` al del cliente.
+Los cuatro servicios usan la misma instancia de PostgreSQL (Supabase), pero cada uno tiene su **schema** y ninguno lee las tablas de otro: los datos de otro servicio se piden por API. Entre schemas no hay claves foráneas; `reservations.user_id`, `depot_reviews.user_id`, `vehicle_blocks.created_by` y `media_images.uploaded_by` quedan como referencias lógicas al id del usuario, y `reservations.client_id` al del cliente.
 
 ## 3. API Gateway (`gateway/`)
 
@@ -124,19 +125,53 @@ Las rutas y respuestas de `/api/v3/clientes` son las mismas que tenía el monoli
 
 La migración `ClientsSchema` mueve `public.clients` a `clientes.clients` (conserva los `client_id` que Booking ya guardó) y deja una vista de transición; `ClientsToClientsService` de ms-reservas quita la vista y la clave foránea `reservations.client_id`. Se ensayó con el estado actual de producción, incluido el `INSERT … ON CONFLICT` de la versión anterior a través de la vista.
 
-## 6. Pruebas
+## 6. Fase D: RabbitMQ y ms-inventario (`ms-inventario/`)
+
+Antes, ms-reservas calculaba el estado de cada auto **y** le enviaba el stock a Booking. Ahora solo publica eventos; el envío es de ms-inventario. Entre los dos no hay ninguna llamada síncrona.
+
+| Evento (routing key) | Cuándo lo publica ms-reservas | Contenido |
+|---|---|---|
+| `flota.estado_cambiado` | Al reservar o cancelar por Booking, solo ese auto (con el `X-Correlation-Id` de la operación) | `data.vehicles[]`: `vehicle_id`, `state` (6 estados del contrato v3), `available_units` (0/1), `date`, `time_slot` |
+| `flota.snapshot` | Cada 30 s (`FLEET_SNAPSHOT_INTERVAL_MS`) y con el botón "Sincronizar stock ahora" | Lo mismo para toda la flota. Cubre reservas web, entregas, devoluciones, fin del cooldown y taller, y repara cualquier evento perdido |
+
+Sobre de **CloudEvents 1.0** (`specversion`, `id`, `type` = `ec.rutalibre.flota.*`, `source` = `ms-reservas`, `time`, `correlationid`), mensajes persistentes y con confirmación del broker.
+
+**Topología** (la declara ms-inventario, idempotente):
+
+```
+exchange rutalibre.eventos (topic, durable) ──flota.*──► cola ms-inventario.flota (durable, prefetch 1, ack manual)
+                                                                │ mensaje inválido (no es JSON, tipo desconocido, datos mal formados)
+                                                                ▼
+                             exchange rutalibre.eventos.dlx ──► cola ms-inventario.flota.dlq (para revisarlos a mano)
+```
+
+**ms-inventario** compara cada evento con lo último que Booking confirmó (`inventario.stock_sync_state`) y solo envía los cambios, por gRPC (`inventory.proto`) o HTTP, con la misma lógica de antes: timestamps crecientes, `STALE_TIMESTAMP_IGNORED` cuenta como confirmado y cada envío queda en `inventario.stock_sync_log`. Un evento más viejo que el último aplicado a ese auto se ignora (`last_event_at`): el orden de llegada no se garantiza.
+
+| Falla | Qué pasa |
+|---|---|
+| ms-inventario caído | Las reservas siguen funcionando; los eventos esperan en la cola durable y se procesan al volver |
+| RabbitMQ caído | ms-reservas no puede publicar (lo registra) y reintenta conectarse cada 5 s; el siguiente snapshot repone el estado |
+| Booking rechaza o no responde | Queda registrado (panel /admin/booking) y el siguiente snapshot lo reintenta |
+| Mensaje mal formado | Va a la cola de mensajes muertos, no bloquea la cola |
+
+**API interna** `GET /internal/stock` (token de ADMIN reenviado por ms-reservas): modo, destino, estado y últimos envíos, para el panel. No se publica en el gateway, que solo consulta su `/health` para la salud agregada.
+
+La migración `InventorySchema` mueve `stock_sync_state` y `stock_sync_log` al schema `inventario` (conserva el último estado confirmado y su timestamp, así el primer snapshot no reenvía toda la flota) y deja vistas de transición; `StockToInventoryService` de ms-reservas las elimina. Ensayada con el estado de producción, incluidas las escrituras de la versión anterior a través de las vistas.
+
+## 7. Pruebas
 
 | Proyecto | Pruebas | Qué cubren |
 |---|---|---|
 | `gateway/` | 16 | Reenvío, correlación, IP real, 502/504, salud agregada, 429, tablas de rutas reales de las fases B y C y enrutamiento a dos servicios |
 | `ms-identidad/` | 19 (con BD) | Registro, reglas de correo/nombre/teléfono, Gmail, login, límite de 10 intentos/min por IP, JWKS y verificación RS256, rechazo de HS256, gestión de usuarios, llamada a ms-reservas (token y `cid` propagados; degradación si no responde), cambios de estado y rol al instante, schema `identidad` |
 | `ms-clientes/` | 6 (con BD) | Contrato v3.1 (consulta, alta sin duplicados, 422 con el formato v3), correlation id, X-API-Key frente a tokens, API interna con la clave reenviada o un token de ADMIN (cliente → 403), schema `clientes` |
-| `backend/` (ms-reservas) | 320 | Todo lo anterior del monolito, más: tokens RS256 de ms-identidad (válido, alterado, expirado, otro emisor, HS256 heredado), rol del token y del estado actual, llamada a ms-identidad con un servidor falso (rol actual, cuenta desactivada, servicio caído), `/api/admin/user-usage`, y vínculo reserva ↔ cliente con un ms-clientes falso (clave y cid reenviados; ms-clientes caído → la reserva se crea igual) |
-| `e2e/` (Playwright) | 8 | La web entra por el gateway: registro y login en ms-identidad, compra y panel en ms-reservas; y el flujo de Booking entre servicios: alta del cliente en ms-clientes y reserva vinculada en ms-reservas, con el mismo correlation id |
+| `ms-inventario/` | 14 (con BD; 1 con RabbitMQ real en CI) | Reglas del envío (cambios, franja, timestamps, REST con los campos exactos), validación de eventos (→ cola de muertos), snapshot sin reenvíos, reserva con fecha de retiro y cid, evento fuera de orden ignorado, Booking caído y reintento, API interna solo ADMIN, y de punta a punta con RabbitMQ: evento publicado → Booking simulado recibe el stock; mensaje inválido → DLQ |
+| `backend/` (ms-reservas) | 316 | Todo lo anterior del monolito, más: tokens RS256 de ms-identidad (válido, alterado, expirado, otro emisor, HS256 heredado), rol del token y del estado actual, llamada a ms-identidad con un servidor falso (rol actual, cuenta desactivada, servicio caído), `/api/admin/user-usage`, vínculo reserva ↔ cliente con un ms-clientes falso (clave y cid reenviados; ms-clientes caído → la reserva se crea igual), y eventos de flota: snapshot al arrancar, `flota.estado_cambiado` al reservar y al cancelar (con el cid de la reserva), panel con un ms-inventario falso (y sin él) |
+| `e2e/` (Playwright) | 9 | La web entra por el gateway: registro y login en ms-identidad, compra y panel en ms-reservas; el flujo de Booking entre servicios: alta del cliente en ms-clientes y reserva vinculada en ms-reservas, con el mismo correlation id; y en CI, con RabbitMQ: reserva de Booking → evento → ms-inventario → Booking simulado recibe 0 unidades con la fecha y hora de retiro |
 
 Los tests de `ms-reservas` no levantan ms-identidad: `test/setup-env.ts` genera un par de claves RSA por archivo y `test/identity-tokens.ts` firma tokens iguales a los de ms-identidad.
 
-## 7. Variables
+## 8. Variables
 
 | Servicio | Variable | Local | Azure |
 |---|---|---|---|
@@ -146,6 +181,9 @@ Los tests de `ms-reservas` no levantan ms-identidad: `test/setup-env.ts` genera 
 | gateway | `MS_CLIENTES_URL` | `http://localhost:3003` | URL de `rutalibre-ms-clientes` |
 | ms-reservas | `IDENTITY_URL` | `http://localhost:3002` | URL de `rutalibre-ms-identidad` |
 | ms-reservas | `CLIENTS_URL` | `http://localhost:3003` | URL de `rutalibre-ms-clientes` |
+| ms-reservas | `AMQP_URL` | vacía (eventos en memoria) | URL de CloudAMQP (secreta) |
+| ms-reservas | `INVENTORY_URL` | `http://localhost:3004` | URL de `rutalibre-ms-inventario` |
+| gateway | `MS_INVENTARIO_URL` | `http://localhost:3004` | URL de `rutalibre-ms-inventario` (solo salud) |
 | ms-reservas | `TRUST_PROXY_HOPS` | `0` directo, `1` detrás del gateway | `2` (front-end de Azure + gateway) |
 | ms-reservas | `PUBLIC_BASE_URL` | URL del gateway | URL del gateway (los enlaces HATEOAS apuntan a la entrada pública) |
 | ms-identidad | `DATABASE_URL` | la misma BD local | la misma de Supabase (usa solo el schema `identidad`) |
@@ -157,3 +195,6 @@ Los tests de `ms-reservas` no levantan ms-identidad: `test/setup-env.ts` genera 
 | ms-clientes | `BOOKING_API_KEY` | vacía (abierto en desarrollo) | la misma de ms-reservas (secreta) |
 | ms-clientes | `IDENTITY_URL` | `http://localhost:3002` | URL de `rutalibre-ms-identidad` |
 | ms-clientes | `TRUST_PROXY_HOPS` | `1` detrás del gateway | `2` |
+| ms-inventario | `AMQP_URL` | CloudAMQP o vacía | URL de CloudAMQP (secreta) |
+| ms-inventario | `STOCK_SYNC_MODE`, `BOOKING_API_KEY` | `off` | `http` y la misma clave de Booking (secreta) |
+| ms-inventario | `DATABASE_URL`, `IDENTITY_URL` | locales | la misma de Supabase (schema `inventario`); URL de `rutalibre-ms-identidad` |

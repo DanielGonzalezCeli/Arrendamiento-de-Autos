@@ -6,9 +6,10 @@ process.env.LOG_LEVEL = 'silent';
 // Los ciclos periódicos se ejecutan a mano en los tests (runOnce) para que sean deterministas.
 process.env.WEBHOOK_DISPATCH_INTERVAL_MS = '0';
 process.env.MAINTENANCE_INTERVAL_MS = '0';
-// Reto 2: sin log en archivo ni envío de stock a Booking salvo que el test lo active.
+// Reto 2: sin log en archivo; los eventos de flota quedan en memoria (sin RabbitMQ) y el snapshot periódico apagado.
 process.env.INTEGRATION_LOG_FILE ??= 'off';
-process.env.STOCK_SYNC_MODE ??= 'off';
+process.env.AMQP_URL = '';
+process.env.FLEET_SNAPSHOT_INTERVAL_MS = '0';
 
 // En local, los tests que usan la BD leen backend/.env; en CI las variables vienen del workflow.
 // (process.loadEnvFile no está disponible dentro del sandbox de Jest, por eso se lee a mano.)

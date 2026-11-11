@@ -4,7 +4,7 @@ import { ClientsModule } from '../clients/clients.module';
 import { FleetStatusModule } from '../fleet-status/fleet-status.module';
 import { IdempotencyModule } from '../idempotency/idempotency.module';
 import { OrdersModule } from '../orders/orders.module';
-import { StockSyncModule } from '../stock-sync/stock-sync.module';
+import { FleetEventsModule } from '../fleet-events/fleet-events.module';
 import { ApiKeyGuard } from './api-key.guard';
 import { CorrelationMiddleware } from './correlation.middleware';
 import { PromotionAgreement } from './entities/promotion-agreement.entity';
@@ -20,7 +20,7 @@ import { V3OrdersService } from './v3-orders.service';
  * (acuerdo del equipo de Autos) cada servicio de aquí pasa a su microservicio.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PromotionAgreement]), OrdersModule, IdempotencyModule, FleetStatusModule, StockSyncModule, ClientsModule],
+  imports: [TypeOrmModule.forFeature([PromotionAgreement]), OrdersModule, IdempotencyModule, FleetStatusModule, FleetEventsModule, ClientsModule],
   controllers: [IntegrationV3Controller],
   providers: [V3CatalogService, V3OrdersService, PromotionsService, EventsFeedService, ApiKeyGuard, CorrelationMiddleware],
 })

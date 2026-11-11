@@ -20,6 +20,7 @@ import { IntegrationApiModule } from './modules/integration-api/integration-api.
 import { IntegrationAuthModule } from './modules/integration-auth/integration-auth.module';
 import { InternalApiModule } from './modules/internal-api/internal-api.module';
 import { VouchersModule } from './modules/vouchers/vouchers.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 
 /** Campos que nunca deben aparecer en los logs. */
@@ -71,6 +72,7 @@ const REDACTED_PATHS = [
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
 
     HealthModule,
+    MessagingModule,
     AvailabilityModule,
     AuthModule,
     IntegrationAuthModule,

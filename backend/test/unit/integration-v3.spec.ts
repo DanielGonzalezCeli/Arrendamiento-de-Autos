@@ -5,8 +5,7 @@ import { plateFromVehicleId, vehicleIdForPlate } from '../../src/modules/fleet-s
 import { IdempotencyKeyReusedError } from '../../src/modules/idempotency/idempotency.service';
 import { generatePnr } from '../../src/modules/integration-v3/v3-orders.service';
 import { parseCancel, parseCreateOrder, splitFullName } from '../../src/modules/integration-v3/v3-request';
-import { HttpStockTransport } from '../../src/modules/stock-sync/booking-stock.client';
-import { desiredStock, needsPush, nextTimestamp, slotId } from '../../src/modules/stock-sync/stock-message';
+import { vehicleStock } from '../../src/modules/fleet-events/fleet-stock';
 
 const driver = { full_name: 'Carlos Andrés Zambrano', email: 'carlos@example.com', phone: '+593987654321', license_number: '1710034065', age: 28 };
 const body = { vehicle_id: 'auto-pan-1001', pickup_date: '2026-11-15', dropoff_date: '2026-11-18', pickup_time: '10:00', coverage_type: 'BASIC', driver };
@@ -94,49 +93,17 @@ describe('Contrato v3 — semántica de errores para la Saga', () => {
   });
 });
 
-describe('inventory.proto — PushStockUpdate', () => {
+/** El cálculo del stock se queda en ms-reservas (dueño del estado de la flota); el envío y sus pruebas, en ms-inventario. */
+describe('eventos de flota — stock que Booking debería tener', () => {
   const now = new Date('2026-11-10T15:10:00Z'); // 10:10 en Ecuador
   const tz = 'America/Guayaquil';
 
-  it('slot_id canónico slot-YYYYMMDD-HHMM', () => {
-    expect(slotId('2026-11-15', '10:00')).toBe('slot-20261115-1000');
-  });
-
-  it('reservado → 0 con la fecha y hora de retiro; disponible → 1 con la franja actual', () => {
-    const reserved = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Reserved, nextPickupAt: new Date('2026-11-15T15:00:00Z') }, now, tz);
-    expect(reserved).toEqual({ itemId: 'auto-pan-1001', units: 0, date: '2026-11-15', timeSlot: '10:00' });
-    const free = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Available, nextPickupAt: null }, now, tz);
-    expect(free).toEqual({ itemId: 'auto-pan-1001', units: 1, date: '2026-11-10', timeSlot: '10:00' });
-    const shop = desiredStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Maintenance, nextPickupAt: null }, now, tz);
-    expect(shop).toMatchObject({ units: 0 });
-  });
-
-  it('push REST: X-API-Key y solo los campos que acepta Booking (time_slot DEFAULT, sin extras)', async () => {
-    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: true, acknowledged: true, message: 'ok', source: 'HTTP_REST' }), { status: 200 }));
-    try {
-      const message = { service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', date: '2026-11-15', time_slot: '10:00', available_units: 0, timestamp: 1, slot_id: 'slot-20261115-1000' };
-      const ack = await new HttpStockTransport('https://booking.test/api/v3/inventory/stock', 'clave').push(message, 'cid-aut-prueba');
-      expect(ack.success).toBe(true);
-      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-      expect(url).toBe('https://booking.test/api/v3/inventory/stock');
-      expect((init.headers as Record<string, string>)['X-API-Key']).toBe('clave');
-      expect((init.headers as Record<string, string>)['X-Correlation-Id']).toBe('cid-aut-prueba');
-      expect(JSON.parse(init.body as string)).toEqual({ service_id: 'NODE_AUT_X', item_id: 'auto-pan-1001', available_units: 0, date: '2026-11-15', time_slot: 'DEFAULT' });
-    } finally {
-      fetchMock.mockRestore();
-    }
-  });
-
-  it('solo se reenvía si cambia la disponibilidad o la reserva', () => {
-    const free = { itemId: 'a', units: 1 as const, date: '2026-11-10', timeSlot: '10:30' };
-    expect(needsPush(free, { units: 1, date: '2026-11-10', timeSlot: '10:00' })).toBe(false);
-    expect(needsPush(free, { units: null, date: null, timeSlot: null })).toBe(true);
-    expect(needsPush({ ...free, units: 0 }, { units: 0, date: '2026-11-12', timeSlot: '10:00' })).toBe(true);
-  });
-
-  it('timestamp estrictamente creciente', () => {
-    expect(nextTimestamp(1000, 500)).toBe(1001);
-    expect(nextTimestamp(1000, 5000)).toBe(5000);
+  it('reservado → 0 con la fecha y hora de retiro; disponible → 1 con la franja actual; taller → 0', () => {
+    const reserved = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Reserved, nextPickupAt: new Date('2026-11-15T15:00:00Z') }, now, tz);
+    expect(reserved).toEqual({ vehicle_id: 'auto-pan-1001', state: VehicleState.Reserved, available_units: 0, date: '2026-11-15', time_slot: '10:00' });
+    const free = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Available, nextPickupAt: null }, now, tz);
+    expect(free).toEqual({ vehicle_id: 'auto-pan-1001', state: VehicleState.Available, available_units: 1, date: '2026-11-10', time_slot: '10:00' });
+    const shop = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Maintenance, nextPickupAt: null }, now, tz);
+    expect(shop).toMatchObject({ available_units: 0 });
   });
 });

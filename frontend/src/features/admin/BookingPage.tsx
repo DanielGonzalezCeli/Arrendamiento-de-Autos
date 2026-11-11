@@ -22,9 +22,10 @@ const STATES: { key: string; label: string; color: string }[] = [
 
 const PUSHES_PREVIEW = 10
 
-const MODE_LABEL: Record<string, string> = { grpc: 'gRPC (h2c)', http: 'HTTP (respaldo)', off: 'Desactivado' }
+const MODE_LABEL: Record<string, string> = { grpc: 'gRPC (h2c)', http: 'HTTP (respaldo)', off: 'Desactivado', desconocido: 'Sin respuesta' }
 
-type SyncSummary = { checked: number; pushed: number; failed: number }
+/** "Sincronizar ahora": ms-reservas publica el estado de toda la flota; ms-inventario envía a Booking lo que cambió. */
+type SyncSummary = { checked: number; published: boolean }
 
 /** Monitor de la integración con Booking Prototipo: contrato v3 + PushStockUpdate del inventory.proto. */
 export function BookingPage() {
@@ -51,18 +52,22 @@ export function BookingPage() {
     <div className="flex flex-col gap-6">
       <SectionHeader
         title="Booking Prototipo"
-        subtitle="Contrato v3 (REST) y envío de stock por gRPC (inventory.proto · PushStockUpdate). Se actualiza cada 10 s."
+        subtitle="Contrato v3 (REST) y envío de stock (inventory.proto · PushStockUpdate): ms-reservas publica los cambios de la flota en RabbitMQ y ms-inventario los envía a Booking. Se actualiza cada 10 s."
         action={
-          <Button variant="secondary" loading={sync.isPending} disabled={!config.stockClientActive} onClick={() => sync.mutate(undefined, { onSuccess: setReport })}>
+          <Button variant="secondary" loading={sync.isPending} disabled={!config.eventBus.connected} onClick={() => sync.mutate(undefined, { onSuccess: setReport })}>
             <RefreshCw className="h-4 w-4" /> Sincronizar stock ahora
           </Button>
         }
       />
       {report && (
-        <Alert tone={report.failed ? 'error' : 'success'}>
-          Reconciliación: {report.checked} autos revisados · {report.pushed} enviados · {report.failed} con error
-          {report.pushed === 0 && report.failed === 0 && ' (Booking ya tenía el estado al día)'}
+        <Alert tone={report.published ? 'success' : 'error'}>
+          {report.published
+            ? `Estado de ${report.checked} autos publicado en RabbitMQ: ms-inventario enviará a Booking solo lo que cambió.`
+            : 'No se pudo publicar en RabbitMQ; se reintentará solo en el próximo snapshot (30 s).'}
         </Alert>
+      )}
+      {!config.inventoryReachable && (
+        <Alert tone="info">ms-inventario no respondió: el estado de los envíos se muestra cuando vuelva. Los eventos esperan en la cola.</Alert>
       )}
       {sync.error && <ErrorAlert error={sync.error} />}
 
@@ -71,7 +76,11 @@ export function BookingPage() {
           {config.partnerName}
         </Card>
         <Card icon={<Radio className="h-4 w-4" />} label="Envío de stock" value={MODE_LABEL[config.stockMode] ?? config.stockMode} ok={config.stockClientActive}>
-          <span className="break-all font-mono text-xs">{config.stockTarget ?? 'STOCK_SYNC_MODE=off'}</span>
+          <span className="break-all font-mono text-xs">{config.stockTarget ?? (config.inventoryReachable ? 'STOCK_SYNC_MODE=off' : 'ms-inventario sin respuesta')}</span>
+          <span className="mt-1 block text-xs text-slate-500">
+            RabbitMQ: {config.eventBus.mode === 'memoria' ? 'sin broker (memoria)' : config.eventBus.connected && config.eventBus.consumerConnected ? 'conectado' : 'desconectado'}
+            {config.eventBus.processed > 0 && ` · ${config.eventBus.processed} eventos procesados`}
+          </span>
         </Card>
         <Card icon={<KeyRound className="h-4 w-4" />} label="X-API-Key" value={config.apiKeyConfigured ? 'Configurada' : 'Sin configurar'} ok={config.apiKeyConfigured}>
           {config.apiKeyConfigured ? 'Reservas, cancelaciones y eventos exigen la clave.' : 'Define BOOKING_API_KEY en el servidor.'}

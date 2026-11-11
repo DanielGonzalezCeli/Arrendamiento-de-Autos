@@ -193,11 +193,11 @@ export class AdminController {
 
   // ── Booking Prototipo (contrato v3 + inventory.proto) ─────────────────────
   @Get('booking')
-  @ApiOperation({ summary: 'Estado de la integración v3: configuración, flota, stock enviado y reservas de Booking' })
-  bookingOverview() { return this.booking.overview(); }
+  @ApiOperation({ summary: 'Estado de la integración v3: configuración, flota, stock enviado (ms-inventario) y reservas de Booking' })
+  bookingOverview(@Req() req: Request) { return this.booking.overview(adminCallContext(req)); }
   @Post('booking/sync') @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reconciliar ahora el stock con Booking (PushStockUpdate)' })
-  bookingSyncNow() { return this.booking.syncNow(); }
+  @ApiOperation({ summary: 'Publicar ahora el estado de toda la flota (ms-inventario envía a Booking lo que cambió)' })
+  bookingSyncNow(@Req() req: Request) { return this.booking.syncNow(adminCallContext(req).correlationId); }
 }
 
 function toReturnInput(dto: ReturnDto): ReturnInput {

@@ -4,7 +4,7 @@ import { EventsModule } from '../events/events.module';
 import { FleetStatusModule } from '../fleet-status/fleet-status.module';
 import { MediaModule } from '../media/media.module';
 import { OrdersModule } from '../orders/orders.module';
-import { StockSyncModule } from '../stock-sync/stock-sync.module';
+import { FleetEventsModule } from '../fleet-events/fleet-events.module';
 import { AdminOperationsService } from './admin-operations.service';
 import { AdminController } from './admin.controller';
 import { BookingAdminService } from './booking-admin.service';
@@ -18,7 +18,7 @@ import { ClientsModule } from '../clients/clients.module';
 
 /** Panel de administración (/api/admin). Reutiliza los servicios de dominio (reservas, disponibilidad, eventos). */
 @Module({
-  imports: [OrdersModule, AvailabilityModule, EventsModule, MediaModule, FleetStatusModule, StockSyncModule, VouchersModule, InvoicesModule, ClientsModule],
+  imports: [OrdersModule, AvailabilityModule, EventsModule, MediaModule, FleetStatusModule, FleetEventsModule, VouchersModule, InvoicesModule, ClientsModule],
   controllers: [AdminController],
   providers: [AdminOperationsService, CatalogAdminService, FleetAdminService, DepotAdminService, IntegrationAdminService, BookingAdminService],
 })

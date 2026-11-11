@@ -130,6 +130,46 @@ jobs:
       - run: npm run db:prepare
       - run: npm test
 
+  ms-inventario:
+    name: ms-inventario (typecheck, tests con RabbitMQ, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ms-inventario
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: autos_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d autos_db"
+          --health-interval 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13
+        ports: ['5672:5672']
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autos_db
+      AMQP_TEST_URL: amqp://guest:guest@localhost:5672
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ms-inventario/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run db:prepare
+      - run: npm test
+
   frontend:
     name: Frontend (build)
     runs-on: ubuntu-latest
@@ -150,10 +190,11 @@ jobs:
 
   # La web y Booking entran por el API Gateway (puerto 3000), que reenvía a ms-reservas (3001), ms-identidad (3002)
   # o ms-clientes (3003), igual que en producción. El login va a ms-identidad, que emite el token que validan los
-  # demás; los clientes de Booking van a ms-clientes, al que ms-reservas consulta al crear una reserva.
+  # demás; los clientes de Booking van a ms-clientes, al que ms-reservas consulta al crear una reserva. ms-reservas
+  # publica los cambios de la flota en RabbitMQ y ms-inventario (3004) los envía a un Booking simulado (3900).
   e2e:
     name: E2E (Playwright, flujo de compra vía gateway)
-    needs: [backend, gateway, ms-identidad, ms-clientes, frontend]
+    needs: [backend, gateway, ms-identidad, ms-clientes, ms-inventario, frontend]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -166,6 +207,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres -d autos_db"
           --health-interval 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13
+        ports: ['5672:5672']
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-retries 10
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autos_db
@@ -173,10 +220,11 @@ jobs:
       USER_JWT_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
       PUBLIC_BASE_URL: http://localhost:3000
       VITE_API_BASE_URL: http://localhost:3000
+      AMQP_URL: amqp://guest:guest@localhost:5672
+      E2E_STOCK_EVENTS: '1'
       # Clave de Booking solo para CI (la misma en ms-reservas y ms-clientes) y para la prueba entre servicios
       BOOKING_API_KEY: ci-only-booking-key-not-used-anywhere-else
       E2E_BOOKING_API_KEY: ci-only-booking-key-not-used-anywhere-else
-      STOCK_SYNC_MODE: 'off'
       BOOKING_NOTIFY_MODE: 'off'
     steps:
       - uses: actions/checkout@v4
@@ -190,7 +238,7 @@ jobs:
           npm run build
           npm run migration:run
           npm run seed
-          PORT=3001 TRUST_PROXY_HOPS=1 IDENTITY_URL=http://localhost:3002 CLIENTS_URL=http://localhost:3003 nohup node dist/main > ../api.log 2>&1 &
+          PORT=3001 TRUST_PROXY_HOPS=1 IDENTITY_URL=http://localhost:3002 CLIENTS_URL=http://localhost:3003 INVENTORY_URL=http://localhost:3004 nohup node dist/main > ../api.log 2>&1 &
       - name: ms-identidad (migraciones, usuarios de demo y arranque en el 3002)
         working-directory: ms-identidad
         run: |
@@ -205,12 +253,21 @@ jobs:
           npm run build
           npm run db:prepare
           PORT=3003 TRUST_PROXY_HOPS=1 IDENTITY_URL=http://localhost:3002 nohup node dist/main.js > ../clientes.log 2>&1 &
+      - name: Booking simulado para el stock (puerto 3900)
+        run: nohup node e2e/fake-booking-stock.mjs > booking-stock.log 2>&1 &
+      - name: ms-inventario (migraciones y arranque en el 3004; consume RabbitMQ y envía el stock al Booking simulado)
+        working-directory: ms-inventario
+        run: |
+          npm ci
+          npm run build
+          npm run db:prepare
+          PORT=3004 IDENTITY_URL=http://localhost:3002 STOCK_SYNC_MODE=http BOOKING_STOCK_HTTP_URL=http://localhost:3900/api/v3/inventory/stock nohup node dist/main.js > ../inventario.log 2>&1 &
       - name: API Gateway (puerto 3000 → ms-reservas / ms-identidad / ms-clientes)
         working-directory: gateway
         run: |
           npm ci
           npm run build
-          PORT=3000 MS_RESERVAS_URL=http://localhost:3001 MS_IDENTIDAD_URL=http://localhost:3002 MS_CLIENTES_URL=http://localhost:3003 nohup node dist/main > ../gateway.log 2>&1 &
+          PORT=3000 MS_RESERVAS_URL=http://localhost:3001 MS_IDENTIDAD_URL=http://localhost:3002 MS_CLIENTES_URL=http://localhost:3003 MS_INVENTARIO_URL=http://localhost:3004 nohup node dist/main > ../gateway.log 2>&1 &
       - name: Frontend (build y servidor de previsualización)
         working-directory: frontend
         run: |
@@ -218,7 +275,7 @@ jobs:
           npm run build
           nohup npx vite preview --port 5173 --strictPort > ../web.log 2>&1 &
       - name: Esperar a que todos respondan
-        run: npx --yes wait-on@8 -t 60000 http://localhost:3001/health http://localhost:3002/health http://localhost:3003/health http://localhost:3000/gateway/health http://localhost:5173
+        run: npx --yes wait-on@8 -t 60000 http://localhost:3001/health http://localhost:3002/health http://localhost:3003/health http://localhost:3004/health http://localhost:3000/gateway/health http://localhost:5173
       - name: Playwright
         working-directory: e2e
         run: |
@@ -227,16 +284,17 @@ jobs:
           npx playwright test
       - name: Logs si falla
         if: failure()
-        run: tail -n 50 api.log identidad.log clientes.log gateway.log web.log
+        run: tail -n 50 api.log identidad.log clientes.log inventario.log booking-stock.log gateway.log web.log
 
-  # Despliegue a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main. Cuatro Web Apps en el
-  # mismo plan B1: ms-identidad, ms-clientes, ms-reservas y el API Gateway, que conserva la URL pública
-  # rutalibre-autos-api (la que tiene registrada Booking). Orden: ms-identidad y ms-clientes primero (cada uno es
-  # dueño de su tabla y la migra), luego ms-reservas y al final el gateway, que ya puede enrutar a todos. Los paquetes van ya compilados
+  # Despliegue a Azure App Service (Linux, Node 22), solo si todo lo anterior pasó en main. Cinco Web Apps en el
+  # mismo plan B1: ms-identidad, ms-clientes, ms-inventario, ms-reservas y el API Gateway, que conserva la URL
+  # pública rutalibre-autos-api (la que tiene registrada Booking). Orden: primero los servicios dueños de sus tablas
+  # (las migran; ms-inventario además crea su cola en RabbitMQ antes de que ms-reservas publique), luego ms-reservas
+  # y al final el gateway, que ya puede enrutar a todos. Los paquetes van ya compilados
   # (dist + dependencias de producción); el comando de inicio de cada app está en Azure, y los secretos en su configuración.
   deploy-ms-identidad:
     name: Deploy ms-identidad (Azure App Service)
-    needs: [backend, gateway, ms-identidad, ms-clientes, frontend, e2e]
+    needs: [backend, gateway, ms-identidad, ms-clientes, ms-inventario, frontend, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency: deploy-ms-identidad
@@ -303,9 +361,44 @@ jobs:
       - name: Verificar /health
         run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-clientes.azurewebsites.net/health
 
+  deploy-ms-inventario:
+    name: Deploy ms-inventario (Azure App Service)
+    needs: [deploy-ms-clientes]
+    runs-on: ubuntu-latest
+    concurrency: deploy-ms-inventario
+    environment:
+      name: azure-ms-inventario
+      url: https://rutalibre-ms-inventario.azurewebsites.net/health
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ms-inventario/package-lock.json
+      - name: Build y dependencias de producción
+        working-directory: ms-inventario
+        run: |
+          npm ci
+          npm run build
+          npm prune --omit=dev
+      - name: Armar el paquete (con contracts/ por el inventory.proto)
+        run: |
+          mkdir -p pkg/ms-inventario
+          cp -r ms-inventario/dist ms-inventario/node_modules ms-inventario/package.json pkg/ms-inventario/
+          cp -r contracts pkg/
+          (cd pkg && zip -qr ../ms-inventario.zip .)
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: rutalibre-ms-inventario
+          publish-profile: ${{ secrets.AZURE_MSINVENTARIO_PUBLISH_PROFILE }}
+          package: ms-inventario.zip
+      - name: Verificar /health
+        run: npx --yes wait-on@8 -t 600000 https://rutalibre-ms-inventario.azurewebsites.net/health
+
   deploy-ms-reservas:
     name: Deploy ms-reservas (Azure App Service)
-    needs: [deploy-ms-clientes]
+    needs: [deploy-ms-inventario]
     runs-on: ubuntu-latest
     concurrency: deploy-ms-reservas
     environment:

@@ -5,27 +5,27 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 @Index('idx_stock_sync_log_item', ['itemId', 'createdAt'])
 export class StockSyncLog {
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 40 })
-  itemId: string;
+  itemId!: string;
 
   /** grpc | http */
   @Column({ type: 'varchar', length: 10 })
-  transport: string;
+  transport!: string;
 
   @Column({ type: 'jsonb' })
-  payload: Record<string, unknown>;
+  payload!: Record<string, unknown>;
 
   @Column()
-  success: boolean;
+  success!: boolean;
 
   @Column({ type: 'varchar', length: 60, nullable: true })
-  errorCode: string | null;
+  errorCode!: string | null;
 
   @Column({ type: 'varchar', length: 300, nullable: true })
-  message: string | null;
+  message!: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 }

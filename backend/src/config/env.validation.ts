@@ -146,16 +146,21 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false })
   PUBLIC_WEB_URL?: string;
 
-  /** Envío de stock a Booking: off · grpc (Tailscale/local, puerto 50051) · http (respaldo en la nube). */
-  @IsIn(['off', 'grpc', 'http'])
-  STOCK_SYNC_MODE: 'off' | 'grpc' | 'http' = 'off';
-
-  /** host:puerto del servidor gRPC de Booking (IP de Tailscale en la prueba conjunta). */
+  /**
+   * Fase D: RabbitMQ (CloudAMQP). ms-reservas publica los eventos de flota y ms-inventario envía el stock a Booking.
+   * Sin AMQP_URL los eventos quedan en memoria (desarrollo y tests).
+   */
+  @IsOptional()
   @IsString()
-  BOOKING_GRPC_TARGET: string = 'localhost:50051';
+  AMQP_URL?: string;
 
-  @IsUrl({ require_tld: false })
-  BOOKING_STOCK_HTTP_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/inventory/stock';
+  @IsString()
+  AMQP_EXCHANGE: string = 'rutalibre.eventos';
+
+  /** ms-inventario: estado del envío de stock para el panel /admin/booking. */
+  @IsOptional()
+  @IsUrl({ require_tld: false, require_protocol: true })
+  INVENTORY_URL?: string;
 
   /** Contrato v3.1: aviso de check-in (entrega de llaves) a Booking. off = los avisos quedan pendientes en el outbox. */
   @IsIn(['off', 'http'])
@@ -166,15 +171,10 @@ export class EnvironmentVariables {
   @Matches(/^https?:\/\/\S+\{external_order_id\}/)
   BOOKING_CHECKIN_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/reservas/{external_order_id}/checkin';
 
-  /** Cada cuánto se reconcilia el stock con Booking (ms). 0 = solo al reservar/cancelar. */
+  /** Cada cuánto se publica el estado de toda la flota (flota.snapshot, ms). 0 = solo al reservar/cancelar. */
   @IsInt()
   @Min(0)
-  STOCK_SYNC_INTERVAL_MS: number = 30_000;
-
-  /** Ruta a inventory.proto. Por defecto: ../contracts/inventory.proto respecto al backend. */
-  @IsOptional()
-  @IsString()
-  INVENTORY_PROTO_PATH?: string;
+  FLEET_SNAPSHOT_INTERVAL_MS: number = 30_000;
 
   /** Log en archivo de la API v3 (JSON por línea, con correlation_id e idempotency_key). "off" = desactivado. */
   @IsString()
