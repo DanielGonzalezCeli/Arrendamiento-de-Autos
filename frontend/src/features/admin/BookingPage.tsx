@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Skeleton } from '../../components/ui/Spinner'
 import { API_BASE_URL } from '../../lib/api'
 import { formatDateTime, formatMoney, formatShortDateTime } from '../../lib/format'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { useAdminMutation, useAdminQuery, type BookingOverview } from './admin-api'
 import { Pill, SectionHeader, TD, Table } from './components'
@@ -29,7 +30,7 @@ type SyncSummary = { checked: number; published: boolean }
 
 /** Monitor de la integración con Booking Prototipo: contrato v3 + PushStockUpdate del inventory.proto. */
 export function BookingPage() {
-  const data = useAdminQuery<BookingOverview>('booking', { refetchInterval: 10_000 })
+  const data = useAdminQuery<BookingOverview>('booking', { refetchInterval: LIVE_REFRESH_MS })
   const sync = useAdminMutation<void, SyncSummary>('POST', 'booking/sync')
   const [report, setReport] = useState<SyncSummary | null>(null)
   const [showAll, setShowAll] = useState(false)

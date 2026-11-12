@@ -205,6 +205,11 @@ describe('API interna — administración', () => {
     expect(unit.plate).toBe(plate);
     await http().post('/api/admin/fleet').set(admin()).send({ ...base, plate }).expect(409);
 
+    // Cada unidad trae su estado en vivo (el mismo que ve Booking), para el refresco silencioso del panel
+    const fleet: { id: string; liveState: string | null }[] = (await http().get('/api/admin/fleet').set(admin()).expect(200)).body;
+    expect(fleet.find((u) => u.id === unit.id)).toHaveProperty('liveState');
+    expect(fleet.some((u) => u.liveState === 'DISPONIBLE')).toBe(true);
+
     const block = await http().post(`/api/admin/fleet/${unit.id}/blocks`).set(admin())
       .send({ startsAt: futureDate(startDay + 40), endsAt: futureDate(startDay + 42), reason: 'Mantenimiento preventivo' }).expect(201);
     expect((await http().get(`/api/admin/fleet/${unit.id}/blocks`).set(admin()).expect(200)).body).toHaveLength(1);

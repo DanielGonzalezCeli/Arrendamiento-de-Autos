@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/api'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import type { Reservation } from '../../lib/types'
 
 export function useMyReservations() {
-  return useQuery({ queryKey: ['my-reservations'], queryFn: () => apiFetch<Reservation[]>('/api/me/reservations') })
+  return useQuery({ queryKey: ['my-reservations'], queryFn: () => apiFetch<Reservation[]>('/api/me/reservations'), refetchInterval: LIVE_REFRESH_MS })
 }
 
 export function useMyReservation(id: string | undefined) {
-  return useQuery({ queryKey: ['my-reservations', id], queryFn: () => apiFetch<Reservation>(`/api/me/reservations/${id}`), enabled: !!id })
+  return useQuery({
+    queryKey: ['my-reservations', id], queryFn: () => apiFetch<Reservation>(`/api/me/reservations/${id}`), enabled: !!id,
+    refetchInterval: LIVE_REFRESH_MS,
+  })
 }
 
 /**

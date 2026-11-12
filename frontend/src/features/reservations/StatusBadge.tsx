@@ -3,7 +3,7 @@ import type { OrderStatus, RentalStatus } from '../../lib/types'
 const LABELS: Record<string, { text: string; className: string }> = {
   CONFIRMED: { text: 'Confirmada', className: 'bg-emerald-50 text-emerald-700 before:bg-emerald-500' },
   PENDING: { text: 'Pendiente', className: 'bg-amber-50 text-amber-700 before:bg-amber-500' },
-  CANCELLED: { text: 'Cancelada', className: 'bg-stone-100 text-slate-600 before:bg-slate-400' },
+  CANCELLED: { text: 'Cancelada', className: 'bg-red-50 text-[#b91c1c] before:bg-[#b91c1c]' },
   PICKED_UP: { text: 'En curso', className: 'bg-brand-50 text-brand-700 before:bg-brand-500 before:animate-pulse' },
   RETURNED: { text: 'Finalizada', className: 'bg-stone-100 text-slate-600 before:bg-slate-400' },
 }

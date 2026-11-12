@@ -6,6 +6,7 @@ import { INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { depotLabel } from '../../lib/depots'
 import { formatMoney, formatShortDateTime } from '../../lib/format'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, useAdminQuery, type Depot, type ReservationSummary } from './admin-api'
 import { SectionHeader, TD, Table } from './components'
@@ -33,7 +34,7 @@ export function ReservationsPage() {
   const query = params.toString()
 
   const depots = useAdminQuery<Depot[]>('depots')
-  const { data, isLoading, error } = useAdminQuery<ReservationSummary[]>(`reservations${query ? `?${query}` : ''}`)
+  const { data, isLoading, error } = useAdminQuery<ReservationSummary[]>(`reservations${query ? `?${query}` : ''}`, { refetchInterval: LIVE_REFRESH_MS })
 
   return (
     <div>

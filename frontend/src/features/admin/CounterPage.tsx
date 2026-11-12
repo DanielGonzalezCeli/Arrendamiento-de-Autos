@@ -6,12 +6,12 @@ import { ButtonLink } from '../../components/ui/Button'
 import { INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatShortDateTime } from '../../lib/format'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { useAdminQuery, type ReservationSummary } from './admin-api'
 import { Pill, SectionHeader } from './components'
 
 /** Se refresca solo: una reserva hecha desde Booking aparece sin recargar la página. */
-const REFRESH_MS = 10_000
 
 /** Estado para el mostrador (contrato v3.1): RESERVADO → CONFIRMADO_ASISTIDO al entregar las llaves. */
 function counterState(r: ReservationSummary) {
@@ -27,7 +27,7 @@ export function CounterPage() {
   const path = term.length >= 3
     ? `reservations?q=${encodeURIComponent(term)}`
     : 'reservations?status=CONFIRMED&rentalStatus=NOT_STARTED'
-  const { data, isLoading, error } = useAdminQuery<ReservationSummary[]>(path, { refetchInterval: REFRESH_MS })
+  const { data, isLoading, error } = useAdminQuery<ReservationSummary[]>(path, { refetchInterval: LIVE_REFRESH_MS })
   const rows = term.length >= 3 ? data : data?.slice().sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)).slice(0, 20)
 
   return (
@@ -41,7 +41,7 @@ export function CounterPage() {
       </label>
 
       <p className="mb-2 text-sm text-slate-500">
-        {term.length >= 3 ? `Resultados para “${term}”` : 'Próximas entregas pendientes'} · se actualiza cada {REFRESH_MS / 1000} s
+        {term.length >= 3 ? `Resultados para “${term}”` : 'Próximas entregas pendientes'} · se actualiza cada {LIVE_REFRESH_MS / 1000} s
       </p>
       {isLoading ? <LoadingBlock /> : error ? <ErrorAlert error={error} /> : !rows?.length ? (
         <p className="rounded-2xl border border-dashed border-stone-300 p-8 text-center text-sm text-slate-500">

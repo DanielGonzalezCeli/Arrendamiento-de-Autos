@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { DomainError, ProblemCode } from '../../domain/domain-error';
 import { RentalStatus, UnitStatus } from '../../domain/enums';
 import { AvailabilityService } from '../availability/availability.service';
+import { FleetStatusService } from '../fleet-status/fleet-status.service';
 import { FleetUnit } from '../catalog/entities/fleet-unit.entity';
 import { VehicleBlock } from '../catalog/entities/vehicle-block.entity';
 import { Reservation } from '../orders/entities/reservation.entity';
@@ -21,17 +22,24 @@ export class FleetAdminService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly availability: AvailabilityService,
+    private readonly fleetStatus: FleetStatusService,
   ) {}
 
-  listUnits(filters: { vehicleModelId?: string; depotId?: number }) {
-    return this.dataSource.getRepository(FleetUnit).find({
-      where: {
-        ...(isUuid(filters.vehicleModelId) ? { vehicleModelId: filters.vehicleModelId } : {}),
-        ...(filters.depotId ? { depotId: filters.depotId } : {}),
-      },
-      relations: { vehicleModel: true, depot: true },
-      order: { depotId: 'ASC', plate: 'ASC' },
-    });
+  /** Unidades con su estado en vivo (DISPONIBLE, ENTREGADO…), el mismo que ve Booking; null si no se ofrece. */
+  async listUnits(filters: { vehicleModelId?: string; depotId?: number }) {
+    const [units, live] = await Promise.all([
+      this.dataSource.getRepository(FleetUnit).find({
+        where: {
+          ...(isUuid(filters.vehicleModelId) ? { vehicleModelId: filters.vehicleModelId } : {}),
+          ...(filters.depotId ? { depotId: filters.depotId } : {}),
+        },
+        relations: { vehicleModel: true, depot: true },
+        order: { depotId: 'ASC', plate: 'ASC' },
+      }),
+      this.fleetStatus.list(),
+    ]);
+    const stateById = new Map(live.map((unit) => [unit.unitId, unit.state]));
+    return units.map((unit) => ({ ...unit, liveState: stateById.get(unit.id) ?? null }));
   }
 
   createUnit(dto: FleetUnitDto) {

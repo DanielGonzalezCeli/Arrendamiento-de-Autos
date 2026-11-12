@@ -5,11 +5,20 @@ import { Button } from '../../components/ui/Button'
 import { Field, INPUT_CLASS } from '../../components/ui/Field'
 import { LoadingBlock } from '../../components/ui/Spinner'
 import { formatDateTime } from '../../lib/format'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { UNIT_STATUS_LABEL, useAdminMutation, useAdminQuery, type Depot, type FleetUnit, type VehicleBlock, type VehicleModel } from './admin-api'
 import { ActiveBadge, EntityForm, Modal, Pill, SectionHeader, TD, Table, rules, type FieldSpec } from './components'
 
 const PLATE = /^[A-Za-z]{3}-\d{3,4}$/
 const STATUS_TONE: Record<string, 'green' | 'amber' | 'red'> = { AVAILABLE: 'green', MAINTENANCE: 'amber', OUT_OF_SERVICE: 'red' }
+/** Estado en vivo del auto (máquina de 6 estados): si se puede alquilar ahora o por qué no. */
+const LIVE_LABEL: Record<string, string> = {
+  DISPONIBLE: 'Disponible ahora', RESERVADO: 'No disponible · reservado', LISTO_PARA_ENTREGAR: 'No disponible · por entregar',
+  ENTREGADO: 'En uso', EN_LIMPIEZA: 'No disponible · limpieza', EN_MANTENIMIENTO: 'No disponible · taller',
+}
+const LIVE_TONE: Record<string, 'green' | 'amber' | 'red' | 'blue'> = {
+  DISPONIBLE: 'green', RESERVADO: 'blue', LISTO_PARA_ENTREGAR: 'blue', ENTREGADO: 'amber', EN_LIMPIEZA: 'amber', EN_MANTENIMIENTO: 'red',
+}
 const EMPTY = { vehicleModelId: '', depotId: '', plate: '', year: new Date().getFullYear(), color: '', mileage: 0, status: 'AVAILABLE' }
 
 export function FleetPage() {
@@ -20,8 +29,8 @@ export function FleetPage() {
   if (depotFilter) params.set('depotId', depotFilter)
   const query = params.toString()
 
-  // Se refresca solo: una reserva hecha desde Booking cambia el estado del auto sin recargar.
-  const units = useAdminQuery<FleetUnit[]>(`fleet${query ? `?${query}` : ''}`, { refetchInterval: 10_000 })
+  // Se refresca solo: una reserva o cancelación hecha desde Booking cambia el estado del auto sin recargar.
+  const units = useAdminQuery<FleetUnit[]>(`fleet${query ? `?${query}` : ''}`, { refetchInterval: LIVE_REFRESH_MS })
   const models = useAdminQuery<VehicleModel[]>('models')
   const depots = useAdminQuery<Depot[]>('depots')
   const [editing, setEditing] = useState<FleetUnit | 'new' | null>(null)
@@ -93,6 +102,7 @@ export function FleetPage() {
               <td className={TD}>
                 <div className="flex flex-col items-start gap-1">
                   <Pill tone={STATUS_TONE[u.status]}>{UNIT_STATUS_LABEL[u.status]}</Pill>
+                  {u.liveState && <Pill tone={LIVE_TONE[u.liveState] ?? 'slate'}>{LIVE_LABEL[u.liveState] ?? u.liveState}</Pill>}
                   {!u.active && <ActiveBadge active={false} off="Dada de baja" />}
                 </div>
               </td>

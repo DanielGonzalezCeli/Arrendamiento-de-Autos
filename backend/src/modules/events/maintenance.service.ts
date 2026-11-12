@@ -27,14 +27,21 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
     if (this.timer) clearInterval(this.timer);
   }
 
-  async runOnce(): Promise<{ holdsExpired: number; idempotencyDeleted: number }> {
+  async runOnce(): Promise<{ holdsExpired: number; idempotencyDeleted: number; searchesDeleted: number }> {
     const [, holdsExpired] = await this.dataSource.query(
       `UPDATE holds SET status = 'EXPIRED' WHERE status = 'HELD' AND expires_at <= now()`,
     );
     const [, idempotencyDeleted] = await this.dataSource.query(`DELETE FROM idempotency_records WHERE expires_at <= now()`);
-    if (holdsExpired || idempotencyDeleted) {
-      this.logger.log(`Mantenimiento: ${holdsExpired} holds expirados, ${idempotencyDeleted} claves de idempotencia eliminadas`);
+    // La web refresca la búsqueda cada pocos segundos (stock en vivo): se borran las sesiones vencidas que no usó
+    // ningún hold ni preview (esas quedan como historial de la venta).
+    const [, searchesDeleted] = await this.dataSource.query(
+      `DELETE FROM search_sessions s WHERE s.expires_at <= now()
+          AND NOT EXISTS (SELECT 1 FROM holds h WHERE h.search_session_id = s.id)
+          AND NOT EXISTS (SELECT 1 FROM order_previews p WHERE p.search_session_id = s.id)`,
+    );
+    if (holdsExpired || idempotencyDeleted || searchesDeleted) {
+      this.logger.log(`Mantenimiento: ${holdsExpired} holds expirados, ${idempotencyDeleted} claves de idempotencia y ${searchesDeleted} búsquedas vencidas eliminadas`);
     }
-    return { holdsExpired, idempotencyDeleted };
+    return { holdsExpired, idempotencyDeleted, searchesDeleted };
   }
 }

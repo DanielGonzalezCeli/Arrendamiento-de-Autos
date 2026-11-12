@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { apiFetch } from '../../lib/api'
 import { writeSession, readSession } from '../../lib/session-store'
 import type { Category, Extra, LocationCity, SearchResult, Vehicle } from '../../lib/types'
@@ -39,6 +40,8 @@ export function useSearch(criteria: SearchCriteria | null) {
     queryKey: ['search', criteria],
     enabled: !!criteria,
     staleTime: SEARCH_STALE_MS,
+    // Stock en vivo: un auto que se libera (p. ej. una cancelación en Booking) vuelve a aparecer sin recargar
+    refetchInterval: LIVE_REFRESH_MS,
     retry: false,
     queryFn: async () => {
       const result = await apiFetch<SearchResult>('/api/search', { method: 'POST', body: criteriaToApiBody(criteria!) })

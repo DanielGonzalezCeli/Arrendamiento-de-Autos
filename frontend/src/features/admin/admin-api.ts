@@ -65,6 +65,8 @@ export interface FleetUnit {
   mileage: number
   status: string
   active: boolean
+  /** Estado en vivo (DISPONIBLE, ENTREGADO…); null si la unidad no se ofrece (dada de baja o modelo no publicado). */
+  liveState: string | null
   vehicleModel: VehicleModel
   depot: Depot
 }

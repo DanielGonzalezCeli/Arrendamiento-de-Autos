@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { MaintenanceService } from '../../src/modules/events/maintenance.service';
 import { createApp } from '../contract/contract-app';
 
-/** Tareas periódicas: holds vencidos → EXPIRED; claves de idempotencia caducadas → borradas. */
+/** Tareas periódicas: holds vencidos → EXPIRED; claves de idempotencia y búsquedas sin usar caducadas → borradas. */
 describe('MaintenanceService', () => {
   let app: INestApplication;
   let db: DataSource;
@@ -41,6 +41,12 @@ describe('MaintenanceService', () => {
     );
     await insertKey(-1);
     await insertKey(5);
+    const insertSearch = async (expires: string) => (await db.query(
+      `INSERT INTO search_sessions (channel, pickup_at, dropoff_at, pickup_depot_ids, dropoff_depot_ids, driver_age, booker_country, currency, request, expires_at)
+       VALUES ('WEB', now() + interval '10 days', now() + interval '12 days', ARRAY[1], ARRAY[1], 30, 'ec', 'USD', '{}', ${expires}) RETURNING id`,
+    ))[0].id;
+    const staleSearch = await insertSearch(`now() - interval '1 minute'`);
+    const liveSearch = await insertSearch(`now() + interval '30 minutes'`);
 
     await app.get(MaintenanceService).runOnce();
 
@@ -48,5 +54,10 @@ describe('MaintenanceService', () => {
     expect(statuses).toEqual(expect.arrayContaining([{ id: expired, status: 'EXPIRED' }, { id: active, status: 'HELD' }]));
     const [{ count }] = await db.query(`SELECT count(*)::int AS count FROM idempotency_records WHERE owner_sub = $1`, [owner]);
     expect(count).toBe(1);
+    // La búsqueda vencida sin uso se borra; la vigente y la que usó un hold (historial de la venta) se quedan
+    const left = (await db.query(`SELECT id FROM search_sessions WHERE id = ANY($1)`, [[staleSearch, liveSearch, session.id]]))
+      .map((r: { id: string }) => r.id);
+    expect(left.sort()).toEqual([liveSearch, session.id].sort());
+    await db.query(`DELETE FROM search_sessions WHERE id = $1`, [liveSearch]);
   });
 });

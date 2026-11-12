@@ -10,6 +10,7 @@ import { apiFetch } from '../../lib/api'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { describeCard } from '../../lib/payment-card'
 import { InvoiceList } from '../invoices/InvoiceList'
+import { LIVE_REFRESH_MS } from '../../lib/live'
 import { StatusBadge } from '../reservations/StatusBadge'
 import { CHANNEL_LABEL, useAdminMutation, useAdminQuery, type AdminReservation } from './admin-api'
 import { Modal, Pill } from './components'
@@ -31,7 +32,7 @@ function actorLabel(sub: string) {
 
 export function ReservationAdminPage() {
   const { id = '' } = useParams()
-  const { data: r, isLoading, error } = useAdminQuery<AdminReservation>(`reservations/${id}`)
+  const { data: r, isLoading, error } = useAdminQuery<AdminReservation>(`reservations/${id}`, { refetchInterval: LIVE_REFRESH_MS })
   // Desde el mostrador se llega con ?checkin=1: el diálogo de entrega se abre directamente.
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<'pickup' | 'return' | 'cancel' | null>(params.get('checkin') === '1' ? 'pickup' : null)
