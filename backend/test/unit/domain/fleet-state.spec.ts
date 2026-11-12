@@ -21,7 +21,10 @@ describe('Máquina de 6 estados del auto (contrato v3)', () => {
     expect(unitState({ ...free, lastReturnedAt: minutesAgo(121) }, now).state).toBe(VehicleState.Available);
   });
 
-  it('reserva asignada: RESERVADO; a menos de 2 h del retiro: LISTO_PARA_ENTREGAR', () => {
+  it('reserva lejana: sigue DISPONIBLE; a menos de 1 día + limpieza: RESERVADO; a menos de 2 h: LISTO_PARA_ENTREGAR', () => {
+    expect(unitState({ ...free, nextPickupAt: minutesAhead(12 * 24 * 60) }, now).state).toBe(VehicleState.Available);
+    expect(unitState({ ...free, nextPickupAt: minutesAhead(26 * 60 + 1) }, now).state).toBe(VehicleState.Available);
+    expect(unitState({ ...free, nextPickupAt: minutesAhead(26 * 60) }, now).state).toBe(VehicleState.Reserved);
     expect(unitState({ ...free, nextPickupAt: minutesAhead(24 * 60) }, now).state).toBe(VehicleState.Reserved);
     expect(unitState({ ...free, nextPickupAt: minutesAhead(60) }, now).state).toBe(VehicleState.ReadyForPickup);
   });

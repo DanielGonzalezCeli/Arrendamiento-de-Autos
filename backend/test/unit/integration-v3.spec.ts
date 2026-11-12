@@ -103,6 +103,9 @@ describe('eventos de flota — stock que Booking debería tener', () => {
     expect(reserved).toEqual({ vehicle_id: 'auto-pan-1001', state: VehicleState.Reserved, available_units: 0, date: '2026-11-15', time_slot: '10:00' });
     const free = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Available, nextPickupAt: null }, now, tz);
     expect(free).toEqual({ vehicle_id: 'auto-pan-1001', state: VehicleState.Available, available_units: 1, date: '2026-11-10', time_slot: '10:00' });
+    // Reserva lejana: hoy sigue DISPONIBLE, pero la franja del retiro ya está tomada → 0 en esa fecha
+    const later = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Available, nextPickupAt: new Date('2026-11-24T15:00:00Z') }, now, tz);
+    expect(later).toEqual({ vehicle_id: 'auto-pan-1001', state: VehicleState.Available, available_units: 0, date: '2026-11-24', time_slot: '10:00' });
     const shop = vehicleStock({ vehicleId: 'auto-pan-1001', state: VehicleState.Maintenance, nextPickupAt: null }, now, tz);
     expect(shop).toMatchObject({ available_units: 0 });
   });

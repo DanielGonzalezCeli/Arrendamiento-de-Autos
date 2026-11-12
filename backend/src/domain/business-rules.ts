@@ -21,6 +21,12 @@ export const BUSINESS_RULES = {
   CLEANING_BUFFER_MINUTES: 120,
   /** Reto 2: una reserva asignada pasa a LISTO_PARA_ENTREGAR cuando faltan menos de N minutos para el retiro. */
   READY_FOR_PICKUP_WINDOW_MINUTES: 120,
+  /**
+   * Reto 2: el auto pasa a RESERVADO cuando su próximo retiro está tan cerca que ya no cabe un alquiler mínimo
+   * (1 día) más la limpieza. Antes sigue DISPONIBLE: una reserva del 24 al 27 no lo oculta para el 14 al 17
+   * (el cruce exacto de fechas lo validan la búsqueda con fechas y la creación de la reserva).
+   */
+  RESERVED_WINDOW_MINUTES: 24 * 60 + 120,
   /** Reto 2: cada cuántos km toca el mantenimiento preventivo (alerta de odómetro). */
   MAINTENANCE_INTERVAL_KM: 10_000,
   /** RN14–RN16: tiempos de vida. */

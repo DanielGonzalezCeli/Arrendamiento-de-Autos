@@ -58,6 +58,8 @@ Todas se ejecutan en el **backend** (servicios de dominio). El frontend solo las
 - Una reserva de Booking tiene un auto concreto, así que se publica `flota.estado_cambiado` de ese auto.
 - Una reserva web reserva un modelo (la placa se asigna en la recogida), así que se publica `flota.snapshot`.
 
+**Estado RESERVADO de un auto (catálogo de Booking).** El estado es el de *ahora*. Un auto pasa a RESERVADO solo cuando a su próximo retiro le falta menos de un alquiler mínimo (1 día) más la limpieza (2 h) (`RESERVED_WINDOW_MINUTES`); antes sigue DISPONIBLE en `GET /autos`. Ejemplo: con una reserva del 24 al 27, el auto se puede reservar del 14 al 17. La búsqueda con fechas (`POST /autos/search`) y la creación de la reserva validan el cruce exacto (más la limpieza): del 20 al 25 responde 409. El stock enviado a Booking no cambia: 0 en la fecha y hora del retiro.
+
 **Reglas de mostrador acordadas con Booking.**
 1. No hay reembolso por devolución anticipada: si el cliente devuelve antes, no se devuelve dinero en mostrador. El sistema no tiene ningún flujo de reembolso por devolución.
 2. Upgrades, días extra o accesorios pedidos al retirar no modifican la reserva original: se gestionan en mostrador como un contrato anexo. Después del retiro la reserva ya no se puede modificar (RN21). Los cargos de la devolución (combustible, limpieza, daños, retraso) se facturan aparte con `issueCharges`, así la orden de Booking y su factura no se desfasan.

@@ -204,9 +204,10 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
     expect(created.body.voucher_qr_data).toBe(`BOOKING-CAR-${pnr}-${car.vehicle_id}-CONFIRMED`);
     expect(created.body.total_price.desglose.CDW).toBeGreaterThan(0);
 
-    // Evento flota.estado_cambiado: el auto pasa a 0 unidades con la fecha y hora de retiro (ms-inventario lo envía a Booking)
+    // Evento flota.estado_cambiado: 0 unidades en la fecha y hora de retiro (ms-inventario lo envía a Booking). El retiro es
+    // lejano, así que hoy el auto sigue DISPONIBLE
     const reservedEvent = await waitFor(() => events().find((e) => e.routingKey === 'flota.estado_cambiado' && vehiclesOf(e)[0].vehicle_id === car.vehicle_id));
-    expect(vehiclesOf(reservedEvent)[0]).toEqual({ vehicle_id: car.vehicle_id, state: 'RESERVADO', available_units: 0, date: day(startDay), time_slot: '10:00' });
+    expect(vehiclesOf(reservedEvent)[0]).toEqual({ vehicle_id: car.vehicle_id, state: 'DISPONIBLE', available_units: 0, date: day(startDay), time_slot: '10:00' });
     // Trazabilidad: el evento viaja con el X-Correlation-Id de la reserva que lo causó
     expect(reservedEvent.event.correlationid).toBe('cid-test-reserva');
 
@@ -251,7 +252,16 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
     const order = await http().get(`/api/v3/autos/orders/${pnr}`).set('X-API-Key', TEST_API_KEY).expect(200);
     expect(order.body).toMatchObject({ pnr, status: 'CONFIRMED', retiro: { fecha: day(startDay), hora: '10:00' } });
     const vehicle = await http().get(`/api/v3/autos/${car.vehicle_id}`).expect(200);
-    expect(vehicle.body.estado).toBe('RESERVADO');
+    expect(vehicle.body.estado).toBe('DISPONIBLE');
+
+    // Una reserva futura no oculta el auto para otras fechas: sigue en el catálogo y en la búsqueda de un periodo
+    // anterior; solo desaparece de la búsqueda que se cruza con la reserva
+    const synced = await http().get('/api/v3/autos').query({ limit: 100 }).expect(200);
+    expect(synced.body.data.map((a: { vehicle_id: string }) => a.vehicle_id)).toContain(car.vehicle_id);
+    const idsFor = async (from: number, to: number) => (await http().post('/api/v3/autos/search')
+      .send({ fecha_inicio: day(from), fecha_fin: day(to) }).expect(200)).body.data.map((a: { vehicle_id: string }) => a.vehicle_id);
+    expect(await idsFor(startDay - 10, startDay - 7)).toContain(car.vehicle_id);
+    expect(await idsFor(startDay + 1, startDay + 2)).not.toContain(car.vehicle_id);
 
     // Compensación de la Saga → 200, reembolso del 100 %, auto liberado; un reintento devuelve lo mismo
     const cancelled = await http().post(`/api/v3/orders/${pnr}/cancel`).set('X-API-Key', TEST_API_KEY)

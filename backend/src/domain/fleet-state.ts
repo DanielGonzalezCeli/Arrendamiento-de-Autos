@@ -31,7 +31,8 @@ export interface UnitStateResult {
 }
 
 /**
- * Deriva el estado operativo. Prioridad: taller > entregado > limpieza > reservado > disponible.
+ * Deriva el estado operativo. Prioridad: taller > entregado > limpieza > reservado > disponible. El estado es el de
+ * AHORA: una reserva lejana no lo cambia (RESERVED_WINDOW_MINUTES), solo la próxima que ya no deja alquilarlo.
  * Al calcularse en cada lectura, el cooldown de 2 h vence solo: no hace falta un proceso que lo "libere".
  */
 export function unitState(facts: UnitFacts, now: Date): UnitStateResult {
@@ -41,13 +42,9 @@ export function unitState(facts: UnitFacts, now: Date): UnitStateResult {
   const cooldownUntil = cleaningCooldownUntil(facts.lastReturnedAt);
   if (cooldownUntil && cooldownUntil > now) return { state: VehicleState.Cleaning, cooldownUntil };
 
-  if (facts.nextPickupAt) {
-    const minutesToPickup = (facts.nextPickupAt.getTime() - now.getTime()) / MINUTE_MS;
-    return {
-      state: minutesToPickup <= BUSINESS_RULES.READY_FOR_PICKUP_WINDOW_MINUTES ? VehicleState.ReadyForPickup : VehicleState.Reserved,
-      cooldownUntil: null,
-    };
-  }
+  const minutesToPickup = facts.nextPickupAt ? (facts.nextPickupAt.getTime() - now.getTime()) / MINUTE_MS : Infinity;
+  if (minutesToPickup <= BUSINESS_RULES.READY_FOR_PICKUP_WINDOW_MINUTES) return { state: VehicleState.ReadyForPickup, cooldownUntil: null };
+  if (minutesToPickup <= BUSINESS_RULES.RESERVED_WINDOW_MINUTES) return { state: VehicleState.Reserved, cooldownUntil: null };
   return { state: VehicleState.Available, cooldownUntil: null };
 }
 
