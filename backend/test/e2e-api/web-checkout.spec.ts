@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { canonicalJson } from '../../src/modules/idempotency/idempotency.service';
+import { MessageBus } from '../../src/modules/messaging/message-bus';
 import { createApp, futureDate } from '../contract/contract-app';
 import { TestUser, testUser } from '../identity-tokens';
 
@@ -133,8 +134,16 @@ describe('API interna — checkout y mis reservas', () => {
       .send({ extrasToRemove: ['CDW'], extrasToAdd: ['GPS'] }).expect(200);
     expect(modified.body.extras.map((e: { code: string }) => e.code)).toEqual(['GPS']);
 
-    const cancelled = await http().post(`/api/me/reservations/${confirmed.body.id}/cancel`).set(as(0)).expect(200);
-    expect(cancelled.body).toMatchObject({ status: 'CANCELLED', canCancel: false, cancellationFee: 0 });
+    const cid = `cid-web-cancel-${suffix}`;
+    const cancelled = await http().post(`/api/me/reservations/${confirmed.body.id}/cancel`).set(as(0))
+      .set('X-Correlation-Id', cid).expect(200);
+    expect(cancelled.body).toMatchObject({
+      status: 'CANCELLED', canCancel: false, cancellationFee: 0,
+      refund: { refundId: `REF-AUTO-${confirmed.body.locator}`, amount: modified.body.totalPrice, percentage: 100, currency: 'USD' },
+    });
+    // El auto vuelve a estar disponible al instante: la reserva web es de un modelo (sin placa hasta la recogida),
+    // así que se publica el snapshot de la flota con el cid de la cancelación, sin esperar al temporizador de 30 s.
+    await waitFor(() => app.get(MessageBus).published.find((e) => e.routingKey === 'flota.snapshot' && e.event.correlationid === cid));
 
     // Modificación (CDW → GPS, más barato) = nota de crédito por la diferencia; cancelación sin penalización = nota de
     // crédito por el resto. Lo facturado neto queda en cero.
@@ -168,3 +177,13 @@ describe('canonicalJson (huella de idempotencia)', () => {
     expect(canonicalJson({ a: 1 })).not.toBe(canonicalJson({ a: 2 }));
   });
 });
+
+async function waitFor<T>(probe: () => T | undefined, timeoutMs = 5000): Promise<T> {
+  const started = Date.now();
+  for (;;) {
+    const value = probe();
+    if (value !== undefined) return value;
+    if (Date.now() - started > timeoutMs) throw new Error('timeout esperando el evento de flota');
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}

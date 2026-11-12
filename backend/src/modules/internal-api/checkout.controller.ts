@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { IdempotencyKeyGuard } from '../../common/guards/idempotency-key.guard';
 import { OrderChannel } from '../../domain/enums';
 import { authorizeSimulatedPayment } from '../../domain/payment-simulator';
 import { AuthUser, webOwnerSub } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators';
 import { UserJwtGuard } from '../auth/guards/user-jwt.guard';
+import { FleetEventsService } from '../fleet-events/fleet-events.service';
 import { IdempotencyService } from '../idempotency/idempotency.service';
 import { HoldService } from '../orders/hold.service';
 import { OrderPreviewService } from '../orders/order-preview.service';
@@ -35,6 +36,7 @@ export class CheckoutController {
     private readonly reservations: ReservationService,
     private readonly idempotency: IdempotencyService,
     private readonly vouchers: VoucherService,
+    private readonly fleetEvents: FleetEventsService,
   ) {}
 
   private view(r: Reservation) {
@@ -120,8 +122,10 @@ export class CheckoutController {
 
   @Post('me/reservations/:id/cancel')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cancelar (gratis hasta 24 h antes)' })
-  async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.view(await this.reservations.cancel(id, webOwnerSub(user.id)));
+  @ApiOperation({ summary: 'Cancelar (gratis hasta 24 h antes); el auto vuelve a DISPONIBLE al instante' })
+  async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    const cancelled = await this.reservations.cancel(id, webOwnerSub(user.id));
+    this.fleetEvents.reservationChanged(cancelled, req.header('x-correlation-id'));
+    return this.view(cancelled);
   }
 }

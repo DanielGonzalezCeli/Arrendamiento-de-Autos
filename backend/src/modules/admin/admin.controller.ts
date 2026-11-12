@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserJwtGuard } from '../auth/guards/user-jwt.guard';
 import { toReservationView } from '../internal-api/mappers/reservation.mapper';
 import { MAX_IMAGE_BYTES, MediaService, UploadedImage } from '../media/media.service';
+import { FleetEventsService } from '../fleet-events/fleet-events.service';
 import { BookingCheckinService } from '../orders/booking-checkin.service';
 import { RentalOperationsService } from '../orders/rental-operations.service';
 import { ReservationService } from '../orders/reservation.service';
@@ -52,6 +53,7 @@ export class AdminController {
     private readonly rentals: RentalOperationsService,
     private readonly media: MediaService,
     private readonly checkins: BookingCheckinService,
+    private readonly fleetEvents: FleetEventsService,
   ) {}
 
   @Get('dashboard')
@@ -108,8 +110,10 @@ export class AdminController {
   @Post('reservations/:id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancelar una reserva de cualquier cliente (emite CAR_ORDER_CANCELLED)' })
-  async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return toReservationView(await this.reservations.cancelAsAdmin(id, `admin:${user.id}`));
+  async cancel(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    const cancelled = await this.reservations.cancelAsAdmin(id, `admin:${user.id}`);
+    this.fleetEvents.reservationChanged(cancelled, req.header('x-correlation-id'));
+    return toReservationView(cancelled);
   }
 
   // ── Imágenes (fotos de los modelos) ───────────────────────────────────────

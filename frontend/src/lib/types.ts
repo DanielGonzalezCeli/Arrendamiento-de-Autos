@@ -185,6 +185,8 @@ export interface Reservation {
   payment?: { reference: string; card: { brand: string; last4: string } | null }
   cancelledAt: string | null
   cancellationFee: number | null
+  /** Reembolso de la cancelación (mismo código REF-AUTO que ve Booking); null si la reserva sigue activa. */
+  refund: { refundId: string; amount: number; percentage: number; currency: string } | null
   canModify: boolean
   canCancel: boolean
   /** Ruta del voucher público (link firmado con QR y PDF). */

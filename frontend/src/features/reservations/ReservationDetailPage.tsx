@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, PartyPopper, Ticket, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Download, KeyRound, PartyPopper, Ticket, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CarIllustration } from '../../components/CarIllustration'
@@ -6,6 +6,7 @@ import { DepotCard } from '../../components/DepotCard'
 import { Alert, ErrorAlert } from '../../components/ui/Alert'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageContainer } from '../../components/ui/Card'
+import { Modal } from '../../components/ui/Modal'
 import { LoadingBlock, Skeleton } from '../../components/ui/Spinner'
 import { useQuery } from '@tanstack/react-query'
 import { API_BASE_URL, apiFetch } from '../../lib/api'
@@ -24,6 +25,7 @@ export function ReservationDetailPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const reservation = useMyReservation(id)
+  const [justCancelled, setJustCancelled] = useState<Reservation | null>(null)
 
   if (reservation.isLoading) return <LoadingBlock />
   if (reservation.isError) return <PageContainer><ErrorAlert error={reservation.error} /></PageContainer>
@@ -92,12 +94,20 @@ export function ReservationDetailPage() {
             <Alert tone="info">
               Cancelada el {formatDateTime(r.cancelledAt!)}.{' '}
               {r.cancellationFee ? `Penalización: ${formatMoney(r.cancellationFee, r.currency)}.` : 'Sin penalización.'}
+              {r.refund && (
+                <span className="mt-1 block">
+                  Reembolso <strong className="font-mono">{r.refund.refundId}</strong>: {formatMoney(r.refund.amount, r.refund.currency)} ({r.refund.percentage} %).
+                </span>
+              )}
             </Alert>
+          ) : r.canCancel ? (
+            <CancelBox reservation={r} onCancelled={setJustCancelled} />
           ) : (
-            r.canCancel && <CancelBox reservation={r} />
+            <NotCancellable reservation={r} />
           )}
         </div>
       </div>
+      {justCancelled && <CancelledModal reservation={justCancelled} onClose={() => setJustCancelled(null)} />}
     </PageContainer>
   )
 }
@@ -183,26 +193,95 @@ function ModifyExtras({ reservation }: { reservation: Reservation }) {
   )
 }
 
-function CancelBox({ reservation }: { reservation: Reservation }) {
+/**
+ * Cancelación con nuestra regla: gratis hasta 24 h antes de la recogida; después se retiene un día de tarifa. El
+ * reembolso sale como nota de crédito (SRI) por lo devuelto, así que el porcentaje mostrado es el real.
+ */
+function CancelBox({ reservation, onCancelled }: { reservation: Reservation; onCancelled: (r: Reservation) => void }) {
   const cancel = useCancelReservation(reservation.id)
   const [confirming, setConfirming] = useState(false)
-  const hoursLeft = (Date.parse(reservation.pickupAt) - Date.now()) / 3_600_000
+  const free = (Date.parse(reservation.pickupAt) - Date.now()) / 3_600_000 >= 24
+  const dayRate = reservation.price.lines.find((line) => line.code === 'BASE')?.unit_price ?? 0
+  const refund = free ? reservation.totalPrice : Math.max(0, reservation.totalPrice - dayRate)
 
   return (
     <Card className="p-6">
       <h2 className="mb-1 font-semibold text-slate-800">Cancelar reserva</h2>
       <p className="mb-4 text-sm text-slate-500">
-        {hoursLeft >= 24 ? 'Aún puedes cancelar sin costo.' : 'Faltan menos de 24 h: se cobrará un día de tarifa.'}
+        {free ? 'Aún puedes cancelar sin costo.' : 'Faltan menos de 24 h: se cobrará un día de tarifa.'}
       </p>
-      {cancel.isError && <div className="mb-3"><ErrorAlert error={cancel.error} /></div>}
-      {confirming ? (
-        <div className="flex gap-2">
-          <Button variant="danger" loading={cancel.isPending} onClick={() => cancel.mutate(undefined)}>Sí, cancelar</Button>
-          <Button variant="secondary" onClick={() => setConfirming(false)}>No</Button>
-        </div>
-      ) : (
-        <Button variant="secondary" onClick={() => setConfirming(true)}><XCircle className="h-4 w-4" /> Cancelar reserva</Button>
+      <Button variant="secondary" onClick={() => setConfirming(true)}><XCircle className="h-4 w-4" /> Cancelar reserva</Button>
+      {confirming && (
+        <Modal title="¿Cancelar esta reserva?" onClose={() => setConfirming(false)} locked={cancel.isPending}>
+          <div className="flex flex-col gap-3 text-sm text-slate-600">
+            <p>
+              Se anulará la reserva <strong className="font-mono text-slate-900">{reservation.locator}</strong> y el{' '}
+              {reservation.vehicle.display_name} volverá a estar disponible para otros clientes. Esta acción no se puede deshacer.
+            </p>
+            <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+              <p>
+                Reembolso: <strong className="text-slate-900">{formatMoney(refund, reservation.currency)}</strong>{' '}
+                ({free ? '100 %, sin penalización' : `se retiene un día de tarifa, ${formatMoney(dayRate, reservation.currency)}`}).
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Se emite una nota de crédito electrónica por el valor devuelto.</p>
+            </div>
+            {cancel.isError && <ErrorAlert error={cancel.error} />}
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <Button variant="secondary" disabled={cancel.isPending} onClick={() => setConfirming(false)}>Volver</Button>
+              <Button
+                variant="danger"
+                loading={cancel.isPending}
+                onClick={() => cancel.mutate(undefined, { onSuccess: (cancelled) => { setConfirming(false); onCancelled(cancelled) } })}
+              >
+                Sí, cancelar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </Card>
+  )
+}
+
+/** Confirmación tras cancelar: código de reembolso, monto y auto liberado. */
+function CancelledModal({ reservation, onClose }: { reservation: Reservation; onClose: () => void }) {
+  const refund = reservation.refund
+  return (
+    <Modal title="Reserva cancelada" onClose={onClose}>
+      <div className="flex flex-col gap-4 text-sm">
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+          <CheckCircle2 className="h-6 w-6 shrink-0" />
+          <p className="font-semibold">¡Cancelación y reembolso exitosos!</p>
+        </div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-slate-600">
+          {refund && (
+            <>
+              <dt>Código de reembolso</dt>
+              <dd className="font-mono font-semibold text-slate-900">{refund.refundId}</dd>
+              <dt>Monto reembolsado</dt>
+              <dd className="text-slate-900">{formatMoney(refund.amount, refund.currency)} <span className="text-slate-500">({refund.percentage} %)</span></dd>
+            </>
+          )}
+          <dt>Inventario</dt>
+          <dd className="font-medium text-emerald-700">✓ Vehículo liberado a DISPONIBLE</dd>
+        </dl>
+        <p className="text-xs text-slate-500">La nota de crédito aparece en Facturación.</p>
+        <div className="flex justify-end"><Button onClick={onClose}>Entendido</Button></div>
+      </div>
+    </Modal>
+  )
+}
+
+/** Reserva activa que ya no admite cancelación: el auto se entregó o ya pasó la hora de recogida. */
+function NotCancellable({ reservation }: { reservation: Reservation }) {
+  const text = reservation.rentalStatus === 'PICKED_UP'
+    ? 'Vehículo entregado / Alquiler en curso (no cancelable).'
+    : reservation.rentalStatus === 'RETURNED'
+      ? 'Alquiler finalizado: el vehículo ya fue devuelto.'
+      : 'Ya pasó la hora de recogida: la reserva no se puede cancelar.'
+  return (
+    <Alert tone="info">
+      <span className="inline-flex items-center gap-1.5 font-medium"><KeyRound className="h-4 w-4" /> {text}</span>
+    </Alert>
   )
 }

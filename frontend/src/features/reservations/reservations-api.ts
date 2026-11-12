@@ -10,7 +10,10 @@ export function useMyReservation(id: string | undefined) {
   return useQuery({ queryKey: ['my-reservations', id], queryFn: () => apiFetch<Reservation>(`/api/me/reservations/${id}`), enabled: !!id })
 }
 
-/** Tras modificar o cancelar se actualiza la caché con la respuesta del backend (fuente de verdad). */
+/**
+ * Tras modificar o cancelar se actualiza la caché con la respuesta del backend (fuente de verdad). También se
+ * descartan las búsquedas y fichas de autos: al cancelar, el auto vuelve a estar disponible para otros clientes.
+ */
 function useReservationMutation<T>(request: (input: T) => Promise<Reservation>) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -18,6 +21,8 @@ function useReservationMutation<T>(request: (input: T) => Promise<Reservation>) 
     onSuccess: (reservation) => {
       queryClient.setQueryData(['my-reservations', reservation.id], reservation)
       queryClient.invalidateQueries({ queryKey: ['my-reservations'], exact: true })
+      queryClient.invalidateQueries({ queryKey: ['search'] })
+      queryClient.invalidateQueries({ queryKey: ['vehicle'] })
     },
   })
 }

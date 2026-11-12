@@ -1,6 +1,8 @@
 import { OrderStatus, RentalStatus } from '../../../domain/enums';
 import { describePaymentReference } from '../../../domain/payment-simulator';
 import { Reservation } from '../../orders/entities/reservation.entity';
+import { cancellationOutcome } from '../../orders/reservation.service';
+import { refundIdFor } from '../../integration-v3/v3-mapper';
 
 /** Vista de una reserva para el marketplace y el panel (API interna). */
 export function toReservationView(r: Reservation, voucherPath: string | null = null, now = new Date()) {
@@ -24,9 +26,16 @@ export function toReservationView(r: Reservation, voucherPath: string | null = n
     driver: { firstName: r.driverFirstName, lastName: r.driverLastName, email: r.driverEmail, phone: r.driverPhone },
     cancelledAt: r.cancelledAt,
     cancellationFee: r.cancellationFee,
+    /** Reembolso de una reserva cancelada (mismo REF-AUTO que ve Booking); null si sigue activa. */
+    refund: r.status === OrderStatus.Cancelled ? refundView(r) : null,
     canModify: notStarted,
     canCancel: notStarted,
     /** Ruta del voucher en el frontend (link firmado); null si no se pidió. */
     voucherPath,
   };
+}
+
+function refundView(r: Reservation) {
+  const { refundAmount, refundPercentage } = cancellationOutcome(r);
+  return { refundId: refundIdFor(r.locator), amount: refundAmount, percentage: refundPercentage, currency: r.currency };
 }

@@ -1,7 +1,8 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { newCorrelationId } from '../../common/problem-details/problem-details-v3';
-import { FleetStatusService } from '../fleet-status/fleet-status.service';
+import { FleetStatusService, vehicleIdForPlate } from '../fleet-status/fleet-status.service';
+import { Reservation } from '../orders/entities/reservation.entity';
 import { MessageBus } from '../messaging/message-bus';
 import { vehicleStock } from './fleet-stock';
 
@@ -14,7 +15,7 @@ export const FLEET_EVENTS = {
 /**
  * Fase D: ms-reservas ya no envía el stock a Booking; publica el estado de la flota en RabbitMQ y ms-inventario
  * se encarga del envío. Dos eventos:
- * - flota.estado_cambiado: al reservar o cancelar por Booking, solo ese auto (aviso inmediato, con el
+ * - flota.estado_cambiado: al reservar por Booking o al cancelar (Booking, web o panel), solo ese auto (aviso inmediato, con el
  *   X-Correlation-Id de la operación que lo causó).
  * - flota.snapshot: toda la flota cada FLEET_SNAPSHOT_INTERVAL_MS (30 s). Cubre lo demás (reservas web, entregas,
  *   devoluciones, fin del cooldown, taller) y repara cualquier evento perdido: ms-inventario solo envía cambios.
@@ -54,6 +55,17 @@ export class FleetEventsService implements OnApplicationBootstrap, OnModuleDestr
     } catch (error) {
       this.logger.warn(`Evento de ${vehicleId} pendiente: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Aviso inmediato tras cambiar una reserva (p. ej. al cancelarla, su auto vuelve a DISPONIBLE). Las reservas de
+   * Booking tienen placa; las de la web reservan un modelo (la placa se asigna en la recogida), así que se publica
+   * el snapshot de la flota en lugar de esperar al temporizador. Nunca lanza.
+   */
+  reservationChanged(reservation: Reservation, correlationId?: string): void {
+    const plate = reservation.vehicleSnapshot?.plate;
+    if (typeof plate === 'string') void this.vehicleChanged(vehicleIdForPlate(plate), correlationId);
+    else void this.publishSnapshot(correlationId);
   }
 
   /** Publica el estado de toda la flota. Lo usan el temporizador y el botón "Sincronizar stock ahora" del panel. */

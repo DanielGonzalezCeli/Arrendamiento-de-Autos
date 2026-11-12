@@ -6,7 +6,7 @@ import { OrderStatus } from '../../domain/enums';
 import { BOOKING_PARTNER_SUB } from '../../domain/partners';
 import { zonedToUtc } from '../../domain/zoned-time';
 import { ClientsClient, isValidIdentification, normalizeIdentification } from '../clients/clients.client';
-import { FleetStatusService, vehicleIdForPlate } from '../fleet-status/fleet-status.service';
+import { FleetStatusService } from '../fleet-status/fleet-status.service';
 import { IdempotencyService, IdempotentResult } from '../idempotency/idempotency.service';
 import { isUuid } from '../orders/uuid';
 import { Reservation } from '../orders/entities/reservation.entity';
@@ -154,8 +154,7 @@ export class V3OrdersService {
       throw asV3(error);
     }
     this.logger.log(`Cancelación v3 ${existing.locator} (${request.requester}) reembolso ${outcome.refundPercentage}% cid=${correlationId}`);
-    const plate = outcome.reservation.vehicleSnapshot?.plate;
-    if (typeof plate === 'string') void this.fleetEvents.vehicleChanged(vehicleIdForPlate(plate), correlationId);
+    this.fleetEvents.reservationChanged(outcome.reservation, correlationId);
     return toCancelResponse(outcome);
   }
 

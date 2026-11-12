@@ -258,8 +258,14 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
       .send({ motivo: 'Fallo en el vuelo', solicitante: 'SAGA_ORCHESTRATOR' }).expect(200);
     expect(cancelled.body).toMatchObject({
       pnr, status: 'CANCELLED', auto_id: car.vehicle_id,
-      refund: { refund_id: `REF-AUTO-${pnr.slice(3)}`, amount: created.body.total_price.total, percentage: 100, status: 'PROCESSED' },
-      inventory_restoration: { status: 'RESTORED', vehicle_id: car.vehicle_id, new_state: 'DISPONIBLE' },
+      refund: {
+        refund_id: `REF-AUTO-${pnr.slice(3)}`, amount: created.body.total_price.total, currency: 'USD', percentage: 100, status: 'PROCESSED',
+        message: 'Reembolso total de renta procesado sin penalización (Saga Pattern).',
+      },
+      inventory_restoration: {
+        status: 'RESTORED', vehicle_id: car.vehicle_id, new_state: 'DISPONIBLE', message: 'Vehículo reincorporado a flota disponible para renta.',
+      },
+      message: 'Orden de renta cancelada exitosamente. Vehículo liberado y reembolso procesado.',
     });
     const again = await http().post(`/api/v3/reservas/${pnr}/cancel`).set('X-API-Key', TEST_API_KEY).expect(200);
     expect(again.body.refund).toEqual(cancelled.body.refund);
@@ -354,6 +360,13 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
       observaciones: 'Contrato firmado y licencia validada',
     });
     expect(new Date(call.body.fecha_checkin as string).getTime()).toBeGreaterThan(Date.now() - 60_000);
+
+    // Auto ya retirado en mostrador → la Saga no puede cancelar (409) y la orden sigue activa
+    const late = await http().post(`/api/v3/autos/orders/${pnr}/cancel`).set('X-API-Key', TEST_API_KEY)
+      .send({ motivo: 'Fallo en el vuelo' }).expect(409);
+    expect(late.body).toMatchObject({ status: 409, title: 'Cancelación no permitida', detail: 'El alquiler ya comenzó; no se puede cancelar' });
+    const still = await http().get(`/api/v3/autos/orders/${pnr}`).set('X-API-Key', TEST_API_KEY).expect(200);
+    expect(still.body.status).toBe('CONFIRMED');
   });
 
   it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {

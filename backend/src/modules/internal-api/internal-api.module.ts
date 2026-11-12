@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module';
+import { FleetEventsModule } from '../fleet-events/fleet-events.module';
 import { IdempotencyModule } from '../idempotency/idempotency.module';
 import { MediaModule } from '../media/media.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -10,7 +11,7 @@ import { VouchersModule } from '../vouchers/vouchers.module';
 
 /** API interna (/api) para el frontend: reutiliza los mismos servicios de dominio que la API de integración. */
 @Module({
-  imports: [CatalogModule, SearchModule, OrdersModule, IdempotencyModule, MediaModule, VouchersModule],
+  imports: [CatalogModule, SearchModule, OrdersModule, IdempotencyModule, MediaModule, VouchersModule, FleetEventsModule],
   controllers: [PublicCatalogController, CheckoutController],
 })
 export class InternalApiModule {}

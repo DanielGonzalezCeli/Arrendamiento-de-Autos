@@ -150,7 +150,9 @@ export function toOrderResponse(r: Reservation, outcome?: CancellationOutcome) {
         currency: r.currency,
         percentage: outcome.refundPercentage,
         status: 'PROCESSED',
-        message: outcome.refundPercentage === 100 ? 'Reembolso total sin penalización' : 'Reembolso con penalización por cancelación tardía',
+        message: outcome.refundPercentage === 100
+          ? 'Reembolso total de renta procesado sin penalización (Saga Pattern).'
+          : 'Reembolso con penalización por cancelación tardía',
       }
     : null;
   const self = `${V3_PREFIX}/autos/orders/${r.locator}`;
@@ -198,7 +200,10 @@ export function toCancelResponse(outcome: CancellationOutcome) {
     status: order.status,
     auto_id: order.auto_id,
     refund: order.refund,
-    inventory_restoration: { status: 'RESTORED', vehicle_id: order.vehicle_id, new_state: VehicleState.Available },
+    inventory_restoration: {
+      status: 'RESTORED', vehicle_id: order.vehicle_id, new_state: VehicleState.Available,
+      message: 'Vehículo reincorporado a flota disponible para renta.',
+    },
     message: 'Orden de renta cancelada exitosamente. Vehículo liberado y reembolso procesado.',
   };
 }
