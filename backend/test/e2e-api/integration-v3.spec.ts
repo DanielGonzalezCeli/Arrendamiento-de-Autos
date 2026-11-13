@@ -9,6 +9,7 @@ import { createApp } from '../contract/contract-app';
 import { testUser } from '../identity-tokens';
 import { MessageBus } from '../../src/modules/messaging/message-bus';
 import { VehicleStock } from '../../src/modules/fleet-events/fleet-stock';
+import { vehicleIdForPlate as vehicleIdOfPlate } from '../../src/modules/fleet-status/fleet-status.service';
 
 /** Fecha local "YYYY-MM-DD" dentro de `days` días. */
 function day(days: number): string {
@@ -376,7 +377,15 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
       .send({ motivo: 'Fallo en el vuelo' }).expect(409);
     expect(late.body).toMatchObject({ status: 409, title: 'Cancelación no permitida', detail: 'El alquiler ya comenzó; no se puede cancelar' });
     const still = await http().get(`/api/v3/autos/orders/${pnr}`).set('X-API-Key', TEST_API_KEY).expect(200);
-    expect(still.body.status).toBe('CONFIRMED');
+    // El check-in se lee también en la orden (status sigue en CONFIRMED)
+    expect(still.body).toMatchObject({
+      status: 'CONFIRMED', rental_status: 'PICKED_UP', estado_alquiler: 'ENTREGADO', checkin_status: 'CHECKIN_COMPLETED',
+      estado_auto: 'ENTREGADO', placa: expect.any(String),
+    });
+    // Entregado 50 días antes de su retiro: ya no se ofrece en fechas anteriores a la reserva (el auto salió hoy)
+    const deliveredId = vehicleIdOfPlate(still.body.placa as string);
+    const before = await http().post('/api/v3/autos/search').send({ fecha_inicio: day(startDay + 10), fecha_fin: day(startDay + 12) }).expect(200);
+    expect(before.body.data.map((a: { vehicle_id: string }) => a.vehicle_id)).not.toContain(deliveredId);
   });
 
   it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {

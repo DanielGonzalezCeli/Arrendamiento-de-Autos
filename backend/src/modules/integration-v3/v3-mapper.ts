@@ -1,5 +1,5 @@
 import { BUSINESS_RULES } from '../../domain/business-rules';
-import { FuelPolicy, OrderStatus, Transmission } from '../../domain/enums';
+import { FuelPolicy, OrderStatus, RentalStatus, Transmission } from '../../domain/enums';
 import { nextMaintenanceKm, VehicleState } from '../../domain/fleet-state';
 import { toZoned } from '../../domain/zoned-time';
 import { FleetUnitView, vehicleIdForPlate } from '../fleet-status/fleet-status.service';
@@ -132,6 +132,16 @@ const COUNTER_CHECKLIST = [
   'Código QR del voucher',
 ];
 
+/**
+ * Avance de la entrega en mostrador (campos adicionales al contrato: `status` sigue en CONFIRMED). Así Booking puede
+ * leer el check-in directo de la orden, además del aviso POST /reservas/{pnr}/checkin.
+ */
+const RENTAL_VIEW: Record<RentalStatus, { estado_alquiler: string; checkin_status: string; estado_auto: string | null }> = {
+  [RentalStatus.NotStarted]: { estado_alquiler: 'POR_ENTREGAR', checkin_status: 'PENDING', estado_auto: null },
+  [RentalStatus.PickedUp]: { estado_alquiler: 'ENTREGADO', checkin_status: 'CHECKIN_COMPLETED', estado_auto: VehicleState.PickedUp },
+  [RentalStatus.Returned]: { estado_alquiler: 'DEVUELTO', checkin_status: 'CHECKIN_COMPLETED', estado_auto: null },
+};
+
 /** AutoOrderResponseV2. order_id = pnr (las rutas aceptan cualquiera de los dos o el uuid interno). */
 export function toOrderResponse(r: Reservation, outcome?: CancellationOutcome) {
   const plate = plateOf(r);
@@ -164,6 +174,9 @@ export function toOrderResponse(r: Reservation, outcome?: CancellationOutcome) {
     client_id: r.clientId ?? null,
     status: r.status,
     estado: r.status,
+    rental_status: r.rentalStatus,
+    ...RENTAL_VIEW[r.rentalStatus],
+    placa: r.rentalStatus === RentalStatus.NotStarted ? null : plate ?? null,
     auto_id: vehicleId,
     vehicle_id: vehicleId,
     tipo_cobertura: coverage === 'TOTAL' ? 'TOTAL' : 'BASICA',

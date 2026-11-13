@@ -8,7 +8,8 @@ import { BUSINESS_RULES } from '../../domain/business-rules';
  * ofrecerse ni asignarse hasta que el agente registre la devolución. `alias` es el alias SQL de reservations.
  */
 export function occupiedPeriodSql(alias: string): string {
-  return `(CASE WHEN ${alias}.rental_status = 'PICKED_UP' THEN tstzrange(${alias}.pickup_at, NULL, '[)') ELSE ${alias}.rental_period END)`;
+  // Entregado antes de su fecha de retiro: el auto ya salió, así que ocupa desde ahora (no desde el retiro reservado)
+  return `(CASE WHEN ${alias}.rental_status = 'PICKED_UP' THEN tstzrange(LEAST(${alias}.pickup_at, now()), NULL, '[)') ELSE ${alias}.rental_period END)`;
 }
 
 /** Condición SQL "la reserva sigue comprometiendo inventario a futuro" (para bajas de agencias, modelos, etc.). */
