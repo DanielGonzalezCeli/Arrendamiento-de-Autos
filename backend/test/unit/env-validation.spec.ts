@@ -10,6 +10,12 @@ describe('validateEnv', () => {
     expect(env.LOCAL_OAUTH_ISSUER_ENABLED).toBe(true);
   });
 
+  it('el check-in a Booking se reintenta cada 30 s por defecto y espera hasta 15 s por respuesta', () => {
+    const env = validateEnv(base);
+    expect(env.BOOKING_CHECKIN_RETRY_MS).toBe(30_000);
+    expect(env.BOOKING_CHECKIN_TIMEOUT_MS).toBe(15_000);
+  });
+
   it('"false" se interpreta como booleano falso', () => {
     expect(validateEnv({ ...base, LOCAL_OAUTH_ISSUER_ENABLED: 'false' }).LOCAL_OAUTH_ISSUER_ENABLED).toBe(false);
   });

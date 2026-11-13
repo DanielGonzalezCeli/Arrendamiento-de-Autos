@@ -4,13 +4,12 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BookingCheckin } from './entities/booking-checkin.entity';
 
-const TIMEOUT_MS = 5_000;
 const BATCH = 50;
 
 /**
  * Despachador del outbox de check-in (contrato v3.1): POST {BOOKING_CHECKIN_URL} con X-API-Key y el
  * X-Correlation-Id de la entrega. Se intenta en cuanto el mostrador confirma y, si Booking no responde 2xx,
- * se reintenta cada STOCK_SYNC_INTERVAL_MS. Con BOOKING_NOTIFY_MODE=off los avisos quedan pendientes.
+ * se reintenta cada BOOKING_CHECKIN_RETRY_MS. Con BOOKING_NOTIFY_MODE=off los avisos quedan pendientes.
  */
 @Injectable()
 export class BookingCheckinService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -33,7 +32,7 @@ export class BookingCheckinService implements OnApplicationBootstrap, OnModuleDe
       return;
     }
     this.logger.log(`Check-in hacia Booking por http → ${this.config.get<string>('BOOKING_CHECKIN_URL')}`);
-    const interval = this.config.get<number>('STOCK_SYNC_INTERVAL_MS')!;
+    const interval = this.config.get<number>('BOOKING_CHECKIN_RETRY_MS') ?? 30_000;
     if (interval > 0) {
       this.timer = setInterval(() => void this.dispatchPending(), interval);
       this.timer.unref();
@@ -71,7 +70,7 @@ export class BookingCheckinService implements OnApplicationBootstrap, OnModuleDe
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Correlation-Id': row.correlationId, ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
         body: JSON.stringify(row.payload),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.config.get<number>('BOOKING_CHECKIN_TIMEOUT_MS') ?? 15_000),
       });
       const raw = await response.text().catch(() => '');
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${raw.slice(0, 250) || response.statusText}`);

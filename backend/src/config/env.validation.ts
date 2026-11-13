@@ -171,6 +171,16 @@ export class EnvironmentVariables {
   @Matches(/^https?:\/\/\S+\{external_order_id\}/)
   BOOKING_CHECKIN_URL: string = 'https://booking-core-api.azurewebsites.net/api/v3/reservas/{external_order_id}/checkin';
 
+  /** Cada cuánto se reintentan los check-in que Booking no confirmó (ms). 0 = sin reintentos. */
+  @IsInt()
+  @Min(0)
+  BOOKING_CHECKIN_RETRY_MS: number = 30_000;
+
+  /** Cuánto se espera la respuesta de Booking a cada aviso de check-in (ms). */
+  @IsInt()
+  @Min(1_000)
+  BOOKING_CHECKIN_TIMEOUT_MS: number = 15_000;
+
   /** Cada cuánto se publica el estado de toda la flota (flota.snapshot, ms). 0 = solo al reservar/cancelar. */
   @IsInt()
   @Min(0)
