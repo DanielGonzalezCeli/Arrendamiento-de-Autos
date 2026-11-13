@@ -386,6 +386,14 @@ describe('Contrato v3 con Booking Prototipo (/api/v3) + eventos de flota (Rabbit
     const deliveredId = vehicleIdOfPlate(still.body.placa as string);
     const before = await http().post('/api/v3/autos/search').send({ fecha_inicio: day(startDay + 10), fecha_fin: day(startDay + 12) }).expect(200);
     expect(before.body.data.map((a: { vehicle_id: string }) => a.vehicle_id)).not.toContain(deliveredId);
+
+    // Devuelto: hoy está EN_LIMPIEZA (fuera de GET /autos), pero en una búsqueda con fechas futuras sale DISPONIBLE
+    await http().post(`/api/admin/reservations/${found.body[0].id}/return`).set(admin).send({}).expect(200);
+    const now = await http().get('/api/v3/autos').query({ limit: 100 }).expect(200);
+    expect(now.body.data.map((a: { vehicle_id: string }) => a.vehicle_id)).not.toContain(deliveredId);
+    const later = await http().post('/api/v3/autos/search').send({ fecha_inicio: day(startDay + 60), fecha_fin: day(startDay + 62) }).expect(200);
+    expect(later.body.data.find((a: { vehicle_id: string }) => a.vehicle_id === deliveredId))
+      .toMatchObject({ estado: 'DISPONIBLE', status: 'DISPONIBLE', estado_actual: 'EN_LIMPIEZA', stock: 1 });
   });
 
   it('panel: /api/admin/booking muestra configuración, flota, stock enviado y reservas de Booking (sin la clave)', async () => {

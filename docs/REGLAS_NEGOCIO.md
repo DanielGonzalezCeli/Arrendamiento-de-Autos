@@ -60,6 +60,8 @@ Todas se ejecutan en el **backend** (servicios de dominio). El frontend solo las
 
 **Estado RESERVADO de un auto (catálogo de Booking).** El estado es el de *ahora*. Un auto pasa a RESERVADO solo cuando a su próximo retiro le falta menos de un alquiler mínimo (1 día) más la limpieza (2 h) (`RESERVED_WINDOW_MINUTES`); antes sigue DISPONIBLE en `GET /autos`. Ejemplo: con una reserva del 24 al 27, el auto se puede reservar del 14 al 17. La búsqueda con fechas (`POST /autos/search`) y la creación de la reserva validan el cruce exacto (más la limpieza): del 20 al 25 responde 409. El stock enviado a Booking no cambia: 0 en la fecha y hora del retiro.
 
+**Estado en la búsqueda con fechas.** `POST /autos/search` con `fecha_inicio`/`fecha_fin` devuelve `estado: DISPONIBLE` para los autos libres en ese periodo, y el estado de hoy en `estado_actual`. Ejemplo: un auto recién devuelto está EN_LIMPIEZA 2 h (no sale en `GET /autos` ni en el stock de ahora), pero buscado para diciembre sale DISPONIBLE con `estado_actual: EN_LIMPIEZA`.
+
 **Entrega anticipada y check-in visible en la orden.** Si el mostrador entrega el auto antes de la fecha de retiro reservada, el auto queda ocupado desde la entrega real (no desde el retiro reservado) hasta su devolución: ya no se ofrece en ninguna fecha, ni en la web ni en Booking. Además de avisar el check-in a Booking (`POST /reservas/{pnr}/checkin`), `GET /autos/orders/{pnr}` informa el avance sin cambiar `status` (sigue en CONFIRMED): `rental_status` (NOT_STARTED, PICKED_UP, RETURNED), `estado_alquiler` (POR_ENTREGAR, ENTREGADO, DEVUELTO), `checkin_status` (PENDING, CHECKIN_COMPLETED), `estado_auto` (ENTREGADO mientras está en uso) y `placa`.
 
 **Reglas de mostrador acordadas con Booking.**

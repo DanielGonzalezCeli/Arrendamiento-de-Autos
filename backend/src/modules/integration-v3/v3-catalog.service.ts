@@ -84,7 +84,8 @@ export class V3CatalogService {
    * POST /autos/search (guía de socios de Booking): { ciudad, fecha_inicio, fecha_fin, categoria }, también en inglés.
    * Sin fechas: los autos disponibles ahora, como GET /autos. Con fechas: los autos libres en ese periodo (días
    * completos en la zona de la agencia, más el margen de limpieza), aunque hoy estén en limpieza o reservados para
-   * otras fechas. Cada auto es una unidad: stock 1.
+   * otras fechas. Cada auto es una unidad: stock 1. Con fechas, `estado` es el del periodo pedido (DISPONIBLE) y el
+   * de hoy va en `estado_actual`: un auto en limpieza ahora sí se puede reservar para diciembre.
    */
   async search(body: unknown) {
     const input = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
@@ -116,7 +117,12 @@ export class V3CatalogService {
     return {
       total: units.length,
       limit: filters.limit,
-      data: units.slice(0, filters.limit).map((unit) => ({ ...toVehicleCard(unit, this.photoUrl), stock: 1, unidades_disponibles: 1 })),
+      data: units.slice(0, filters.limit).map((unit) => ({
+        ...toVehicleCard(unit, this.photoUrl),
+        ...(dated ? { estado: VehicleState.Available, status: VehicleState.Available, estado_actual: unit.state } : {}),
+        stock: 1,
+        unidades_disponibles: 1,
+      })),
     };
   }
 
